@@ -16,8 +16,14 @@ export function getSpace(id: string): Space | undefined {
   return spaces.find((s) => s.id === id);
 }
 
+/**
+ * Spaces to offer in the picker — `unlisted` ones are excluded.
+ *
+ * `getSpace` and `spaceIds` deliberately do not filter, so an unlisted space
+ * still routes and still builds.
+ */
 export function spacesBySegment(segment: Segment): Space[] {
-  return spaces.filter((s) => s.segment === segment);
+  return spaces.filter((s) => s.segment === segment && !s.unlisted);
 }
 
 /** Space ids that exist, for `generateStaticParams`. */

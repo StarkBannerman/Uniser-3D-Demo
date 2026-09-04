@@ -17,7 +17,6 @@ const ROADMAP: { segment: Segment; name: string; note: string }[] = [
   { segment: "commercial", name: "Board Room", note: "Presentation, video call, brainstorm" },
   { segment: "commercial", name: "Restaurant", note: "Day-to-night dining ambiance" },
   { segment: "commercial", name: "Building Façade", note: "Uniser 360, LiteJewel" },
-  { segment: "residential", name: "Master Bedroom", note: "Circadian wake, goodnight" },
   { segment: "residential", name: "Home Theatre", note: "Full cinema scene set" },
   { segment: "residential", name: "Villa Exterior", note: "Landscape and façade" },
 ];

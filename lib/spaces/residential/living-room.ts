@@ -24,6 +24,10 @@ export const livingRoom: Space = {
     "A 32 m² living room with a full lighting layer set — cove, track, downlights, pendant and concealed accent — on dual-track curtains and retrofitted climate control.",
   renderer: "illustrated",
   illustration: "living-room",
+  // Superseded by the 3D master bedroom. Still routable at /demo/living-room
+  // and still the reference for the illustrated fallback renderer, but not
+  // something to put in front of a client.
+  unlisted: true,
 
   zones: [{ id: "lr-main", name: "Living Room", areaM2: 32 }],
 

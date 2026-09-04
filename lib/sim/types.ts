@@ -409,6 +409,14 @@ export interface Space {
   illustration?: string;
   /** Selects the 3D room when `renderer` is "3d". */
   model?: string;
+  /**
+   * Keep this space out of the space picker.
+   *
+   * The space stays registered and its route keeps working — this hides it from
+   * the client-facing list without deleting a room that is still useful
+   * internally or as a renderer fallback.
+   */
+  unlisted?: boolean;
   /** Base image and its aspect ratio when `renderer` is "photo". */
   photo?: { base: string; aspect: number };
   zones: Zone[];
