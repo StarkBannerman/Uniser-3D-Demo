@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+/**
+ * Dark chrome, deliberately.
+ *
+ * The product being sold is light. Every surface around the room canvas is a
+ * near-black neutral with a slight cool cast, so that warm 2400K light in the
+ * room reads as warm rather than as "slightly yellow grey". A light UI would
+ * fight the one thing the client is supposed to be looking at.
+ */
+@theme {
+  --color-shell-950: #0a0b0e;
+  --color-shell-900: #101218;
+  --color-shell-850: #15181f;
+  --color-shell-800: #1b1f28;
+  --color-shell-700: #262b37;
+  --color-shell-600: #343b4a;
+  --color-shell-500: #4a5364;
+  --color-shell-400: #6b7488;
+  --color-shell-300: #98a1b3;
+  --color-shell-200: #c5ccd8;
+  --color-shell-100: #e6eaf0;
+
+  --color-brass-700: #8f6320;
+  --color-brass-600: #b8812c;
+  --color-brass-500: #e0a33f;
+  --color-brass-400: #efbb64;
+  --color-brass-300: #f7d296;
+
+  --color-signal-500: #3f9d72;
+  --color-warn-500: #d4823a;
+  --color-alert-500: #c0553f;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono",
+    monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-shell-950);
+  color: var(--color-shell-200);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* A sales tablet should never rubber-band or accidentally text-select. */
+  overscroll-behavior: none;
+}
+
+/* Presenting on a touchscreen: nothing should look selectable except inputs. */
+button,
+label {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ------------------------------------------------------------------ */
+/* Sliders                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Dimmer and setpoint sliders are the controls a client will actually reach
+ * for, so they get a generous 28px hit area and a thumb big enough for a
+ * fingertip. The track is painted via a background gradient set inline by the
+ * component, so the filled portion can carry the fixture's real light colour.
+ */
+input[type="range"].u-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"].u-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--u-track, var(--color-shell-700));
+}
+
+input[type="range"].u-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--u-track, var(--color-shell-700));
+}
+
+input[type="range"].u-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -6px;
+  border-radius: 999px;
+  background: var(--color-shell-100);
+  border: 1px solid var(--color-shell-500);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+}
+
+input[type="range"].u-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-shell-100);
+  border: 1px solid var(--color-shell-500);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+}
+
+input[type="range"].u-slider:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Hide scrollbars in the panel rails without losing scrollability. */
+.u-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-shell-700) transparent;
+}
+.u-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.u-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-shell-700);
+  border-radius: 999px;
+}
+.u-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+}

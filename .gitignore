@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output
+/.next/
+/out/
+/build/
+next-env.d.ts
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment — never commit these
+.env
+.env.*
+!.env.example
+
+# Deploy
+.vercel
+
+# OS / editor
+.DS_Store
+*.pem
+Thumbs.db
+
+# Reference recordings.
+# The prototype video is a 7.7 MB phone capture and an *input* to the work, not
+# source. The cropped frames it produced live in public/reference/ and are
+# tracked, because the /lookdev comparison page loads them.
+*.mp4
+*.mov
