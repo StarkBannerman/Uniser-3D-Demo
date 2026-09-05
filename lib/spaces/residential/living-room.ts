@@ -15,8 +15,8 @@
 
 import type { Space } from "@/lib/sim/types";
 
-/** 7.2 x 5.4 m. */
-const AREA = 38.9;
+/** 6.0 x 7.2 m. */
+const AREA = 43.2;
 
 export const livingRoom: Space = {
   id: "living-room",
@@ -24,7 +24,7 @@ export const livingRoom: Space = {
   segment: "residential",
   category: "Residence",
   blurb:
-    "A 39 m² living room in real-time 3D — perimeter cove, field downlights, a wall-wash on the media wall and concealed TV accent, on sheers and drapes.",
+    "A 43 m² living room in real-time 3D — perimeter cove, field downlights, a wall-wash on the media wall and concealed TV accent, on sheers and drapes.",
   renderer: "3d",
   model: "living-room",
 
@@ -292,7 +292,7 @@ export const livingRoom: Space = {
         "That window is the largest light source in the room. The cove and downlights give back exactly what the sun is already supplying — switch this off at midday and watch them climb back to full.",
       enabledByDefault: true,
       deviceIds: ["lv-cove", "lv-downlights"],
-      targetLux: 250,
+      targetLux: 520,
       minLevel: 0,
     },
     {
@@ -323,6 +323,10 @@ export const livingRoom: Space = {
     "lv-curtain": { sheer: 100, blackout: 0 },
   },
   openingSceneId: "bright",
+  // Late afternoon. The reference is daylit, but opening at midday lets daylight
+  // harvesting switch every fixture off — correct behaviour, and a first frame
+  // with no cove in it. This hour has both.
+  openingClockMin: 17 * 60 + 15,
 
   // Mumbai.
   environment: {
@@ -332,7 +336,7 @@ export const livingRoom: Space = {
     // A near-full-height glazed wall, so a good deal more daylight reaches the
     // room than through the bedroom's window.
     windowFactor: 0.028,
-    designLux: 250,
+    designLux: 320,
     outdoorMinC: 26,
     outdoorMaxC: 34,
   },

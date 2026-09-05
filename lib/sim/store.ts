@@ -212,7 +212,7 @@ export const useSim = create<SimStore>((set, get) => ({
     const ruleEnabled: Record<string, boolean> = {};
     for (const rule of space.rules) ruleEnabled[rule.id] = rule.enabledByDefault;
 
-    const clockMin = 19 * 60;
+    const clockMin = space.openingClockMin ?? 19 * 60;
     lastRuleMin = clockMin;
 
     const states = buildStates(space);

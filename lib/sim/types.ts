@@ -427,6 +427,12 @@ export interface Space {
   defaults: Record<string, StatePatch>;
   /** Scene applied when the space first loads. */
   openingSceneId?: string;
+  /**
+   * Clock position the space opens at, minutes past midnight. Defaults to 7pm.
+   * A daylit room and an evening room want different opening hours, and the
+   * first frame a client sees is the one that has to land.
+   */
+  openingClockMin?: number;
   environment: SpaceEnvironment;
   baseline: SpaceBaseline;
   /** Electricity tariff in local currency per kWh. */

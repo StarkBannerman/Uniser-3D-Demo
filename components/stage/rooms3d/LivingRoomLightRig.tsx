@@ -18,7 +18,7 @@ import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLigh
 import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { emissive } from "./materials";
-import { LR, LR_COVE_Y, LR_TV } from "./LivingRoom3D";
+import { LR, LR_COVE_Y, LR_TV, LR_WINDOW } from "./LivingRoom3D";
 
 const GAIN = {
   cove: 40,
@@ -32,18 +32,19 @@ const GAIN = {
 
 /** Field downlights, in the raised centre of the ceiling. */
 export const LR_DOWNLIGHTS = [
-  { x: 1.95, z: 1.7 },
-  { x: 3.6, z: 1.7 },
-  { x: 1.95, z: 3.9 },
-  { x: 3.6, z: 3.9 },
-  { x: 5.3, z: 2.8 },
+  { x: 1.7, z: 1.6 },
+  { x: 3.5, z: 1.6 },
+  { x: 1.7, z: 3.5 },
+  { x: 3.5, z: 3.5 },
+  { x: 2.6, z: 5.5 },
 ] as const;
 
 /** Wall-wash heads in the soffit, grazing the media wall. */
+/** Wash heads in the soffit, grazing down the media wall at x = LR.w. */
 export const LR_WASH = [
-  { x: 3.05, z: 0.42 },
-  { x: 4.35, z: 0.42 },
-  { x: 5.5, z: 0.42 },
+  { x: LR.w - 0.42, z: 1.6 },
+  { x: LR.w - 0.42, z: 3.1 },
+  { x: LR.w - 0.42, z: 4.6 },
 ] as const;
 
 function colourOf(state: LightState): THREE.Color {
@@ -173,19 +174,58 @@ function TvAccent({ state, gain }: { state: LightState; gain: number }) {
 
   return (
     <group>
-      <mesh position={[LR_TV.x, LR_TV.y, 0.035]}>
-        <planeGeometry args={[LR_TV.w + 0.28, LR_TV.h + 0.24]} />
+      <mesh
+        position={[LR.w - 0.03, LR_TV.y, LR_TV.z]}
+        rotation={[0, -Math.PI / 2, 0]}
+      >
+        <planeGeometry args={[LR_TV.w + 0.3, LR_TV.h + 0.26]} />
         <primitive object={mat} attach="material" />
       </mesh>
       {out > 0.001 && (
         <pointLight
-          position={[LR_TV.x, LR_TV.y, 0.35]}
+          position={[LR.w - 0.4, LR_TV.y, LR_TV.z]}
           intensity={5 * out * gain}
           distance={3.2}
           decay={1.7}
           color={colour}
         />
       )}
+    </group>
+  );
+}
+
+/**
+ * Daylight through the glazing, as an area light on the window plane.
+ *
+ * Without this the window was a bright card that lit nothing, so the daytime
+ * scene had to be carried entirely by the fixtures — the opposite of the
+ * reference, where the room is mostly daylit and the cove is an accent. It is
+ * also what gives daylight harvesting something real to harvest.
+ */
+function Daylight({ amount, transmission }: { amount: number; transmission: number }) {
+  const strength = amount * transmission;
+  if (strength <= 0.004) return null;
+
+  const span = LR_WINDOW.z1 - LR_WINDOW.z0;
+  const height = LR_WINDOW.y1 - LR_WINDOW.y0;
+
+  return (
+    <group>
+    <rectAreaLight
+      position={[0.12, (LR_WINDOW.y0 + LR_WINDOW.y1) / 2, (LR_WINDOW.z0 + LR_WINDOW.z1) / 2]}
+      // Faces +x, into the room.
+      rotation={[0, Math.PI / 2, 0]}
+      width={span}
+      height={height}
+      intensity={78 * strength}
+      // Overcast daylight is cool; matching the reference's neutral-white walls
+      // depends on it not being warm.
+      color={new THREE.Color("#cfe0f2")}
+    />
+    {/* Bounce. A single area light at the window leaves the ceiling and the far
+        side of the room dark, because real-time rendering has no interreflection
+        — and a daylit room is mostly interreflection. */}
+    <hemisphereLight args={["#dbe8f5", "#7a5f42", 1.7 * strength]} />
     </group>
   );
 }
@@ -200,9 +240,15 @@ export interface LivingFixtures {
 export function LivingRoomLightRig({
   fixtures,
   gain = 1,
+  daylight = 0,
+  transmission = 1,
 }: {
   fixtures: LivingFixtures;
   gain?: number;
+  /** 0..1 exterior brightness from the simulated clock. */
+  daylight?: number;
+  /** 0..1 fraction the sheers and drapes let through. */
+  transmission?: number;
 }) {
   useLayoutEffect(() => {
     // Area lights render black without their BRDF tables uploaded first.
@@ -211,6 +257,7 @@ export function LivingRoomLightRig({
 
   return (
     <group>
+      <Daylight amount={daylight} transmission={transmission} />
       <Cove state={fixtures.cove} gain={gain} />
       <Downlights
         state={fixtures.downlights}
@@ -226,7 +273,7 @@ export function LivingRoomLightRig({
         positions={LR_WASH}
         // Aimed at the foot of the media wall, which is what produces the
         // scalloped grazing light visible in the reference photograph.
-        aim={(p) => [p.x, 0.2, -0.15]}
+        aim={(p) => [LR.w - 0.05, 0.25, p.z]}
         intensity={GAIN.wash}
         angle={0.5}
       />
