@@ -39,12 +39,20 @@ export interface CameraSpec {
  * plastic. Building it from `Lightformer`s keeps the demo fully offline, which a
  * downloaded HDRI would break.
  */
+/**
+ * Specular character only, at low intensity.
+ *
+ * An environment map contributes diffuse light as well as reflections, and it
+ * bakes once — so it cannot respond to the fixtures. It is therefore kept faint
+ * and used for what only it can do: giving stone, steel and gloss something to
+ * reflect. The room's actual fill comes from the ambient hemisphere below, which
+ * does track the lighting state.
+ */
 function ProceduralEnvironment() {
   return (
     <Environment resolution={128} frames={1}>
-      {/* Warm ceiling bounce, standing in for the cove's indirect light. */}
       <Lightformer
-        intensity={0.55}
+        intensity={0.1}
         color="#ffe0bb"
         form="rect"
         scale={[12, 12, 1]}
@@ -53,7 +61,7 @@ function ProceduralEnvironment() {
       />
       {/* Cool fill from the glazing side, so shadows are not neutral grey. */}
       <Lightformer
-        intensity={0.3}
+        intensity={0.06}
         color="#9fc0e8"
         form="rect"
         scale={[8, 6, 1]}
@@ -62,7 +70,7 @@ function ProceduralEnvironment() {
       />
       {/* Floor bounce. */}
       <Lightformer
-        intensity={0.14}
+        intensity={0.03}
         color="#6b4a30"
         form="rect"
         scale={[10, 10, 1]}
@@ -85,15 +93,29 @@ function ProceduralEnvironment() {
  */
 export function Stage3D({
   camera,
+  /**
+   * Bounce light, derived from the room's own illuminance — see `roomAmbience`.
+   * Omitting it renders with no fill at all, which is only ever right for a
+   * scene that is genuinely meant to be black.
+   */
+  ambient = { level: 0, color: [255, 245, 230] },
   bloomIntensity = 0.62,
   bloomThreshold = 1.0,
   children,
 }: {
   camera: CameraSpec;
+  ambient?: { level: number; color: [number, number, number] };
   bloomIntensity?: number;
   bloomThreshold?: number;
   children: ReactNode;
 }) {
+  const fill = new THREE.Color(
+    ambient.color[0] / 255,
+    ambient.color[1] / 255,
+    ambient.color[2] / 255,
+  );
+  // Floor bounce is the same light, warmer and much weaker.
+  const ground = fill.clone().multiplyScalar(0.45).offsetHSL(0.02, 0.05, -0.12);
   return (
     <Canvas
       shadows="soft"
@@ -115,10 +137,14 @@ export function Stage3D({
     >
       <Suspense fallback={null}>
         <ProceduralEnvironment />
-        {/* Broad, dim fill. Stands in for the interreflection a real render
-            gets for free and a real-time scene does not: without it the lower
-            half of tall surfaces falls off far faster than in the reference. */}
-        <hemisphereLight args={["#ffe8cc", "#4a3a2a", 0.32]} />
+        {/* The room's fill, scaled by how much light is actually in it. Props
+            rather than `args` so a change updates the light instead of
+            reconstructing it every frame. */}
+        <hemisphereLight
+          color={fill}
+          groundColor={ground}
+          intensity={1.05 * ambient.level}
+        />
         {children}
         <EffectComposer multisampling={4}>
           <Bloom

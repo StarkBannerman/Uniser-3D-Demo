@@ -4,6 +4,7 @@
 
 import type { AirState, LightState, ShadeState } from "@/lib/sim/types";
 import { useSim } from "@/lib/sim/store";
+import { roomAmbience } from "@/lib/sim/ambience";
 import {
   clamp01,
   daylightLux,
@@ -54,8 +55,14 @@ export function KitchenStage() {
       )
     : 0;
 
+  // Bounce light, from the same illuminance the sensor and energy model read.
+  // A constant fill here is what made every scene look alike.
+  const ambient = space
+    ? roomAmbience(space, states, clockMin)
+    : { level: 0, color: [255, 245, 230] as [number, number, number], lux: 0 };
+
   return (
-    <Stage3D camera={CAMERA}>
+    <Stage3D camera={CAMERA} ambient={ambient}>
       <Kitchen3D
         blind={blindState.blackout}
         fanSpeed={fan?.on ? fan.speed : 0}

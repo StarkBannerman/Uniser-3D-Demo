@@ -222,7 +222,6 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
         intensity={20 * strength}
         color={new THREE.Color("#d2e2f4")}
       />
-      <hemisphereLight args={["#dceaf7", "#8d8478", 0.75 * strength]} />
     </group>
   );
 }
