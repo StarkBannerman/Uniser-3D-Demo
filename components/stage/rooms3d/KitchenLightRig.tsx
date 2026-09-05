@@ -22,8 +22,8 @@ import { KT, KT_GLASS, KT_ISLAND, KT_PENDANTS, KT_RUN } from "./Kitchen3D";
 import { Spot } from "./Spot";
 
 const GAIN = {
-  underCabinet: 30,
-  underCabinetEmissive: 4.2,
+  underCabinet: 24,
+  underCabinetEmissive: 1.9,
   pendant: 13,
   pendantEmissive: 4.6,
   downlight: 34,
@@ -79,7 +79,7 @@ function UnderCabinet({ state, gain }: { state: LightState; gain: number }) {
         />
       )}
       <mesh position={[cx, KT.upper - 0.02, 0.32]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[width, 0.05]} />
+        <planeGeometry args={[width, 0.028]} />
         <primitive object={mat} attach="material" />
       </mesh>
     </group>
@@ -213,13 +213,32 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
 
   return (
     <group>
+      {/* A directional sun alongside the area light.
+          RectAreaLight cannot cast shadows in three.js — so on a daylit scene
+          with the downlights harvested off, nothing in the room was casting a
+          shadow at all, and the frame read completely flat. This carries the
+          shadows; the area light carries the soft wrap. */}
+      <directionalLight
+        position={[KT.w + 7, 5.5, (KT_GLASS.z0 + KT_GLASS.z1) / 2 - 1.5]}
+        intensity={2.6 * strength}
+        color={new THREE.Color("#fff2dd")}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0009}
+        shadow-camera-left={-7}
+        shadow-camera-right={7}
+        shadow-camera-top={7}
+        shadow-camera-bottom={-7}
+        shadow-camera-near={1}
+        shadow-camera-far={26}
+      />
       <rectAreaLight
         position={[KT.w - 0.12, (KT_GLASS.y0 + KT_GLASS.y1) / 2, (KT_GLASS.z0 + KT_GLASS.z1) / 2]}
         // Faces -x, into the room.
         rotation={[0, -Math.PI / 2, 0]}
         width={span}
         height={height}
-        intensity={20 * strength}
+        intensity={15 * strength}
         color={new THREE.Color("#d2e2f4")}
       />
     </group>

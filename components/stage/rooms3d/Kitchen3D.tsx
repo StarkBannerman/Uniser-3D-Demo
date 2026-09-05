@@ -47,9 +47,9 @@ export const KT_PENDANTS = [
 /* ------------------------------------------------------------------ */
 
 const M = {
-  ceiling: new THREE.MeshStandardMaterial({ color: "#f7f6f3", roughness: 0.96 }),
-  wall: new THREE.MeshStandardMaterial({ color: "#efeae1", roughness: 0.94 }),
-  splash: new THREE.MeshStandardMaterial({ color: "#f2efe9", roughness: 0.55 }),
+  ceiling: new THREE.MeshStandardMaterial({ color: "#eeece7", roughness: 0.96 }),
+  wall: new THREE.MeshStandardMaterial({ color: "#e2dbcf", roughness: 0.94 }),
+  splash: new THREE.MeshStandardMaterial({ color: "#e8e3d9", roughness: 0.55 }),
   // Large-format pale tile with a faint sheen, as in the reference.
   floor: new THREE.MeshStandardMaterial({
     color: "#d6d2cb",
@@ -57,9 +57,9 @@ const M = {
     metalness: 0.02,
   }),
   grout: new THREE.MeshStandardMaterial({ color: "#c2beb6", roughness: 0.7 }),
-  cabinetPale: new THREE.MeshStandardMaterial({ color: "#e8e4db", roughness: 0.52 }),
+  cabinetPale: new THREE.MeshStandardMaterial({ color: "#dad5c9", roughness: 0.52 }),
   cabinetWood: new THREE.MeshStandardMaterial({ color: "#8a5f3c", roughness: 0.48 }),
-  stone: new THREE.MeshStandardMaterial({ color: "#e9e6df", roughness: 0.34 }),
+  stone: new THREE.MeshStandardMaterial({ color: "#ded9d0", roughness: 0.34 }),
   steel: new THREE.MeshStandardMaterial({
     color: "#b9bcc0",
     roughness: 0.28,
@@ -376,7 +376,7 @@ function Glazing({ blind, daylight }: { blind: number; daylight: number }) {
   const outside = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        color: new THREE.Color("#e6f0f7").multiplyScalar(0.3 + daylight * 2.1),
+        color: new THREE.Color("#e6f0f7").multiplyScalar(0.2 + daylight * 0.78),
         toneMapped: false,
       }),
     [daylight],

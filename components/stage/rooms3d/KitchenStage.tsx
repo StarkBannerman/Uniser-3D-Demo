@@ -62,7 +62,14 @@ export function KitchenStage() {
     : { level: 0, color: [255, 245, 230] as [number, number, number], lux: 0 };
 
   return (
-    <Stage3D camera={CAMERA} ambient={ambient}>
+    <Stage3D
+      camera={CAMERA}
+      ambient={ambient}
+      // A daylit room already sits near the top of the range; the bedroom's
+      // bloom settings turn every pale surface here into haze.
+      bloomIntensity={0.3}
+      bloomThreshold={1.9}
+    >
       <Kitchen3D
         blind={blindState.blackout}
         fanSpeed={fan?.on ? fan.speed : 0}

@@ -198,7 +198,7 @@ function Glazing({ sheer, blackout, daylight }: LivingCurtains & { daylight: num
   const outside = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
-        color: new THREE.Color("#eaf1f8").multiplyScalar(0.3 + daylight * 2.1),
+        color: new THREE.Color("#eaf1f8").multiplyScalar(0.2 + daylight * 0.78),
         toneMapped: false,
       }),
     [daylight],

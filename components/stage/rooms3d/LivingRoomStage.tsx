@@ -67,7 +67,12 @@ export function LivingRoomStage() {
     : { level: 0, color: [255, 245, 230] as [number, number, number], lux: 0 };
 
   return (
-    <Stage3D camera={CAMERA} ambient={ambient}>
+    <Stage3D
+      camera={CAMERA}
+      ambient={ambient}
+      bloomIntensity={0.42}
+      bloomThreshold={1.6}
+    >
       <LivingRoom3D
         curtains={curtains}
         tvOn={Boolean(av?.on)}
