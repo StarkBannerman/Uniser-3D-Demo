@@ -19,6 +19,7 @@ import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { emissive } from "./materials";
 import { LR, LR_COVE_Y, LR_TV, LR_WINDOW } from "./LivingRoom3D";
+import { Spot } from "./Spot";
 
 const GAIN = {
   cove: 40,
@@ -136,9 +137,9 @@ function Downlights({
       {positions.map((p, i) => (
         <group key={`dl-${p.x}-${p.z}`}>
           {out > 0.001 && (
-            <spotLight
+            <Spot
               position={[p.x, LR.h - 0.04, p.z]}
-              target-position={aim(p)}
+              target={aim(p)}
               angle={angle}
               penumbra={0.7}
               distance={9}
@@ -148,8 +149,6 @@ function Downlights({
               // One shadow caster per group. More shadow maps cost far more
               // than the extra shadows contribute at this scale.
               castShadow={i === 0}
-              shadow-mapSize={[1024, 1024]}
-              shadow-bias={-0.0012}
             />
           )}
           <mesh position={[p.x, LR.h - 0.035, p.z]} rotation={[Math.PI / 2, 0, 0]}>

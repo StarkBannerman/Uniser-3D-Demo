@@ -22,6 +22,7 @@ import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { COVE_Y, ROOM, emissive } from "./materials";
 import { ACCENT_Z, FIXTURES } from "./MasterBedroom";
+import { Spot } from "./Spot";
 
 /* Tuning — the numbers that decide whether this reads as a render. ---- */
 
@@ -128,9 +129,9 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
       {FIXTURES.downlights.map((d, i) => (
         <group key={`dl-${i}`}>
           {out > 0.001 && (
-            <spotLight
+            <Spot
               position={[d.x, ROOM.h - 0.03, d.z]}
-              target-position={[d.x, 0, d.z]}
+              target={[d.x, 0, d.z]}
               angle={0.62}
               penumbra={0.72}
               distance={7}
@@ -140,8 +141,6 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
               // Only the middle fixture casts a shadow. Three shadow maps at
               // this scale cost far more than the second and third shadows add.
               castShadow={i === 1}
-              shadow-mapSize={[1024, 1024]}
-              shadow-bias={-0.0012}
             />
           )}
           <mesh position={[d.x, ROOM.h - 0.026, d.z]} rotation={[Math.PI / 2, 0, 0]}>
