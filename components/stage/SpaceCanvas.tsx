@@ -50,6 +50,7 @@ import { ShadeLayer } from "./ShadeLayer";
 import { ScreenLayer } from "./ScreenLayer";
 import { LivingRoom } from "./rooms/LivingRoom";
 import { BedroomStage } from "./rooms3d/BedroomStage";
+import { LivingRoomStage } from "./rooms3d/LivingRoomStage";
 
 /** Window luminance that counts as "fully bright" for compositing. */
 const WINDOW_REFERENCE_LUX = 400;
@@ -84,6 +85,8 @@ export function SpaceCanvas() {
       <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black ring-1 ring-shell-800">
         {space.model === "master-bedroom" ? (
           <BedroomStage />
+        ) : space.model === "living-room" ? (
+          <LivingRoomStage />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-shell-500">
             No 3D room registered for “{space.model}”.

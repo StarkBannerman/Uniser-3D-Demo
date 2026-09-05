@@ -24,7 +24,10 @@ import type { CircadianRule, LightState, ShadeState, ClimateState } from "../lib
 import { crossedTime, formatClock } from "../lib/sim/clock";
 import { savings } from "../lib/sim/energy";
 import { useSim } from "../lib/sim/store";
-import { livingRoom } from "../lib/spaces/residential/living-room";
+// The illustrated living room, not the 3D one. Sections 6-10 exercise its
+// `lr-*` devices and scenes; the 3D rooms are covered structurally in §13.
+import { livingRoomIllustrated as livingRoom } from "../lib/spaces/residential/living-room-illustrated";
+import { spaces } from "../lib/spaces";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail: string) {
@@ -343,6 +346,57 @@ check(
     Math.abs(releasedCove.cct - cctAt(curve, store.getState().clockMin)) < 120,
   `${releasedCove.cct.toFixed(0)}K vs curve ${cctAt(curve, store.getState().clockMin).toFixed(0)}K`,
 );
+
+/* ================================================================== */
+console.log("\n13. Every space is structurally sound\n");
+
+/**
+ * Catches the class of mistake that is invisible to TypeScript: a scene or rule
+ * naming a device id that does not exist. The config typechecks perfectly —
+ * device ids are just strings — and the space then silently does nothing when
+ * that button is pressed.
+ */
+for (const space of spaces) {
+  const ids = new Set(space.devices.map((d) => d.id));
+  const bad: string[] = [];
+
+  for (const scene of space.scenes) {
+    for (const deviceId of Object.keys(scene.targets)) {
+      if (!ids.has(deviceId)) bad.push(`scene "${scene.id}" -> ${deviceId}`);
+    }
+  }
+  for (const rule of space.rules) {
+    const referenced: string[] = [];
+    if (rule.kind === "occupancy") {
+      referenced.push(rule.sensorId, ...Object.keys(rule.onOccupied), ...Object.keys(rule.onVacant));
+    } else if (rule.kind === "daylight" || rule.kind === "circadian") {
+      referenced.push(...rule.deviceIds);
+    } else if (rule.kind === "schedule") {
+      referenced.push(...Object.keys(rule.targets));
+    }
+    for (const deviceId of referenced) {
+      if (!ids.has(deviceId)) bad.push(`rule "${rule.id}" -> ${deviceId}`);
+    }
+  }
+  for (const deviceId of Object.keys(space.defaults)) {
+    if (!ids.has(deviceId)) bad.push(`defaults -> ${deviceId}`);
+  }
+  if (space.openingSceneId && !space.scenes.some((sc) => sc.id === space.openingSceneId)) {
+    bad.push(`openingSceneId "${space.openingSceneId}" has no scene`);
+  }
+
+  check(
+    `${space.id}: every referenced device exists`,
+    bad.length === 0,
+    bad.length ? bad.slice(0, 4).join(" | ") : `${ids.size} devices, ${space.scenes.length} scenes, ${space.rules.length} rules`,
+  );
+
+  check(
+    `${space.id}: 3D spaces name a model`,
+    space.renderer !== "3d" || Boolean(space.model),
+    space.renderer === "3d" ? `model=${space.model}` : "not a 3D space",
+  );
+}
 
 console.log(
   failures === 0

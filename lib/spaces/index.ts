@@ -1,16 +1,16 @@
 /**
  * The space library.
  *
- * The master bedroom is the reference space and uses the 3D renderer; the living
- * room predates it and still uses the illustrated one. Both drive the identical
- * engine — which is the point of keeping the renderer a per-space choice.
+ * Every space drives the identical engine; only the renderer differs, which is
+ * why `renderer` is a per-space choice rather than an app-wide one.
  */
 
 import type { Segment, Space } from "@/lib/sim/types";
 import { masterBedroom } from "./residential/master-bedroom";
 import { livingRoom } from "./residential/living-room";
+import { livingRoomIllustrated } from "./residential/living-room-illustrated";
 
-export const spaces: Space[] = [masterBedroom, livingRoom];
+export const spaces: Space[] = [masterBedroom, livingRoom, livingRoomIllustrated];
 
 export function getSpace(id: string): Space | undefined {
   return spaces.find((s) => s.id === id);
