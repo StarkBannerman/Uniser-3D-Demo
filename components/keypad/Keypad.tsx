@@ -107,19 +107,33 @@ export function Keypad() {
         </div>
 
         <div className="grid gap-2">
-          {shade && (
+          {shade && shadeState && (
             <>
+              {/* Buttons come from the device's actual layers. A room with a
+                  single roman blind should not offer a Sheer button that does
+                  nothing — the keypad is meant to be the panel that ships. */}
+              {shade.layers.includes("sheer") && (
+                <Button
+                  label="Sheer"
+                  active={sheerOnly}
+                  title="Draw the sheer layer, open the blackout"
+                  onPress={() => patch(shade.id, { sheer: 100, blackout: 0 })}
+                />
+              )}
               <Button
-                label="Sheer"
-                active={sheerOnly}
-                title="Draw the sheer layer, open the blackout"
-                onPress={() => patch(shade.id, { sheer: 100, blackout: 0 })}
-              />
-              <Button
-                label="Blackout"
+                label={shade.layers.length > 1 ? "Blackout" : "Blind"}
                 active={blackoutOn}
-                title="Draw the blackout layer"
-                onPress={() => patch(shade.id, { sheer: 100, blackout: 100 })}
+                title={
+                  shade.layers.length > 1
+                    ? "Draw the blackout layer"
+                    : "Lower the blind"
+                }
+                onPress={() =>
+                  patch(shade.id, {
+                    ...(shade.layers.includes("sheer") ? { sheer: 100 } : {}),
+                    blackout: blackoutOn ? 0 : 100,
+                  })
+                }
               />
             </>
           )}

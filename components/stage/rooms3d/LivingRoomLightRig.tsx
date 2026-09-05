@@ -216,7 +216,7 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
       rotation={[0, Math.PI / 2, 0]}
       width={span}
       height={height}
-      intensity={78 * strength}
+      intensity={30 * strength}
       // Overcast daylight is cool; matching the reference's neutral-white walls
       // depends on it not being warm.
       color={new THREE.Color("#cfe0f2")}
@@ -224,7 +224,7 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
     {/* Bounce. A single area light at the window leaves the ceiling and the far
         side of the room dark, because real-time rendering has no interreflection
         — and a daylit room is mostly interreflection. */}
-    <hemisphereLight args={["#dbe8f5", "#7a5f42", 1.7 * strength]} />
+    <hemisphereLight args={["#dbe8f5", "#7a5f42", 0.8 * strength]} />
     </group>
   );
 }

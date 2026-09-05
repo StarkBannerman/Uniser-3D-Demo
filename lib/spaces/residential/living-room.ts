@@ -335,7 +335,7 @@ export const livingRoom: Space = {
     outdoorPeakLux: 95000,
     // A near-full-height glazed wall, so a good deal more daylight reaches the
     // room than through the bedroom's window.
-    windowFactor: 0.028,
+    windowFactor: 0.012,
     designLux: 320,
     outdoorMinC: 26,
     outdoorMaxC: 34,
