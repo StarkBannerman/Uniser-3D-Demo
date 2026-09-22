@@ -197,6 +197,22 @@ export const products: Record<string, Product> = {
     verified: false,
   },
 
+  "smartspaces-fan": {
+    id: "smartspaces-fan",
+    name: "SmartSpaces BLDC Fan Controller",
+    family: "SmartSpaces Automation",
+    subsystem: "climate",
+    summary:
+      "Five-speed control for a BLDC ceiling fan, on the same keypad and scenes as the lighting. A fan at speed 2 costs a few watts and buys two degrees on the AC setpoint.",
+    specs: {
+      "Speeds": "5, plus scene presets",
+      "Fan load": "32 W at full speed",
+      "Controller load": "0.4 W standby",
+      "Control": "Keypad, app, scene, schedule",
+    },
+    verified: false,
+  },
+
   "ubreathe-airlab": {
     id: "ubreathe-airlab",
     name: "uBreathe Air Lab",

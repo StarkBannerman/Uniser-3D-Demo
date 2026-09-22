@@ -25,6 +25,7 @@ import type {
   ClimateState,
   Device,
   DeviceState,
+  FanState,
   LightState,
   SolarState,
   Space,
@@ -164,6 +165,21 @@ export function powerSnapshot(
       case "air": {
         const s = state as AirState;
         airW += s.on ? device.ratedWatts * (0.4 + 0.2 * clamp(s.speed, 0, 3)) : 0;
+        break;
+      }
+      case "fan": {
+        const s = state as FanState;
+        // Fan affinity law: power goes with the cube of speed. It is why a
+        // BLDC fan at speed 2 draws single-digit watts, and why running one
+        // instead of dropping the AC two degrees is such an easy argument.
+        // Counted under "Air" with the purifiers rather than given its own bar —
+        // it is air movement, and a fifth category for 30 W would be noise.
+        if (!s.on) {
+          airW += 0.4; // Standby for the BLDC driver.
+          break;
+        }
+        const frac = clamp(s.speed, 1, device.speeds) / device.speeds;
+        airW += Math.max(2, device.ratedWatts * frac ** 3);
         break;
       }
       case "solar": {

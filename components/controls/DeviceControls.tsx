@@ -18,6 +18,8 @@ import type {
   ClimateMode,
   ClimateState,
   Device,
+  FanDevice,
+  FanState,
   LightDevice,
   LightState,
   LockDevice,
@@ -453,6 +455,57 @@ function AirControl({ device }: { device: AirDevice }) {
   );
 }
 
+function FanControl({ device }: { device: FanDevice }) {
+  const state = useSim((s) => s.states[device.id] as FanState | undefined);
+  const { patch, select, selected } = useCard(device.id);
+  if (!state) return null;
+
+  const product = getProduct(device.productId);
+
+  return (
+    <ControlCard
+      title={device.name}
+      subtitle={product?.family}
+      selected={selected}
+      onSelect={() => select(device.id)}
+      right={
+        <Toggle
+          on={state.on}
+          label={`${device.name} power`}
+          onChange={(on) => patch(device.id, { on })}
+        />
+      }
+    >
+      <div className={state.on ? undefined : "opacity-55"}>
+        {/* Numbered, not Low/Med/High. An Indian client reads a fan regulator
+            as 1 to 5 and will ask what "Med" means on a five-speed fan. */}
+        <Segmented
+          label={`${device.name} speed`}
+          value={state.speed}
+          options={Array.from({ length: device.speeds }, (_, i) => ({
+            value: i + 1,
+            label: String(i + 1),
+          }))}
+          onChange={(speed) => patch(device.id, { speed, on: true })}
+        />
+      </div>
+      {device.reversible && (
+        <div className={state.on ? undefined : "opacity-55"}>
+          <Segmented
+            label={`${device.name} direction`}
+            value={state.reverse ? 1 : 0}
+            options={[
+              { value: 0, label: "Summer" },
+              { value: 1, label: "Winter" },
+            ]}
+            onChange={(v) => patch(device.id, { reverse: v === 1 })}
+          />
+        </div>
+      )}
+    </ControlCard>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Grouping                                                            */
 /* ------------------------------------------------------------------ */
@@ -465,6 +518,7 @@ const CONTROLLABLE: Device["kind"][] = [
   "av",
   "lock",
   "air",
+  "fan",
 ];
 
 const GROUP_ORDER: SubsystemId[] = [
@@ -503,6 +557,8 @@ function DeviceControl({ device }: { device: Device }) {
       return <LockControl device={device} />;
     case "air":
       return <AirControl device={device} />;
+    case "fan":
+      return <FanControl device={device} />;
     default:
       return null;
   }

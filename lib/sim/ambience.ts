@@ -24,12 +24,12 @@ import type {
 } from "./types";
 import {
   cctToRgb,
+  clamp01,
   daylightCct,
   daylightLux,
   estimateLux,
   lightColor,
   lightOutput,
-  roomIllumination,
   sunElevation01,
 } from "./photometry";
 import { interiorDaylightLux } from "./daylight";
@@ -41,6 +41,27 @@ export interface Ambience {
   color: [number, number, number];
   /** Total illuminance in lux, for anything that wants the raw figure. */
   lux: number;
+}
+
+/**
+ * Fill strength for a given illuminance, 0..1.
+ *
+ * Deliberately *not* `roomIllumination`, which is Stevens' power law — how
+ * bright a room feels, cube-rooted. That curve is right for driving an
+ * illustration's overall exposure and wrong for driving a light: bounced light
+ * is close to linear in the flux available to bounce, so a cube root hands a
+ * 12-lux reading scene a 43% fill and quietly lights the whole room from
+ * nowhere. Using it here made every dark scene look like a dimmed bright one.
+ *
+ * The exponent is a compromise rather than pure physics. Fully linear fill goes
+ * to nothing faster than a real room does, because a real room also has a
+ * standing contribution from every surface that is still catching a little
+ * light. 0.62 keeps low scenes genuinely dark while leaving a lit room's fill
+ * almost where it was.
+ */
+function bounce(lux: number, designLux: number): number {
+  if (designLux <= 0) return 0;
+  return clamp01(Math.pow(clamp01(lux / designLux), 0.62));
 }
 
 export function roomAmbience(
@@ -86,7 +107,7 @@ export function roomAmbience(
   const lux = artificial + daylight;
 
   return {
-    level: roomIllumination(lux, env.designLux),
+    level: bounce(lux, env.designLux),
     color:
       weight > 0 ? [mixR / weight, mixG / weight, mixB / weight] : [255, 245, 230],
     lux,

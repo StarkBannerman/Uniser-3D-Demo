@@ -27,7 +27,8 @@ export type DeviceKind =
   | "lock"
   | "sensor"
   | "solar"
-  | "air";
+  | "air"
+  | "fan";
 
 /* ------------------------------------------------------------------ */
 /* Render hints                                                        */
@@ -179,6 +180,28 @@ export interface AirDevice extends DeviceBase {
   hasSpeed?: boolean;
 }
 
+/**
+ * A ceiling fan.
+ *
+ * Distinct from `air` (purifiers and diffusers) because in India it is not an
+ * accessory — it is the control every client looks for on the keypad, and a
+ * BLDC fan at speed 2 is most of the reason the AC can sit two degrees higher.
+ * Its speed is also visible: the renderer turns the blades from it, so "off"
+ * has to be unmistakable across a room.
+ */
+export interface FanDevice extends DeviceBase {
+  kind: "fan";
+  /** Number of selectable speeds, 1..`speeds`. Indian fans are usually 5. */
+  speeds: number;
+  /** Draw at the top speed. Consumption scales with the cube of airflow. */
+  ratedWatts: number;
+  /**
+   * Whether the fan can run in reverse (winter mode). Rare in Mumbai; present
+   * so the type does not have to change when a northern project needs it.
+   */
+  reversible?: boolean;
+}
+
 export type Device =
   | LightDevice
   | ShadeDevice
@@ -187,7 +210,8 @@ export type Device =
   | LockDevice
   | SensorDevice
   | SolarDevice
-  | AirDevice;
+  | AirDevice
+  | FanDevice;
 
 /* ------------------------------------------------------------------ */
 /* Device state (dynamic)                                              */
@@ -251,6 +275,13 @@ export interface AirState {
   speed: number;
 }
 
+export interface FanState {
+  on: boolean;
+  /** 1..`FanDevice.speeds`. Retained while off, so the fan restarts where it was. */
+  speed: number;
+  reverse: boolean;
+}
+
 export type DeviceState =
   | LightState
   | ShadeState
@@ -259,7 +290,8 @@ export type DeviceState =
   | LockState
   | SensorState
   | SolarState
-  | AirState;
+  | AirState
+  | FanState;
 
 /**
  * A partial state write. Scenes and rules are authored as plain objects keyed by

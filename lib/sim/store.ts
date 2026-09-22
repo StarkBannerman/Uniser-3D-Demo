@@ -206,6 +206,10 @@ function initialState(device: Device): DeviceState {
       return { generationW: 0 };
     case "air":
       return { on: false, speed: 1 };
+    case "fan":
+      // Mid speed, so switching one on by hand does something visible rather
+      // than creeping at speed 1.
+      return { on: false, speed: Math.ceil(device.speeds / 2), reverse: false };
   }
 }
 
