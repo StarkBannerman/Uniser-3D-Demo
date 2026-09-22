@@ -20,7 +20,13 @@ import {
   daylightLux,
 } from "../lib/sim/photometry";
 import { cctAt } from "../lib/sim/automation";
-import type { CircadianRule, LightState, ShadeState, ClimateState } from "../lib/sim/types";
+import type {
+  CircadianRule,
+  ClimateState,
+  LightState,
+  ShadeState,
+  Space,
+} from "../lib/sim/types";
 import { crossedTime, formatClock } from "../lib/sim/clock";
 import { savings } from "../lib/sim/energy";
 import { useSim } from "../lib/sim/store";
@@ -364,6 +370,16 @@ for (const space of spaces) {
     for (const deviceId of Object.keys(scene.targets)) {
       if (!ids.has(deviceId)) bad.push(`scene "${scene.id}" -> ${deviceId}`);
     }
+    // A staged scene's later stages are just as easy to typo, and a broken one
+    // fails silently several seconds after the button is pressed — which is the
+    // worst possible moment to find out.
+    for (const [i, step] of (scene.steps ?? []).entries()) {
+      for (const deviceId of Object.keys(step.targets)) {
+        if (!ids.has(deviceId)) {
+          bad.push(`scene "${scene.id}" step ${i} -> ${deviceId}`);
+        }
+      }
+    }
   }
   for (const rule of space.rules) {
     const referenced: string[] = [];
@@ -397,6 +413,239 @@ for (const space of spaces) {
     space.renderer === "3d" ? `model=${space.model}` : "not a 3D space",
   );
 }
+
+/* ================================================================== */
+console.log("\n14. Staged scenes — ordering, timing and cancellation\n");
+
+/**
+ * A purpose-built space rather than a real one.
+ *
+ * The engine's staging behaviour should be provable without depending on how a
+ * particular room happens to be authored today — and a synthetic space lets the
+ * stages be 400ms apart and the fades zero, so a failure points at the scheduler
+ * instead of at a fade that had not finished yet.
+ */
+const stagedSpace: Space = {
+  id: "test-staged",
+  name: "Staged Scene Test",
+  segment: "residential",
+  category: "Test",
+  blurb: "Synthetic space used only by the verification harness.",
+  renderer: "illustrated",
+  unlisted: true,
+  zones: [{ id: "t-zone", name: "Test", areaM2: 20 }],
+  devices: [
+    {
+      id: "t-general",
+      kind: "light",
+      name: "General",
+      zoneId: "t-zone",
+      productId: "proplus-downlight",
+      subsystem: "lighting",
+      dimmable: true,
+      fixtures: 4,
+      wattsEach: 9,
+      lumensEach: 800,
+      glow: [],
+    },
+    {
+      id: "t-bedside",
+      kind: "light",
+      name: "Bedside",
+      zoneId: "t-zone",
+      productId: "proplus-downlight",
+      subsystem: "lighting",
+      dimmable: true,
+      fixtures: 2,
+      wattsEach: 5,
+      lumensEach: 300,
+      glow: [],
+    },
+    {
+      id: "t-curtain",
+      kind: "shade",
+      name: "Curtain",
+      zoneId: "t-zone",
+      productId: "uniser-curtain-track",
+      subsystem: "shades",
+      layers: ["blackout"],
+      watts: 40,
+      travelMs: 600,
+      window: { x: 0, y: 0, w: 1, h: 1 },
+    },
+    {
+      id: "t-ac",
+      kind: "climate",
+      name: "AC",
+      zoneId: "t-zone",
+      productId: "sensibo-airbend",
+      subsystem: "climate",
+      minC: 16,
+      maxC: 30,
+      ratedWatts: 1500,
+    },
+  ],
+  scenes: [
+    {
+      id: "t-on",
+      name: "On",
+      icon: "☀",
+      blurb: "Plain scene, no stages.",
+      fadeMs: 0,
+      targets: {
+        "t-general": { on: true, level: 80 },
+        "t-bedside": { on: true, level: 80 },
+      },
+    },
+    {
+      id: "t-goodnight",
+      name: "Good Night",
+      icon: "☾",
+      blurb: "Five stages, 400ms apart.",
+      fadeMs: 0,
+      targets: {
+        "t-general": { on: true, level: 80 },
+        "t-bedside": { on: true, level: 80 },
+      },
+      steps: [
+        { label: "General dims", holdMs: 400, targets: { "t-general": { level: 30 } } },
+        { label: "Bedside reduces", holdMs: 400, targets: { "t-bedside": { level: 10 } } },
+        { label: "Curtains close", holdMs: 400, targets: { "t-curtain": { blackout: 100 } } },
+        { label: "AC to sleep", holdMs: 400, targets: { "t-ac": { on: true, setpointC: 22 } } },
+        {
+          label: "Lights off",
+          holdMs: 400,
+          targets: { "t-general": { on: false }, "t-bedside": { on: false } },
+        },
+      ],
+    },
+  ],
+  rules: [],
+  defaults: { "t-curtain": { blackout: 0 } },
+  environment: {
+    sunriseMin: 6 * 60 + 20,
+    sunsetMin: 18 * 60 + 55,
+    outdoorPeakLux: 95000,
+    windowFactor: 0.008,
+    designLux: 200,
+    outdoorMinC: 26,
+    outdoorMaxC: 34,
+  },
+  baseline: {
+    lightingWatts: 300,
+    hvacWatts: 1500,
+    operatingHours: { startMin: 18 * 60, endMin: 23 * 60 },
+    note: "Synthetic.",
+  },
+  tariffPerKwh: 11,
+  currency: "₹",
+};
+
+/** Advance by wall-clock milliseconds rather than a frame count. */
+function runMs(ms: number) {
+  run(Math.ceil(ms / FRAME));
+}
+
+store.getState().loadSpace(stagedSpace);
+store.getState().applyScene("t-goodnight");
+
+check(
+  "stage zero lands immediately, the rest wait",
+  lightOf("t-general").level === 80 && lightOf("t-bedside").level === 80,
+  `general=${lightOf("t-general").level}, bedside=${lightOf("t-bedside").level}`,
+);
+check(
+  "the sequence is reported before any stage has run",
+  store.getState().sequence?.total === 5 && store.getState().sequence?.step === 0,
+  JSON.stringify(store.getState().sequence),
+);
+
+// Two thirds of the way through the first hold: nothing should have moved.
+runMs(260);
+check(
+  "a stage does not fire early",
+  lightOf("t-general").level === 80,
+  `at 260ms of a 400ms hold, general=${lightOf("t-general").level}`,
+);
+
+runMs(220); // now past 400ms
+check(
+  "stage 1 fires on time, and only stage 1",
+  lightOf("t-general").level === 30 && lightOf("t-bedside").level === 80,
+  `general=${lightOf("t-general").level}, bedside=${lightOf("t-bedside").level}`,
+);
+check(
+  "the reported stage advances with its label",
+  store.getState().sequence?.step === 1 &&
+    store.getState().sequence?.label === "General dims",
+  JSON.stringify(store.getState().sequence),
+);
+
+runMs(400);
+check(
+  "stage 2 follows, still in order",
+  lightOf("t-bedside").level === 10 &&
+    (store.getState().states["t-curtain"] as ShadeState).blackout === 0,
+  `bedside=${lightOf("t-bedside").level}, curtain untouched`,
+);
+
+// Past the remaining three stages, plus the curtain's own travel time.
+runMs(1400);
+const acEnd = store.getState().states["t-ac"] as ClimateState;
+check(
+  "every stage has run by the end",
+  (store.getState().states["t-curtain"] as ShadeState).blackout === 100 &&
+    acEnd.on &&
+    acEnd.setpointC === 22 &&
+    !lightOf("t-general").on &&
+    !lightOf("t-bedside").on,
+  `curtain=100, ac=${acEnd.setpointC}°C, lights off`,
+);
+check(
+  "the sequence clears when it finishes",
+  store.getState().sequence === null,
+  "sequence=null",
+);
+
+// Cancellation 1: another scene pressed mid-sequence.
+store.getState().loadSpace(stagedSpace);
+store.getState().applyScene("t-goodnight");
+runMs(500); // stage 1 has fired, stage 2 has not
+store.getState().applyScene("t-on");
+runMs(3000);
+check(
+  "pressing another scene abandons the sequence",
+  store.getState().sequence === null &&
+    lightOf("t-general").level === 80 &&
+    lightOf("t-bedside").level === 80 &&
+    (store.getState().states["t-curtain"] as ShadeState).blackout === 0,
+  "no later stage fired after the interruption",
+);
+
+// Cancellation 2: a manual control touched mid-sequence.
+store.getState().loadSpace(stagedSpace);
+store.getState().applyScene("t-goodnight");
+runMs(500);
+store.getState().patch("t-general", { level: 55 }, 0);
+runMs(3000);
+check(
+  "touching a control by hand abandons the sequence",
+  store.getState().sequence === null &&
+    lightOf("t-general").level === 55 &&
+    lightOf("t-bedside").level === 80 &&
+    !(store.getState().states["t-ac"] as ClimateState).on,
+  `general=${lightOf("t-general").level} held, no later stage fired`,
+);
+
+// A scene without `steps` must behave exactly as it always has.
+store.getState().loadSpace(stagedSpace);
+store.getState().applyScene("t-on");
+runMs(2000);
+check(
+  "a scene with no stages arms nothing",
+  store.getState().sequence === null && lightOf("t-general").level === 80,
+  "unstaged scenes are unaffected",
+);
 
 console.log(
   failures === 0

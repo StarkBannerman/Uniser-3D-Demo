@@ -274,6 +274,31 @@ export type StatePatch = Record<string, number | boolean | string>;
 /* Scenes                                                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * One stage of a staged scene.
+ *
+ * The requirement document specifies a demonstration sequence for every
+ * environment — "lights dim → bedside lights reduce → curtains close → AC
+ * activates → selected lights switch OFF". Applying all of that at once shows a
+ * state change; applying it in order shows a building responding, which is the
+ * entire point of the feature.
+ */
+export interface SceneStep {
+  /** Stage name, surfaced while it runs so the room narrates itself. */
+  label: string;
+  /** Device id -> partial state, exactly as `Scene.targets`. */
+  targets: Record<string, StatePatch & { fadeMs?: number }>;
+  /**
+   * Wall-clock pause before this stage is applied, measured from the previous
+   * stage.
+   *
+   * Real milliseconds, deliberately not simulated minutes: a demonstration
+   * should take the same time to watch whether the clock is paused or running
+   * at a day a minute.
+   */
+  holdMs?: number;
+}
+
 export interface Scene {
   id: string;
   name: string;
@@ -285,6 +310,13 @@ export interface Scene {
   fadeMs: number;
   /** Device id -> partial state. Per-device `fadeMs` overrides the default. */
   targets: Record<string, StatePatch & { fadeMs?: number }>;
+  /**
+   * Ordered stages that run after `targets` is applied.
+   *
+   * Optional: a scene without `steps` behaves exactly as it always has. With
+   * them, `targets` is stage zero and these follow in order.
+   */
+  steps?: SceneStep[];
   /** Products worth calling out while this scene is running. */
   highlight?: string[];
 }

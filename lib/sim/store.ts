@@ -20,6 +20,7 @@ import type {
   DeviceState,
   LightDevice,
   LightState,
+  SceneStep,
   SensorDevice,
   SensorState,
   SolarDevice,
@@ -41,6 +42,7 @@ import {
   cancelTween,
   clearTweens,
   easing,
+  now as tweenNow,
   startTween,
 } from "./tween";
 import { evaluateRules, type RuleEvent, type RuleMemory } from "./automation";
@@ -96,6 +98,83 @@ let lastRuleMin = 0;
 let sensorSimMinutes = 0;
 /** Energy integrates every frame; only the published copy is reactive. */
 let liveTotals: EnergyTotals = { ...zeroTotals };
+
+/**
+ * The staged scene currently running, if any.
+ *
+ * Non-reactive like the tweens: it changes on a schedule and no component needs
+ * to subscribe to the bookkeeping. What the UI *does* need — which stage, and
+ * how many — is mirrored into `sequence` on the store.
+ *
+ * `fireAt` is real milliseconds from `tweenNow()`, not simulated minutes. A
+ * demonstration must take the same time to watch with the clock paused as with
+ * it running at a day a minute.
+ */
+let pendingSequence: {
+  sceneId: string;
+  steps: SceneStep[];
+  /** Index of the step that fires next. */
+  index: number;
+  fireAt: number;
+  /** The scene's fade, carried so stages ramp like the scene that owns them. */
+  fadeMs: number;
+} | null = null;
+
+function cancelSequence(): void {
+  pendingSequence = null;
+}
+
+/**
+ * Apply one map of scene targets.
+ *
+ * Shared by `applyScene` and by each stage of a sequence so that a staged scene
+ * and an instant one behave identically — same fades, same commanded levels,
+ * same colour ownership. `commanded`, `cctLocked` and `touched` are the
+ * caller's own copies and are written through.
+ */
+function applyTargetMap(
+  space: Space,
+  states: Record<string, DeviceState>,
+  targets: Record<string, StatePatch & { fadeMs?: number }>,
+  defaultFadeMs: number,
+  commanded: Record<string, number>,
+  cctLocked: Record<string, boolean>,
+  touched: Set<string>,
+): Record<string, DeviceState> {
+  const nextStates = { ...states };
+
+  for (const [deviceId, raw] of Object.entries(targets)) {
+    const device = space.devices.find((d) => d.id === deviceId);
+    const current = nextStates[deviceId];
+    if (!device || !current) continue;
+
+    const { fadeMs: perDevice, ...rest } = raw as StatePatch & { fadeMs?: number };
+    const patchInput = rest as StatePatch;
+
+    const level = commandedLevelFor(device, current, patchInput);
+    if (level !== undefined) commanded[deviceId] = level;
+
+    // A stage that names a colour owns it; one that stays silent hands the
+    // fixture back to circadian tuning. Only fixtures this stage mentions are
+    // reassigned — one it says nothing about keeps whatever it had.
+    if (device.kind === "light") {
+      cctLocked[deviceId] = "cct" in patchInput;
+    }
+
+    const next = applyPatchToState(
+      device,
+      current,
+      patchInput,
+      perDevice ?? defaultFadeMs,
+    );
+    if (next) {
+      nextStates[deviceId] = next;
+      touched.add(device.productId);
+    }
+  }
+
+  return nextStates;
+}
 
 /* ------------------------------------------------------------------ */
 /* Initial state                                                       */
@@ -172,6 +251,20 @@ export interface SimStore {
    * Circadian tuning skips these — see `EvaluateInput.cctLocked`.
    */
   cctLocked: Record<string, boolean>;
+  /**
+   * The staged scene running right now, for the UI to narrate.
+   *
+   * `step` is the number of stages already applied, so it starts at 0 with only
+   * `targets` on the room and reaches `total` on the last stage — which is also
+   * when this clears.
+   */
+  sequence: {
+    sceneId: string;
+    /** The stage's own label once one has run, otherwise the scene's name. */
+    label: string;
+    step: number;
+    total: number;
+  } | null;
 
   loadSpace: (space: Space) => void;
   resetSpace: () => void;
@@ -200,9 +293,11 @@ export const useSim = create<SimStore>((set, get) => ({
   touchedProductIds: [],
   commanded: {},
   cctLocked: {},
+  sequence: null,
 
   loadSpace: (space) => {
     clearTweens();
+    cancelSequence();
     pendingOff.clear();
     liveTotals = { ...zeroTotals };
     lastRuleAt = 0;
@@ -238,6 +333,7 @@ export const useSim = create<SimStore>((set, get) => ({
       touchedProductIds: [],
       commanded,
       cctLocked: {},
+      sequence: null,
     });
 
     if (space.openingSceneId) get().applyScene(space.openingSceneId);
@@ -261,11 +357,16 @@ export const useSim = create<SimStore>((set, get) => ({
     const next = applyPatchToState(device, current, patchInput, fadeMs);
     if (!next) return;
 
+    // A hand on any control ends a running demonstration. Letting the remaining
+    // stages fire would mean the room overriding the presenter mid-sentence.
+    cancelSequence();
+
     set((s) => ({
       states: { ...s.states, [deviceId]: next },
       // The room no longer matches the scene the moment anything is touched by
       // hand — leaving the scene highlighted would be a lie.
       activeSceneId: null,
+      sequence: null,
       touchedProductIds: s.touchedProductIds.includes(device.productId)
         ? s.touchedProductIds
         : [...s.touchedProductIds, device.productId],
@@ -284,39 +385,41 @@ export const useSim = create<SimStore>((set, get) => ({
     const scene = space?.scenes.find((sc) => sc.id === sceneId);
     if (!space || !scene) return;
 
-    const nextStates = { ...states };
+    // Pressing any scene abandons a sequence already running. Half of one
+    // demonstration continuing underneath another is the worst possible state.
+    cancelSequence();
+
     const touched = new Set(get().touchedProductIds);
     const commanded = { ...get().commanded };
     const cctLocked = { ...get().cctLocked };
 
-    for (const [deviceId, raw] of Object.entries(scene.targets)) {
-      const device = space.devices.find((d) => d.id === deviceId);
-      const current = nextStates[deviceId];
-      if (!device || !current) continue;
+    const nextStates = applyTargetMap(
+      space,
+      states,
+      scene.targets,
+      scene.fadeMs,
+      commanded,
+      cctLocked,
+      touched,
+    );
 
-      const { fadeMs: perDevice, ...rest } = raw as StatePatch & { fadeMs?: number };
-      const patchInput = rest as StatePatch;
-
-      const level = commandedLevelFor(device, current, patchInput);
-      if (level !== undefined) commanded[deviceId] = level;
-
-      // A scene that names a colour owns it; a scene that stays silent hands
-      // the fixture back to circadian tuning. Only fixtures this scene mentions
-      // are reassigned — one it says nothing about keeps whatever it had.
-      if (device.kind === "light") {
-        cctLocked[deviceId] = "cct" in patchInput;
-      }
-
-      const next = applyPatchToState(
-        device,
-        current,
-        patchInput,
-        perDevice ?? scene.fadeMs,
-      );
-      if (next) {
-        nextStates[deviceId] = next;
-        touched.add(device.productId);
-      }
+    // Stage zero is `targets`; anything in `steps` follows on the wall clock.
+    let sequenceView: SimStore["sequence"] = null;
+    if (scene.steps && scene.steps.length > 0) {
+      const first = scene.steps[0];
+      pendingSequence = {
+        sceneId,
+        steps: scene.steps,
+        index: 0,
+        fireAt: tweenNow() + (first.holdMs ?? 900),
+        fadeMs: scene.fadeMs,
+      };
+      sequenceView = {
+        sceneId,
+        label: scene.name,
+        step: 0,
+        total: scene.steps.length,
+      };
     }
 
     set({
@@ -325,6 +428,7 @@ export const useSim = create<SimStore>((set, get) => ({
       touchedProductIds: [...touched],
       commanded,
       cctLocked,
+      sequence: sequenceView,
     });
   },
 
@@ -392,7 +496,60 @@ export const useSim = create<SimStore>((set, get) => ({
       }
     }
 
-    /* 3. Derived sensors -------------------------------------------- */
+    /* 3. Staged scenes ----------------------------------------------- */
+    // Cloned lazily — most ticks change neither, and the rule pass below has to
+    // see whatever a stage just commanded rather than the pre-tick value.
+    let commanded = state.commanded;
+    let cctLocked = state.cctLocked;
+    let sequenceUpdate: SimStore["sequence"] | undefined;
+    let touchedProducts: string[] | null = null;
+
+    // A `while`, not an `if`: one tick can span several holds when the tab has
+    // been backgrounded, or under the headless harness where dt is whatever the
+    // test says it is.
+    while (pendingSequence && realNow >= pendingSequence.fireAt) {
+      const { sceneId, steps, index, fadeMs } = pendingSequence;
+      const step = steps[index];
+
+      const touched: Set<string> = new Set(touchedProducts ?? state.touchedProductIds);
+      const stepCommanded = { ...commanded };
+      const stepCctLocked = { ...cctLocked };
+
+      states = applyTargetMap(
+        space,
+        states,
+        step.targets,
+        // A stage inherits the scene's fade unless a device names its own, so
+        // an author only writes a duration where it differs.
+        fadeMs,
+        stepCommanded,
+        stepCctLocked,
+        touched,
+      );
+      changed = true;
+      commanded = stepCommanded;
+      cctLocked = stepCctLocked;
+      touchedProducts = [...touched];
+
+      const last = index + 1 >= steps.length;
+      sequenceUpdate = last
+        ? null
+        : { sceneId, label: step.label, step: index + 1, total: steps.length };
+
+      if (last) {
+        pendingSequence = null;
+      } else {
+        pendingSequence = {
+          ...pendingSequence,
+          index: index + 1,
+          // Measured from when this stage was due, not from now — so one late
+          // frame does not stretch every hold after it.
+          fireAt: pendingSequence.fireAt + (steps[index + 1].holdMs ?? 900),
+        };
+      }
+    }
+
+    /* 4. Derived sensors -------------------------------------------- */
     sensorSimMinutes += simMinutes;
     if (realNow - lastSensorAt >= SENSOR_INTERVAL_MS) {
       const derived = deriveSensors(space, states, clockMin, sensorSimMinutes);
@@ -405,12 +562,9 @@ export const useSim = create<SimStore>((set, get) => ({
       lastSensorAt = realNow;
     }
 
-    /* 4. Rules ------------------------------------------------------- */
+    /* 5. Rules ------------------------------------------------------- */
     let events = state.events;
     let ruleMemory = state.ruleMemory;
-    // Cloned lazily — most ticks change neither.
-    let nextCommanded: Record<string, number> | null = null;
-    let nextCctLocked: Record<string, boolean> | null = null;
 
     if (realNow - lastRuleAt >= RULE_INTERVAL_MS) {
       const result = evaluateRules({
@@ -420,8 +574,11 @@ export const useSim = create<SimStore>((set, get) => ({
         nowMin: clockMin,
         enabled: state.ruleEnabled,
         memory: ruleMemory,
-        commanded: state.commanded,
-        cctLocked: state.cctLocked,
+        // `commanded`, not `state.commanded` — a stage that fired earlier in
+        // this same tick has already moved the ceiling, and daylight harvesting
+        // trimming against the pre-stage value would undo it immediately.
+        commanded,
+        cctLocked,
         daylightLux: interiorDaylightLux(space, states, clockMin),
       });
 
@@ -453,10 +610,10 @@ export const useSim = create<SimStore>((set, get) => ({
        * pass too late.
        */
       if (Object.keys(result.commandedUpdates).length > 0) {
-        nextCommanded = { ...state.commanded, ...result.commandedUpdates };
+        commanded = { ...commanded, ...result.commandedUpdates };
       }
       if (Object.keys(result.cctLockUpdates).length > 0) {
-        nextCctLocked = { ...state.cctLocked, ...result.cctLockUpdates };
+        cctLocked = { ...cctLocked, ...result.cctLockUpdates };
       }
 
       if (result.events.length > 0) {
@@ -467,7 +624,7 @@ export const useSim = create<SimStore>((set, get) => ({
       lastRuleMin = clockMin;
     }
 
-    /* 5. Energy ------------------------------------------------------ */
+    /* 6. Energy ------------------------------------------------------ */
     const power = powerSnapshot(space, states, clockMin);
     if (simMinutes > 0) {
       liveTotals = accumulate(liveTotals, power, simMinutes);
@@ -476,14 +633,16 @@ export const useSim = create<SimStore>((set, get) => ({
     const publish = realNow - lastPublishAt >= PUBLISH_INTERVAL_MS;
     if (publish) lastPublishAt = realNow;
 
-    /* 6. Commit ------------------------------------------------------ */
+    /* 7. Commit ------------------------------------------------------ */
     const next: Partial<SimStore> = {};
     if (changed) next.states = states;
     if (clockMin !== prevMin) next.clockMin = clockMin;
     if (events !== state.events) next.events = events;
     if (ruleMemory !== state.ruleMemory) next.ruleMemory = ruleMemory;
-    if (nextCommanded) next.commanded = nextCommanded;
-    if (nextCctLocked) next.cctLocked = nextCctLocked;
+    if (commanded !== state.commanded) next.commanded = commanded;
+    if (cctLocked !== state.cctLocked) next.cctLocked = cctLocked;
+    if (touchedProducts) next.touchedProductIds = touchedProducts;
+    if (sequenceUpdate !== undefined) next.sequence = sequenceUpdate;
     if (publish) {
       next.power = power;
       next.totals = { ...liveTotals };
