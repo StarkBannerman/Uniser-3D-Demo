@@ -15,6 +15,7 @@
 import type { FanState, LightState, ShadeState } from "@/lib/sim/types";
 import { useSim } from "@/lib/sim/store";
 import { roomAmbience } from "@/lib/sim/ambience";
+import { bladeRadPerSec } from "@/lib/sim/fan";
 import {
   clamp01,
   daylightLux,
@@ -47,20 +48,6 @@ const CAMERA: CameraSpec = {
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
 
-/**
- * Blade speed, radians per second.
- *
- * A real ceiling fan runs about 100–350 rpm across its range. Rendered at 60fps
- * that strobes badly, so this is deliberately slowed to a rate that reads as
- * "turning, and faster than the last setting" — which is the only thing the
- * viewer needs from it. Honest about being a representation rather than
- * wrong-looking and technically correct.
- */
-function bladeSpeed(state: FanState | undefined, speeds: number): number {
-  if (!state?.on) return 0;
-  return 1.6 + (3.4 * (state.speed - 1)) / Math.max(1, speeds - 1);
-}
-
 export function BedroomStage() {
   const states = useSim((s) => s.states);
   const clockMin = useSim((s) => s.clockMin);
@@ -87,7 +74,7 @@ export function BedroomStage() {
 
   const fanDevice = space?.devices.find((d) => d.id === "bd-fan");
   const fanSpeeds = fanDevice?.kind === "fan" ? fanDevice.speeds : 5;
-  const fanSpin = bladeSpeed(states["bd-fan"] as FanState | undefined, fanSpeeds);
+  const fanSpin = bladeRadPerSec(states["bd-fan"] as FanState | undefined, fanSpeeds);
 
   // The view beyond the glazing follows the simulated sun, so scrubbing the
   // clock changes what is outside the window as well as the light inside.

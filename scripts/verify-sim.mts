@@ -35,6 +35,7 @@ import { useSim } from "../lib/sim/store";
 import { livingRoomIllustrated as livingRoom } from "../lib/spaces/residential/living-room-illustrated";
 import { spaces } from "../lib/spaces";
 import { masterBedroom } from "../lib/spaces/residential/master-bedroom";
+import { bladeRadPerSec, MAX_BLADE_STEP_RAD } from "../lib/sim/fan";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail: string) {
@@ -760,6 +761,55 @@ check(
   "unlocks when the curtain seats",
   store.getState().busy === false,
   `${(600 * FRAME) / 1000}s total`,
+);
+
+/* ================================================================== */
+console.log("\n17. Fan speed is visibly different at every setting\n");
+
+const fanOn = (speed: number) => ({ on: true, speed, reverse: false });
+
+check(
+  "off means stopped",
+  bladeRadPerSec({ on: false, speed: 3, reverse: false }, 5) === 0,
+  "0 rad/s",
+);
+
+const rates = [1, 2, 3, 4, 5].map((n) => bladeRadPerSec(fanOn(n), 5));
+let ascending = true;
+for (let i = 1; i < rates.length; i++) if (rates[i] <= rates[i - 1]) ascending = false;
+check(
+  "every step is faster than the one below it",
+  ascending,
+  rates.map((r) => r.toFixed(1)).join(" → ") + " rad/s",
+);
+
+/**
+ * The regression this guards. The first version ran 1.6 to 5.0 rad/s — 15 rpm
+ * to 48 rpm — and a client could not tell the settings apart, which is the
+ * whole point of a five-speed control.
+ */
+check(
+  "top speed is several times the bottom",
+  rates[4] / rates[0] >= 3.5,
+  `${(rates[4] / rates[0]).toFixed(1)}x from speed 1 to speed 5`,
+);
+check(
+  "the range is a plausible ceiling fan",
+  (rates[0] * 60) / (2 * Math.PI) > 20 && (rates[4] * 60) / (2 * Math.PI) < 200,
+  `${((rates[0] * 60) / (2 * Math.PI)).toFixed(0)}–${((rates[4] * 60) / (2 * Math.PI)).toFixed(0)} rpm`,
+);
+
+// Three blades repeat every 120 degrees, so more than 60 degrees in a frame
+// aliases and the fan appears to run backwards.
+check(
+  "the per-frame cap stays inside the aliasing limit",
+  MAX_BLADE_STEP_RAD < Math.PI / 3,
+  `${((MAX_BLADE_STEP_RAD * 180) / Math.PI).toFixed(0)}° cap vs 60° limit`,
+);
+check(
+  "a healthy frame rate never hits the cap",
+  (rates[4] / 60) < MAX_BLADE_STEP_RAD,
+  `${((rates[4] / 60) * (180 / Math.PI)).toFixed(1)}° per frame at 60fps`,
 );
 
 console.log(

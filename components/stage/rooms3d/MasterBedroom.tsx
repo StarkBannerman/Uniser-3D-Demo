@@ -27,6 +27,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { COVE_Y, PALETTE, ROOM, materials } from "./materials";
 import { makeCurtainGeometry, makeCityTexture } from "./geometry";
+import { MAX_BLADE_STEP_RAD } from "@/lib/sim/fan";
 
 /* ------------------------------------------------------------------ */
 /* Plan                                                                */
@@ -576,7 +577,9 @@ function CeilingFan({ radiansPerSecond }: { radiansPerSecond: number }) {
   const { x, z, y } = PLAN.fan;
 
   useFrame((_, dt) => {
-    if (blades.current) blades.current.rotation.y += radiansPerSecond * dt;
+    if (!blades.current) return;
+    // See MAX_BLADE_STEP_RAD: a late frame under-turns rather than aliasing.
+    blades.current.rotation.y += Math.min(radiansPerSecond * dt, MAX_BLADE_STEP_RAD);
   });
 
   return (
@@ -591,7 +594,9 @@ function CeilingFan({ radiansPerSecond }: { radiansPerSecond: number }) {
         <primitive object={materials.metal} attach="material" />
       </mesh>
 
-      <group ref={blades} position={[0, y, 0]}>
+      {/* Named so the rotation can be read back out of the scene graph when
+          checking that speed actually reaches the blades. */}
+      <group ref={blades} name="fan-blades" position={[0, y, 0]}>
         <mesh castShadow>
           <cylinderGeometry args={[0.085, 0.1, 0.1, 24]} />
           <primitive object={materials.metal} attach="material" />
