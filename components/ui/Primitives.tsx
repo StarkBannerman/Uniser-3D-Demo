@@ -92,9 +92,14 @@ export function Toggle({
         on ? "bg-brass-600" : "bg-shell-700"
       } ${disabled ? "opacity-40" : "hover:brightness-110"}`}
     >
+      {/* `left-0.5` is load-bearing. Without an explicit inset the thumb falls
+          back to its static position, and a button's UA `text-align: center`
+          puts that at the track's midpoint — so the thumb started 22px in and
+          the "on" transform pushed it clean off the right-hand end, in both
+          states. Anchor it, then travel the track's width less both margins. */}
       <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-shell-100 shadow transition-transform duration-200 ${
-          on ? "translate-x-[22px]" : "translate-x-0.5"
+        className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-shell-100 shadow transition-transform duration-200 ${
+          on ? "translate-x-5" : "translate-x-0"
         }`}
       />
     </button>
