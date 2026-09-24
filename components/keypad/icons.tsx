@@ -21,6 +21,7 @@ export type IconName =
   | "curtain"
   | "snow"
   | "fan"
+  | "thermo"
   | "up"
   | "down";
 
@@ -99,6 +100,12 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M12 10.2c0-3 .8-5.2 3-5.2s2.6 3.4.6 4.6" />
       <path d="M13.6 13a5.6 5.6 0 0 1 4.6-2.4c2 0 2.7 2.6.8 3.7" />
       <path d="M10.7 13.3c-1.7 2.4-3.6 3.7-5.3 2.5s0-4 2.2-4" />
+    </>
+  ),
+  thermo: (
+    <>
+      <path d="M12 14.8V4.5a2 2 0 0 0-4 0v10.3a4 4 0 1 0 4 0z" />
+      <path d="M16 6h4M16 10h3M16 14h4" />
     </>
   ),
   up: <path d="M6 15l6-6 6 6" />,

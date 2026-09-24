@@ -115,17 +115,21 @@ export function Segmented<T extends string | number>({
   options,
   onChange,
   label,
+  disabled,
 }: {
   value: T;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <div
       role="group"
       aria-label={label}
-      className="flex gap-1 rounded-lg bg-shell-850 p-1"
+      className={`flex gap-1 rounded-lg bg-shell-850 p-1 ${
+        disabled ? "pointer-events-none opacity-40" : ""
+      }`}
     >
       {options.map((option) => {
         const active = option.value === value;
@@ -135,6 +139,7 @@ export function Segmented<T extends string | number>({
             type="button"
             onClick={() => onChange(option.value)}
             aria-pressed={active}
+            disabled={disabled}
             className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
               active
                 ? "bg-shell-700 text-shell-100"

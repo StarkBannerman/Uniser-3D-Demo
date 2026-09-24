@@ -28,7 +28,7 @@ import type {
 } from "@/lib/sim/types";
 import { formatClock } from "@/lib/sim/clock";
 import { cctGradient, Segmented, Slider, Toggle } from "@/components/ui/Primitives";
-import { Icon, sceneIcon } from "@/components/keypad/icons";
+import { Icon, sceneIcon, type IconName } from "@/components/keypad/icons";
 
 /**
  * Which half of the app is showing.
@@ -85,6 +85,38 @@ function curtainStatus(position: number): string {
   return `${Math.round(position)}% closed`;
 }
 
+/**
+ * One slider with an icon beside it.
+ *
+ * The phone has no room for "Brightness" and "Colour temperature" spelled out
+ * next to every fixture, and two unlabelled tracks stacked on a card is a
+ * guessing game. The icon says which is which in the width of a character.
+ *
+ * `trailing` keeps the tracks aligned: the brightness row ends in a toggle, so
+ * without a matching gap the colour row would run wider than the one above it.
+ */
+function SliderRow({
+  icon,
+  hint,
+  trailing,
+  children,
+}: {
+  icon: IconName;
+  hint: string;
+  trailing?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="shrink-0 text-shell-500" title={hint} aria-hidden>
+        <Icon name={icon} />
+      </span>
+      <div className="min-w-0 flex-1">{children}</div>
+      {trailing ?? <span className="h-6 w-11 shrink-0" />}
+    </div>
+  );
+}
+
 function Row({
   label,
   value,
@@ -112,6 +144,7 @@ export function AppPanel({ view }: { view: AppView }) {
   const states = useSim((s) => s.states);
   const activeSceneId = useSim((s) => s.activeSceneId);
   const sequence = useSim((s) => s.sequence);
+  const busy = useSim((s) => s.busy);
   const applyScene = useSim((s) => s.applyScene);
   const patch = useSim((s) => s.patch);
 
@@ -126,6 +159,18 @@ export function AppPanel({ view }: { view: AppView }) {
     <div className="pb-4">
       <Phone title={space.name}>
 
+        {/* A locked interface with no explanation reads as a crash. This is the
+            difference between "the room is doing what you asked" and "nothing
+            happened when I tapped". */}
+        {busy && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-brass-700/40 bg-brass-600/10 px-2.5 py-1.5">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brass-400" />
+            <span className="text-[10px] text-brass-300">
+              {sequence ? sequence.label : "Running…"}
+            </span>
+          </div>
+        )}
+
         {view === "scenes" && (
           <div className="space-y-2">
             {/* Every scene, including the ones the four-gang plate could not
@@ -139,11 +184,12 @@ export function AppPanel({ view }: { view: AppView }) {
                     type="button"
                     onClick={() => applyScene(scene.id)}
                     aria-pressed={active}
+                    disabled={busy && !active}
                     className={`flex flex-col items-start gap-1.5 rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
                       active
                         ? "border-brass-600/70 bg-brass-600/15 text-brass-300"
                         : "border-shell-800 bg-shell-850/60 text-shell-300 hover:border-shell-700"
-                    }`}
+                    } ${busy && !active ? "pointer-events-none opacity-40" : ""}`}
                   >
                     <Icon name={sceneIcon(scene)} />
                     <span className="text-[11px] font-medium leading-tight">
@@ -154,11 +200,9 @@ export function AppPanel({ view }: { view: AppView }) {
               })}
             </div>
             {sequence ? (
-              <div className="rounded-xl border border-brass-700/50 bg-brass-600/10 px-3 py-2">
-                <div className="text-[10px] uppercase tracking-wider text-brass-400">
-                  {sequence.label}
-                </div>
-                <div className="mt-1 h-1 overflow-hidden rounded-full bg-shell-800">
+              // The stage is already named in the banner above; this is the bar.
+              <div className="rounded-xl border border-brass-700/50 bg-brass-600/10 px-3 py-2.5">
+                <div className="h-1 overflow-hidden rounded-full bg-shell-800">
                   <div
                     className="h-full bg-brass-500 transition-[width] duration-500"
                     style={{ width: `${(sequence.step / sequence.total) * 100}%` }}
@@ -189,34 +233,40 @@ export function AppPanel({ view }: { view: AppView }) {
                   label={device.name}
                   value={state.on ? `${Math.round(state.level)}%` : "Off"}
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <Slider
-                        label={`${device.name} brightness`}
-                        value={state.level}
-                        min={1}
-                        max={100}
-                        disabled={!state.on}
-                        onChange={(level) => patch(device.id, { level })}
+                  <SliderRow
+                    icon="sun"
+                    hint="Brightness"
+                    trailing={
+                      <Toggle
+                        on={state.on}
+                        disabled={busy}
+                        label={`${device.name} power`}
+                        onChange={(on) => patch(device.id, { on }, 700)}
                       />
-                    </div>
-                    <Toggle
-                      on={state.on}
-                      label={`${device.name} power`}
-                      onChange={(on) => patch(device.id, { on }, 700)}
-                    />
-                  </div>
-                  {device.tunable && (
+                    }
+                  >
                     <Slider
-                      label={`${device.name} colour temperature`}
-                      value={state.cct}
-                      min={device.tunable.minK}
-                      max={device.tunable.maxK}
-                      step={50}
-                      disabled={!state.on}
-                      fill={cctGradient(device.tunable.minK, device.tunable.maxK)}
-                      onChange={(cct) => patch(device.id, { cct })}
+                      label={`${device.name} brightness`}
+                      value={state.level}
+                      min={1}
+                      max={100}
+                      disabled={busy || !state.on}
+                      onChange={(level) => patch(device.id, { level })}
                     />
+                  </SliderRow>
+                  {device.tunable && (
+                    <SliderRow icon="dim" hint="Colour temperature">
+                      <Slider
+                        label={`${device.name} colour temperature`}
+                        value={state.cct}
+                        min={device.tunable.minK}
+                        max={device.tunable.maxK}
+                        step={50}
+                        disabled={busy || !state.on}
+                        fill={cctGradient(device.tunable.minK, device.tunable.maxK)}
+                        onChange={(cct) => patch(device.id, { cct })}
+                      />
+                    </SliderRow>
                   )}
                 </Row>
               );
@@ -244,6 +294,7 @@ export function AppPanel({ view }: { view: AppView }) {
                           </span>
                         </div>
                         <Segmented
+                          disabled={busy}
                           label={`${shade.name} ${layer}`}
                           value={s[layer] > 50 ? "closed" : "open"}
                           options={[
@@ -271,23 +322,27 @@ export function AppPanel({ view }: { view: AppView }) {
                     label={climate.name}
                     value={`${s.setpointC.toFixed(0)}°C`}
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="min-w-0 flex-1">
-                        <Slider
-                          label={`${climate.name} setpoint`}
-                          value={s.setpointC}
-                          min={climate.minC}
-                          max={climate.maxC}
-                          disabled={!s.on}
-                          onChange={(setpointC) => patch(climate.id, { setpointC })}
+                    <SliderRow
+                      icon="thermo"
+                      hint="Target temperature"
+                      trailing={
+                        <Toggle
+                          on={s.on}
+                          disabled={busy}
+                          label={`${climate.name} power`}
+                          onChange={(on) => patch(climate.id, { on })}
                         />
-                      </div>
-                      <Toggle
-                        on={s.on}
-                        label={`${climate.name} power`}
-                        onChange={(on) => patch(climate.id, { on })}
+                      }
+                    >
+                      <Slider
+                        label={`${climate.name} setpoint`}
+                        value={s.setpointC}
+                        min={climate.minC}
+                        max={climate.maxC}
+                        disabled={busy || !s.on}
+                        onChange={(setpointC) => patch(climate.id, { setpointC })}
                       />
-                    </div>
+                    </SliderRow>
                     <div className="text-[10px] text-shell-500">
                       Room is {s.currentC.toFixed(1)}°C
                     </div>
@@ -314,11 +369,12 @@ export function AppPanel({ view }: { view: AppView }) {
                               type="button"
                               onClick={() => patch(fan.id, { speed, on: true })}
                               aria-pressed={s.on && s.speed === speed}
+                              disabled={busy}
                               className={`flex-1 rounded-md py-1.5 text-[11px] font-medium transition-colors ${
                                 s.on && s.speed === speed
                                   ? "bg-brass-600/25 text-brass-300"
                                   : "bg-shell-800 text-shell-400 hover:text-shell-200"
-                              }`}
+                              } ${busy ? "pointer-events-none opacity-40" : ""}`}
                             >
                               {speed}
                             </button>
@@ -327,6 +383,7 @@ export function AppPanel({ view }: { view: AppView }) {
                       </div>
                       <Toggle
                         on={s.on}
+                        disabled={busy}
                         label={`${fan.name} power`}
                         onChange={(on) => patch(fan.id, { on })}
                       />

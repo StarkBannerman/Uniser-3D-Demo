@@ -683,6 +683,85 @@ check(
   `${store.getState().events.length - eventsBefore} event(s) logged`,
 );
 
+/* ================================================================== */
+console.log("\n16. Input locks while a press plays out, and unlocks after\n");
+
+store.getState().loadSpace(masterBedroom);
+check(
+  "nothing is locked at rest",
+  store.getState().busy === false,
+  `busy=${store.getState().busy} after load`,
+);
+
+// Good Night is the long one: four stages, a nine-second curtain inside it.
+store.getState().applyScene("goodnight");
+check(
+  "pressing a staged scene locks",
+  store.getState().busy === true,
+  `busy=${store.getState().busy}`,
+);
+
+run(300); // ~5s
+check(
+  "still locked while the sequence is mid-flight",
+  store.getState().busy === true,
+  `${(300 * FRAME) / 1000}s in`,
+);
+
+run(1200); // ~20s more, past the whole sequence
+check(
+  "unlocks once the last stage has landed",
+  store.getState().busy === false,
+  `${(1500 * FRAME) / 1000}s total`,
+);
+
+/**
+ * The lock must never come from the rule engine.
+ *
+ * Daylight harvesting and circadian tuning restart fades every couple of
+ * hundred milliseconds. If those raised the flag the demo would be unclickable
+ * for as long as it was running, which is the failure worth guarding against.
+ */
+store.getState().setClock(12 * 60);
+run(600);
+check(
+  "rules firing in the background do not lock anything",
+  store.getState().busy === false,
+  "ten seconds of rule activity, still unlocked",
+);
+
+// A colour-temperature drag is instantaneous, so it must not lock at all.
+store.getState().patch("bd-cove", { cct: 3000 });
+check(
+  "a slider drag does not lock",
+  store.getState().busy === false,
+  `busy=${store.getState().busy}`,
+);
+
+// A curtain does, for as long as its motor actually runs. Open it first —
+// Good Night left the blackout closed, and a patch that changes nothing is
+// correctly not worth locking for.
+store.getState().patch("bd-curtain", { blackout: 0 });
+run(700);
+store.getState().patch("bd-curtain", { blackout: 100 });
+check(
+  "a curtain press locks",
+  store.getState().busy === true,
+  `busy=${store.getState().busy}`,
+);
+run(200); // ~3.3s of a 9s travel
+check(
+  "still locked mid-travel",
+  store.getState().busy === true,
+  `${(200 * FRAME) / 1000}s into a 9s travel`,
+);
+run(400); // past it
+check(
+  "unlocks when the curtain seats",
+  store.getState().busy === false,
+  `${(600 * FRAME) / 1000}s total`,
+);
+
 console.log(
   failures === 0
     ? `\n✅  All checks passed.\n`

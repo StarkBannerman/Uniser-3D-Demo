@@ -20,6 +20,7 @@ import type {
   DeviceState,
   LightDevice,
   LightState,
+  Scene,
   SceneStep,
   SensorDevice,
   SensorState,
@@ -122,6 +123,24 @@ let pendingSequence: {
 
 function cancelSequence(): void {
   pendingSequence = null;
+}
+
+/**
+ * Wall-clock time the interface unlocks, from `tweenNow()`.
+ *
+ * Non-reactive for the same reason the tweens are: it is compared once a frame
+ * and nothing subscribes to the number itself. `busy` on the store is the
+ * boolean components actually watch.
+ */
+let busyUntil = 0;
+
+/** A little slack so a control does not re-enable a frame before it lands. */
+const BUSY_TAIL_MS = 120;
+
+function holdInput(durationMs: number): boolean {
+  if (durationMs <= 0) return false;
+  busyUntil = Math.max(busyUntil, tweenNow() + durationMs + BUSY_TAIL_MS);
+  return true;
 }
 
 /**
@@ -262,6 +281,15 @@ export interface SimStore {
    * `targets` on the room and reaches `total` on the last stage — which is also
    * when this clears.
    */
+  /**
+   * A press is still playing out, so the interface is locked.
+   *
+   * Set only by `applyScene` and `patch` — the two things a person can do — and
+   * never by the rule engine. Rules adjust fixtures constantly in the
+   * background, and letting those raise this would leave the demo permanently
+   * unclickable.
+   */
+  busy: boolean;
   sequence: {
     sceneId: string;
     /** The stage's own label once one has run, otherwise the scene's name. */
@@ -297,11 +325,13 @@ export const useSim = create<SimStore>((set, get) => ({
   touchedProductIds: [],
   commanded: {},
   cctLocked: {},
+  busy: false,
   sequence: null,
 
   loadSpace: (space) => {
     clearTweens();
     cancelSequence();
+    busyUntil = 0;
     pendingOff.clear();
     liveTotals = { ...zeroTotals };
     lastRuleAt = 0;
@@ -337,10 +367,17 @@ export const useSim = create<SimStore>((set, get) => ({
       touchedProductIds: [],
       commanded,
       cctLocked: {},
+      busy: false,
       sequence: null,
     });
 
     if (space.openingSceneId) get().applyScene(space.openingSceneId);
+
+    // The opening scene is not a press. It fades in over a couple of seconds
+    // and the presenter should be able to reach for anything the moment the
+    // room appears, so the lock that `applyScene` just armed is released again.
+    busyUntil = 0;
+    set({ busy: false });
   },
 
   resetSpace: () => {
@@ -358,12 +395,14 @@ export const useSim = create<SimStore>((set, get) => ({
     // Touching a colour slider by hand takes that fixture off circadian tuning,
     // or the curve would quietly undo the adjustment a few seconds later.
     const locksCct = device.kind === "light" && "cct" in patchInput;
+    const duration = patchDurationMs(device, current, patchInput, fadeMs);
     const next = applyPatchToState(device, current, patchInput, fadeMs);
     if (!next) return;
 
     // A hand on any control ends a running demonstration. Letting the remaining
     // stages fire would mean the room overriding the presenter mid-sentence.
     cancelSequence();
+    const locked = holdInput(duration);
 
     set((s) => ({
       states: { ...s.states, [deviceId]: next },
@@ -371,6 +410,7 @@ export const useSim = create<SimStore>((set, get) => ({
       // hand — leaving the scene highlighted would be a lie.
       activeSceneId: null,
       sequence: null,
+      busy: locked || s.busy,
       touchedProductIds: s.touchedProductIds.includes(device.productId)
         ? s.touchedProductIds
         : [...s.touchedProductIds, device.productId],
@@ -392,6 +432,10 @@ export const useSim = create<SimStore>((set, get) => ({
     // Pressing any scene abandons a sequence already running. Half of one
     // demonstration continuing underneath another is the worst possible state.
     cancelSequence();
+
+    // Measured before anything is applied, while `states` still holds the
+    // positions every fade is starting from.
+    const locked = holdInput(sceneDurationMs(space, states, scene));
 
     const touched = new Set(get().touchedProductIds);
     const commanded = { ...get().commanded };
@@ -443,6 +487,7 @@ export const useSim = create<SimStore>((set, get) => ({
       touchedProductIds: [...touched],
       commanded,
       cctLocked,
+      busy: locked,
       sequence: sequenceView,
       ...(clockMin === undefined ? {} : { clockMin }),
     });
@@ -658,6 +703,7 @@ export const useSim = create<SimStore>((set, get) => ({
     if (commanded !== state.commanded) next.commanded = commanded;
     if (cctLocked !== state.cctLocked) next.cctLocked = cctLocked;
     if (touchedProducts) next.touchedProductIds = touchedProducts;
+    if (state.busy && realNow >= busyUntil) next.busy = false;
     if (sequenceUpdate !== undefined) next.sequence = sequenceUpdate;
     if (publish) {
       next.power = power;
@@ -801,6 +847,100 @@ function applyPatchToState(
   }
 
   return touched ? (next as unknown as DeviceState) : null;
+}
+
+/* ------------------------------------------------------------------ */
+/* How long an action takes                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Milliseconds until a patch has finished moving.
+ *
+ * Derived from the same `resolveFade` the tweens use, so the lock and the
+ * animation can never disagree about when something has landed.
+ */
+function patchDurationMs(
+  device: Device,
+  current: DeviceState,
+  patchInput: StatePatch,
+  fadeMs?: number,
+): number {
+  let longest = 0;
+  for (const [prop, value] of Object.entries(patchInput)) {
+    const from = (current as unknown as Record<string, unknown>)[prop];
+    if (typeof value !== "number" || typeof from !== "number") {
+      // A light switching on or off ramps over the requested fade even though
+      // `on` itself is a boolean.
+      if (device.kind === "light" && prop === "on" && from !== value) {
+        longest = Math.max(longest, fadeMs ?? 0);
+      }
+      continue;
+    }
+    if (from === value) continue;
+    longest = Math.max(longest, resolveFade(device, prop, from, value, fadeMs));
+  }
+  return longest;
+}
+
+/**
+ * Milliseconds until a whole scene has finished, stages and all.
+ *
+ * Walked ahead rather than watched: the rule engine starts fades of its own
+ * every couple of hundred milliseconds, so "is anything tweening?" would leave
+ * the interface locked more or less permanently. Reading the answer off the
+ * scene definition keeps the lock tied to what the presenter actually pressed.
+ *
+ * Shade positions are projected forward through the stages, because a curtain's
+ * travel time depends on how far it has to go and a later stage may be starting
+ * from where an earlier one left it.
+ */
+export function sceneDurationMs(
+  space: Space,
+  states: Record<string, DeviceState>,
+  scene: Scene,
+): number {
+  const projected = new Map<string, Record<string, number>>();
+
+  const stageDuration = (
+    targets: Record<string, StatePatch & { fadeMs?: number }>,
+  ): number => {
+    let longest = 0;
+    for (const [deviceId, raw] of Object.entries(targets)) {
+      const device = space.devices.find((d) => d.id === deviceId);
+      const current = states[deviceId];
+      if (!device || !current) continue;
+
+      const { fadeMs: perDevice, ...rest } = raw as StatePatch & { fadeMs?: number };
+      const base = { ...(current as object), ...(projected.get(deviceId) ?? {}) };
+
+      longest = Math.max(
+        longest,
+        patchDurationMs(
+          device,
+          base as unknown as DeviceState,
+          rest as StatePatch,
+          perDevice ?? scene.fadeMs,
+        ),
+      );
+
+      if (device.kind === "shade") {
+        const next = { ...(projected.get(deviceId) ?? {}) };
+        for (const layer of device.layers) {
+          if (typeof rest[layer] === "number") next[layer] = rest[layer] as number;
+        }
+        projected.set(deviceId, next);
+      }
+    }
+    return longest;
+  };
+
+  let total = stageDuration(scene.targets);
+  let offset = 0;
+  for (const step of scene.steps ?? []) {
+    offset += step.holdMs ?? 900;
+    total = Math.max(total, offset + stageDuration(step.targets));
+  }
+  return total;
 }
 
 /* ------------------------------------------------------------------ */

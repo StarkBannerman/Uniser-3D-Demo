@@ -10,16 +10,16 @@
  *
  * The track is painted with the actual day: night, the sunrise band, daylight,
  * the sunset band, night again, from the space's own coordinates.
+ *
+ * Scrubbing by hand is the only way the clock moves now. The playback rates
+ * (paused, 1x, fast, a day in sixty seconds) are gone from the bar — the store
+ * still has `setRate`, so they are a component away if an unattended loop is
+ * ever wanted.
  */
 
 import type { SpaceEnvironment } from "@/lib/sim/types";
 import { useSim } from "@/lib/sim/store";
-import {
-  CLOCK_RATES,
-  MINUTES_PER_DAY,
-  formatClock,
-  outdoorTemperature,
-} from "@/lib/sim/clock";
+import { MINUTES_PER_DAY, formatClock, outdoorTemperature } from "@/lib/sim/clock";
 import { Slider } from "@/components/ui/Primitives";
 
 const NIGHT = "#12141a";
@@ -45,9 +45,7 @@ function dayTrack(env: SpaceEnvironment): string {
 export function ClockScrubber() {
   const space = useSim((s) => s.space);
   const clockMin = useSim((s) => s.clockMin);
-  const rate = useSim((s) => s.rate);
   const setClock = useSim((s) => s.setClock);
-  const setRate = useSim((s) => s.setRate);
   const resetSpace = useSim((s) => s.resetSpace);
 
   if (!space) return null;
@@ -76,26 +74,6 @@ export function ClockScrubber() {
         />
       </div>
 
-      <div className="flex items-center gap-1 rounded-lg bg-shell-850 p-1">
-        {CLOCK_RATES.map((option) => {
-          const active = Math.abs(rate - option.value) < 1e-6;
-          return (
-            <button
-              key={option.label}
-              type="button"
-              onClick={() => setRate(option.value)}
-              aria-pressed={active}
-              className={`rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-                active
-                  ? "bg-shell-700 text-shell-100"
-                  : "text-shell-400 hover:text-shell-200"
-              }`}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
 
       <button
         type="button"
