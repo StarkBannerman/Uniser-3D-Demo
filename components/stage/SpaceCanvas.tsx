@@ -83,7 +83,17 @@ export function SpaceCanvas() {
    */
   if (space.renderer === "3d") {
     return (
-      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black ring-1 ring-shell-800">
+      /**
+       * Fills whatever the parent gives it rather than holding 16:9.
+       *
+       * A real-time room has no fixed aspect to preserve — the camera's field of
+       * view is vertical, so a wider frame simply shows more room. Letting it
+       * fill means the stage takes every pixel the layout is not using, which on
+       * a laptop is most of the lower half of the screen. The illustrated
+       * renderer below still keeps 16:9, because that one is compositing a flat
+       * image whose aspect is fixed.
+       */
+      <div className="relative h-full min-h-[340px] w-full overflow-hidden rounded-xl bg-black ring-1 ring-shell-800">
         {space.model === "master-bedroom" ? (
           <BedroomStage />
         ) : space.model === "living-room" ? (

@@ -332,8 +332,8 @@ export function AppPanel() {
       </Phone>
 
       <p className="mx-auto mt-3 max-w-[300px] text-[10px] leading-snug text-shell-500">
-        The phone, the keypad and the room are one state, not three copies of it.
-        Move anything here and watch the wall panel follow.
+        The phone, the Device tab and the room are one state, not three copies of
+        it. Move anything on either tab and the room follows it live.
       </p>
     </div>
   );

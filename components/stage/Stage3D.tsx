@@ -17,9 +17,9 @@
  * image gives a flat grey haze instead of a glow.
  */
 
-import { Suspense, type ReactNode } from "react";
+import { Suspense, useLayoutEffect, type ReactNode } from "react";
 import * as THREE from "three";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
 import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
@@ -82,6 +82,45 @@ function ProceduralEnvironment() {
 }
 
 /**
+ * Hold the horizontal field of view fixed as the viewport changes shape.
+ *
+ * A perspective camera's `fov` is vertical, so by default a taller viewport
+ * crops the sides. That is exactly backwards for a room: the framing was chosen
+ * so the wardrobe, the bed and the run of glazing are all in shot, and each of
+ * those carries a lighting group the demo has to show. Letting a layout change
+ * quietly crop two of them away would be a regression nobody would think to
+ * look for.
+ *
+ * So `CameraSpec.fov` is read as the vertical field at 16:9 — the shape it was
+ * composed against — and re-solved for whatever aspect the canvas actually gets.
+ * A taller frame then gains ceiling and floor instead of losing walls.
+ */
+const REFERENCE_ASPECT = 16 / 9;
+
+function LockHorizontalFov({ fovAt16x9 }: { fovAt16x9: number }) {
+  const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
+
+  useLayoutEffect(() => {
+    if (!(camera instanceof THREE.PerspectiveCamera)) return;
+    const aspect = size.width / Math.max(1, size.height);
+    const halfHorizontal =
+      Math.tan(THREE.MathUtils.degToRad(fovAt16x9) / 2) * REFERENCE_ASPECT;
+    const vertical = 2 * Math.atan(halfHorizontal / aspect);
+    // Clamped so an extreme window shape cannot produce a fisheye or a
+    // pinhole; past these the framing is wrong either way.
+    camera.fov = THREE.MathUtils.clamp(
+      THREE.MathUtils.radToDeg(vertical),
+      28,
+      82,
+    );
+    camera.updateProjectionMatrix();
+  }, [camera, size.width, size.height, fovAt16x9]);
+
+  return null;
+}
+
+/**
  * Note on exposure: it is not a prop here.
  *
  * With tone mapping moved into the composer, `renderer.toneMappingExposure` is
@@ -136,6 +175,7 @@ export function Stage3D({
       }}
     >
       <Suspense fallback={null}>
+        <LockHorizontalFov fovAt16x9={camera.fov} />
         <ProceduralEnvironment />
         {/* The room's fill, scaled by how much light is actually in it. Props
             rather than `args` so a change updates the light instead of

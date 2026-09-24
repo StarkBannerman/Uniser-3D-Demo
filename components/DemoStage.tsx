@@ -3,29 +3,47 @@
 /**
  * The demo screen.
  *
- * Laid out for a tablet held in landscape at a client's table: the room as
- * large as it can be, the wall keypad beside it where it would be beside the
- * door, and the phone in a rail that never pushes the room off screen.
+ * Laid out for a tablet held in landscape at a client's table: the room takes
+ * every pixel the rest of the layout is not using, and the two interfaces that
+ * drive it share a rail that never pushes it off screen.
  *
- * Two interfaces, not three. Both are things a client will actually touch, and
- * pressing either moves the other — which is the whole cross-platform claim,
- * demonstrated rather than asserted.
+ * App and Device are tabs rather than a split because they are two ways to do
+ * one job, not two jobs. Pressing either moves the room, because there is one
+ * state rather than three copies of it.
+ *
+ * The wall keypad is still built — `components/keypad/Keypad.tsx`, with its
+ * layouts and finishes — and is one import away. It comes back when the panel
+ * itself is what is being sold.
  */
 
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useSim } from "@/lib/sim/store";
 import { useTicker } from "@/lib/sim/useTicker";
 import { getSpace } from "@/lib/spaces";
 import { SpaceCanvas } from "@/components/stage/SpaceCanvas";
 import { ScenePad, SceneCue } from "@/components/controls/ScenePad";
-import { SensorStrip } from "@/components/panels/SensorStrip";
+import { DeviceControls } from "@/components/controls/DeviceControls";
 import { ClockScrubber } from "@/components/presenter/ClockScrubber";
-import { Keypad } from "@/components/keypad/Keypad";
 import { AppPanel } from "@/components/mobile/AppPanel";
+
+/**
+ * The phone first, the per-device list behind it.
+ *
+ * App leads because it is the interface a client recognises and the one that
+ * matches the keypad beside the room. Device is the same state through one
+ * control per fixture — the view an architect or an integrator asks for.
+ */
+const TABS = [
+  { id: "app", label: "App" },
+  { id: "device", label: "Device" },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
 
 export function DemoStage({ spaceId }: { spaceId: string }) {
   const loadSpace = useSim((s) => s.loadSpace);
   const loadedId = useSim((s) => s.space?.id);
+  const [tab, setTab] = useState<TabId>("app");
 
   useTicker();
 
@@ -42,11 +60,8 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
   }, [spaceId, loadSpace]);
 
   const space = useSim((s) => s.space);
-  /**
-   * 3D spaces are driven from the wall keypad rather than the wide scene pad —
-   * the panel is the product, and showing both would be two controls for one job.
-   */
-  const keypadLed = space?.renderer === "3d";
+  /** A 3D room carries its own scene control on the phone; a flat one does not. */
+  const roomIs3D = space?.renderer === "3d";
 
   // The store loads in an effect, so the first paint has no space yet.
   if (!space || loadedId !== spaceId) {
@@ -80,41 +95,45 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
         <ClockScrubber />
       </header>
 
+      {/* `min-h-0` on every rung of this ladder is what lets the room grow. A
+          flex child defaults to min-height:auto, which refuses to shrink below
+          its content and quietly caps the stage's height. */}
       <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:flex-row lg:overflow-hidden">
-        <div className="u-scroll flex min-w-0 flex-1 flex-col gap-3 lg:overflow-y-auto">
-          {/* The keypad sits beside the room, as it would on the wall beside the
-              door. Spaces without a 3D room keep the wider scene pad below. */}
-          {keypadLed ? (
-            <div className="flex flex-col gap-3 lg:flex-row">
-              <div className="min-w-0 flex-1">
-                <SpaceCanvas />
-              </div>
-              {/* Keypad only. The status card under it restated the active
-                  scene, the curtain position and the setpoint — all of which
-                  the phone already shows, live. */}
-              <div className="flex w-full shrink-0 flex-col gap-3 lg:w-[248px]">
-                <Keypad />
-              </div>
-            </div>
-          ) : (
-            <SpaceCanvas />
-          )}
-          <SensorStrip />
-          {!keypadLed && (
-            <div className="space-y-2">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+          {/* A 3D room gets the whole panel. Its scenes live on the phone, so
+              there is nothing to sit beside it; a space without a 3D room still
+              needs the wide scene pad underneath. */}
+          <SpaceCanvas />
+          {!roomIs3D && (
+            <div className="shrink-0 space-y-2">
               <ScenePad />
               <SceneCue />
             </div>
           )}
         </div>
 
-        {/* The phone. The per-device control list that used to sit beside it
-            drove the same state through a second set of sliders, so it was two
-            interfaces for one job — and the phone is the one a client
-            recognises. `components/controls/DeviceControls.tsx` is still on
-            disk if the engineering-facing view is wanted back. */}
-        <aside className="u-scroll flex w-full shrink-0 flex-col overflow-y-auto pr-1 lg:w-[368px]">
-          <AppPanel />
+        <aside className="flex w-full shrink-0 flex-col lg:w-[368px]">
+          <div className="mb-2 flex shrink-0 gap-1 rounded-lg bg-shell-850 p-1">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                aria-pressed={tab === t.id}
+                className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                  tab === t.id
+                    ? "bg-shell-700 text-shell-100"
+                    : "text-shell-400 hover:text-shell-200"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="u-scroll min-h-0 flex-1 overflow-y-auto pr-1 pb-4">
+            {tab === "app" && <AppPanel />}
+            {tab === "device" && <DeviceControls />}
+          </div>
         </aside>
       </main>
     </div>
