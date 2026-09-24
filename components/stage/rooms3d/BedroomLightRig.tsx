@@ -54,9 +54,16 @@ const GAIN = {
    */
   wardrobe: 26,
   wardrobeEmissive: 4,
-  /** Path lighting. Low by definition — if it lights the room it has failed. */
-  night: 2.6,
-  nightEmissive: 2.4,
+  /**
+   * Path lighting.
+   *
+   * Low by definition — if it lights the room it has failed. But it is the one
+   * fixture left on at the end of Good Night, so it has to be unmistakably
+   * *doing something* to the floor: a strip nobody can see is indistinguishable
+   * from a room that went dark, which loses the point of the last stage.
+   */
+  night: 11,
+  nightEmissive: 3.2,
 } as const;
 
 function colourOf(state: LightState): THREE.Color {

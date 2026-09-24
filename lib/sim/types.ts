@@ -460,6 +460,32 @@ export interface SpaceBaseline {
   note: string;
 }
 
+/**
+ * Which physical keypad is on this room's wall.
+ *
+ * The requirement document asks for different keypad designs and different
+ * finishes, and it is asking for a commercial reason: the panel is the product
+ * a client actually buys and touches. So the layout is a property of the space,
+ * not of the component — a bedroom gets the eight-gang icon plate, a room with
+ * seven scenes and no fan gets the scene column.
+ */
+export type KeypadLayout = "column" | "grid";
+export type KeypadFinish = "graphite" | "brass" | "ivory";
+
+export interface KeypadSpec {
+  layout: KeypadLayout;
+  /** Starting finish. The presenter can change it live — that is the demo. */
+  finish: KeypadFinish;
+  /**
+   * Scene ids to engrave on the plate, in order.
+   *
+   * A real keypad has a fixed number of buttons, so a room with more scenes
+   * than gangs surfaces a chosen subset here and leaves the rest to the app.
+   * Omitted means every scene, which is what the column layout does.
+   */
+  scenes?: string[];
+}
+
 export interface Space {
   id: string;
   name: string;
@@ -487,6 +513,8 @@ export interface Space {
   devices: Device[];
   scenes: Scene[];
   rules: Rule[];
+  /** The wall keypad. Defaults to the scene column when omitted. */
+  keypad?: KeypadSpec;
   /** State every device starts in, and what "Reset space" returns to. */
   defaults: Record<string, StatePatch>;
   /** Scene applied when the space first loads. */

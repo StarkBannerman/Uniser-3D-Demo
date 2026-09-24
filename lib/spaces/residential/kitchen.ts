@@ -28,6 +28,14 @@ export const kitchen: Space = {
     "A 38 m² kitchen in real-time 3D — under-cabinet task lighting, island pendants, ceiling downlights and a plinth accent, on a motorized blind.",
   renderer: "3d",
   model: "kitchen",
+  /**
+   * Hidden from the picker while the bedroom is the room being shown.
+   *
+   * Not deleted and not `renderer`-downgraded: the route still resolves and the
+   * space still builds, so `/demo/kitchen` keeps working for anyone who has
+   * the link. Drop this flag to put it back on the home page.
+   */
+  unlisted: true,
 
   zones: [{ id: "kt-main", name: "Kitchen", areaM2: AREA }],
 

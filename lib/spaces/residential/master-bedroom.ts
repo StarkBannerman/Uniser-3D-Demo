@@ -40,6 +40,20 @@ export const masterBedroom: Space = {
 
   zones: [{ id: "bd-main", name: "Master Bedroom", areaM2: AREA }],
 
+  /**
+   * An eight-gang icon plate beside the door: four scenes over Lights,
+   * Curtains, AC and Fan, with the dimmer rocker below.
+   *
+   * Six scenes and four gangs, so Relax and Night live on the app. That is the
+   * real constraint in every install — a keypad has as many buttons as it has
+   * buttons — and showing it is more useful than pretending otherwise.
+   */
+  keypad: {
+    layout: "grid",
+    finish: "graphite",
+    scenes: ["morning", "reading", "evening", "goodnight"],
+  },
+
   devices: [
     {
       id: "bd-general",

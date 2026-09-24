@@ -10,7 +10,6 @@
  */
 
 import { useLayoutEffect, useState } from "react";
-import Link from "next/link";
 import { useSim } from "@/lib/sim/store";
 import { useTicker } from "@/lib/sim/useTicker";
 import { getSpace } from "@/lib/spaces";
@@ -23,10 +22,12 @@ import { EnergyPanel } from "@/components/panels/EnergyPanel";
 import { AutomationPanel } from "@/components/panels/AutomationPanel";
 import { ClockScrubber } from "@/components/presenter/ClockScrubber";
 import { Keypad } from "@/components/keypad/Keypad";
+import { AppPanel } from "@/components/mobile/AppPanel";
 import { StatusCard } from "@/components/panels/StatusCard";
 
 const TABS = [
   { id: "controls", label: "Controls" },
+  { id: "app", label: "App" },
   { id: "products", label: "Products" },
   { id: "energy", label: "Energy" },
   { id: "automation", label: "Automation" },
@@ -73,12 +74,12 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-shell-800 bg-shell-900/80 px-3 py-2.5">
         <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brass-500 hover:text-brass-400"
-          >
+          {/* A mark, not a link. Home redirects here, so clicking it would tear
+              down and rebuild the WebGL scene — which mid-pitch looks like a
+              crash. Make it a Link again when there is more than one room. */}
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brass-500">
             Uniser
-          </Link>
+          </span>
           <div className="h-5 w-px bg-shell-700" />
           <div>
             <div className="text-sm font-medium leading-tight text-shell-100">
@@ -101,7 +102,7 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
               <div className="min-w-0 flex-1">
                 <SpaceCanvas />
               </div>
-              <div className="flex w-full shrink-0 flex-col gap-3 lg:w-[224px]">
+              <div className="flex w-full shrink-0 flex-col gap-3 lg:w-[248px]">
                 <Keypad />
                 <StatusCard />
               </div>
@@ -138,6 +139,7 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
           </div>
           <div className="u-scroll min-h-0 flex-1 overflow-y-auto pr-1 pb-4">
             {tab === "controls" && <DeviceControls />}
+            {tab === "app" && <AppPanel />}
             {tab === "products" && <ProductPanel />}
             {tab === "energy" && <EnergyPanel />}
             {tab === "automation" && <AutomationPanel />}

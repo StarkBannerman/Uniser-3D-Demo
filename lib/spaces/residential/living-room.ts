@@ -27,6 +27,14 @@ export const livingRoom: Space = {
     "A 43 m² living room in real-time 3D — perimeter cove, field downlights, a wall-wash on the media wall and concealed TV accent, on sheers and drapes.",
   renderer: "3d",
   model: "living-room",
+  /**
+   * Hidden from the picker while the bedroom is the room being shown.
+   *
+   * Not deleted and not `renderer`-downgraded: the route still resolves and the
+   * space still builds, so `/demo/living-room` keeps working for anyone who has
+   * the link. Drop this flag to put it back on the home page.
+   */
+  unlisted: true,
 
   zones: [{ id: "lv-main", name: "Living Room", areaM2: AREA }],
 
