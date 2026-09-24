@@ -130,11 +130,11 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
               </button>
             ))}
           </div>
-          {/* The inner scroll region only exists from `lg`, where `main` has a
-              definite height to scroll within. Below that the page itself
-              scrolls; an `overflow-y-auto` on an auto-height flex child there
-              collapsed to nothing and the stage painted straight over it. */}
-          <div className="u-scroll pb-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+          {/* From `lg` the rail hands its height to the phone, which scrolls
+              its own content. Below that the phone is a fixed height and the
+              page scrolls past it — an `overflow-y-auto` on an auto-height flex
+              child there collapses to nothing. */}
+          <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden">
             <AppPanel view={tab} />
           </div>
         </aside>

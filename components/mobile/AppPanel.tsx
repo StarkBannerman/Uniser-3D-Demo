@@ -40,29 +40,42 @@ import { Icon, sceneIcon, type IconName } from "@/components/keypad/icons";
 export type AppView = "scenes" | "controls";
 
 /** The phone shell. Styling only — everything inside is live. */
+/**
+ * The phone shell. Styling only — everything inside is live.
+ *
+ * Fixed height, scrolling inside. A phone that grows to three thousand pixels
+ * to fit its own content is the one thing on screen that could not be a phone,
+ * and the handset is doing real work here: it is the interface the client
+ * recognises. So the chrome holds its shape and the list moves behind it, the
+ * way it would in your hand.
+ *
+ * The status bar and the room name stay put; only the content below them
+ * scrolls. From `lg` the phone takes the rail's full height instead of a fixed
+ * one, because there the rail has a height to give it.
+ */
 function Phone({ children, title }: { children: React.ReactNode; title: string }) {
   const clockMin = useSim((s) => s.clockMin);
 
   return (
-    <div className="mx-auto w-full max-w-[560px] rounded-[30px] border border-shell-700 bg-shell-950 p-2 shadow-2xl lg:max-w-[300px]">
-      <div className="overflow-hidden rounded-[24px] bg-shell-900">
+    <div className="mx-auto flex h-[560px] w-full max-w-[560px] flex-col rounded-[30px] border border-shell-700 bg-shell-950 p-2 shadow-2xl sm:h-[640px] lg:h-full lg:min-h-[420px] lg:max-w-[300px]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] bg-shell-900">
         {/* Status bar. The time is the simulated clock, so scrubbing the day
             moves it — a static 9:41 would be the one obviously fake thing on
             an otherwise live panel. */}
-        <div className="flex items-center justify-between px-4 pt-2.5 pb-1 text-[10px] text-shell-400">
+        <div className="flex shrink-0 items-center justify-between px-4 pt-2.5 pb-1 text-[10px] text-shell-400">
           <span className="font-mono">{formatClock(clockMin)}</span>
           <span className="h-3.5 w-16 rounded-full bg-shell-950" />
           <span className="font-mono tracking-tight">• • ▮</span>
         </div>
-        <div className="px-3 pb-3">
-          <div className="pb-2 pt-1">
-            <div className="text-[10px] uppercase tracking-[0.16em] text-brass-500">
-              SmartSpaces
-            </div>
-            <div className="text-base font-medium leading-tight text-shell-100">
-              {title}
-            </div>
+        <div className="shrink-0 px-3 pb-2 pt-1">
+          <div className="text-[10px] uppercase tracking-[0.16em] text-brass-500">
+            SmartSpaces
           </div>
+          <div className="text-base font-medium leading-tight text-shell-100">
+            {title}
+          </div>
+        </div>
+        <div className="u-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           {children}
         </div>
       </div>
@@ -156,7 +169,7 @@ export function AppPanel({ view }: { view: AppView }) {
   const fan = space.devices.find((d): d is FanDevice => d.kind === "fan");
 
   return (
-    <div className="pb-4">
+    <div className="flex min-h-0 flex-1 flex-col pb-4">
       <Phone title={space.name}>
 
         {/* A locked interface with no explanation reads as a crash. This is the
@@ -395,7 +408,7 @@ export function AppPanel({ view }: { view: AppView }) {
         )}
       </Phone>
 
-      <p className="mx-auto mt-3 max-w-[560px] text-[10px] leading-snug text-shell-500 lg:max-w-[300px]">
+      <p className="mx-auto mt-3 max-w-[560px] shrink-0 text-[10px] leading-snug text-shell-500 lg:max-w-[300px]">
         Scenes, Controls and the room are one state, not three copies of it. Press
         a scene and every control moves; move one control and the scene lets go.
       </p>
