@@ -27,7 +27,7 @@ import type {
   ShadeState,
 } from "@/lib/sim/types";
 import { formatClock } from "@/lib/sim/clock";
-import { cctGradient, Slider, Toggle } from "@/components/ui/Primitives";
+import { cctGradient, Segmented, Slider, Toggle } from "@/components/ui/Primitives";
 import { Icon, sceneIcon } from "@/components/keypad/icons";
 
 /**
@@ -44,7 +44,7 @@ function Phone({ children, title }: { children: React.ReactNode; title: string }
   const clockMin = useSim((s) => s.clockMin);
 
   return (
-    <div className="mx-auto w-full max-w-[300px] rounded-[30px] border border-shell-700 bg-shell-950 p-2 shadow-2xl">
+    <div className="mx-auto w-full max-w-[560px] rounded-[30px] border border-shell-700 bg-shell-950 p-2 shadow-2xl lg:max-w-[300px]">
       <div className="overflow-hidden rounded-[24px] bg-shell-900">
         {/* Status bar. The time is the simulated clock, so scrubbing the day
             moves it — a static 9:41 would be the one obviously fake thing on
@@ -68,6 +68,21 @@ function Phone({ children, title }: { children: React.ReactNode; title: string }
       </div>
     </div>
   );
+}
+
+/**
+ * What a curtain layer is doing, in words.
+ *
+ * Open and Close are the only two things anyone asks a curtain for, so the
+ * control is two buttons rather than a slider. The travel is still real —
+ * nine seconds of motor — and this is where that shows: mid-travel the readout
+ * gives the live position, which is the detail that tells a client these are
+ * motorised tracks rather than an on/off graphic.
+ */
+function curtainStatus(position: number): string {
+  if (position <= 0.5) return "Open";
+  if (position >= 99.5) return "Closed";
+  return `${Math.round(position)}% closed`;
 }
 
 function Row({
@@ -115,7 +130,7 @@ export function AppPanel({ view }: { view: AppView }) {
           <div className="space-y-2">
             {/* Every scene, including the ones the four-gang plate could not
                 fit. That split is the argument for having an app at all. */}
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-2">
               {space.scenes.map((scene) => {
                 const active = scene.id === activeSceneId;
                 return (
@@ -161,8 +176,8 @@ export function AppPanel({ view }: { view: AppView }) {
         )}
 
         {view === "controls" && (
-          <div className="space-y-1.5">
-            <div className="px-1 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-shell-500">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="px-1 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-shell-500 sm:col-span-2 lg:col-span-1">
               Lighting
             </div>
             {lights.map((device) => {
@@ -210,8 +225,8 @@ export function AppPanel({ view }: { view: AppView }) {
         )}
 
         {view === "controls" && (
-          <div className="mt-1.5 space-y-1.5">
-            <div className="px-1 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-shell-500">
+          <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="px-1 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-shell-500 sm:col-span-2 lg:col-span-1">
               Comfort
             </div>
             {shade &&
@@ -225,15 +240,19 @@ export function AppPanel({ view }: { view: AppView }) {
                         <div className="mb-1 flex items-baseline justify-between text-[10px]">
                           <span className="capitalize text-shell-400">{layer}</span>
                           <span className="font-mono text-shell-300">
-                            {Math.round(s[layer])}% closed
+                            {curtainStatus(s[layer])}
                           </span>
                         </div>
-                        <Slider
+                        <Segmented
                           label={`${shade.name} ${layer}`}
-                          value={s[layer]}
-                          min={0}
-                          max={100}
-                          onChange={(v) => patch(shade.id, { [layer]: v })}
+                          value={s[layer] > 50 ? "closed" : "open"}
+                          options={[
+                            { value: "open", label: "Open" },
+                            { value: "closed", label: "Close" },
+                          ]}
+                          onChange={(v) =>
+                            patch(shade.id, { [layer]: v === "closed" ? 100 : 0 })
+                          }
                         />
                       </div>
                     ))}
@@ -319,9 +338,9 @@ export function AppPanel({ view }: { view: AppView }) {
         )}
       </Phone>
 
-      <p className="mx-auto mt-3 max-w-[300px] text-[10px] leading-snug text-shell-500">
-        The phone, the Device tab and the room are one state, not three copies of
-        it. Move anything on either tab and the room follows it live.
+      <p className="mx-auto mt-3 max-w-[560px] text-[10px] leading-snug text-shell-500 lg:max-w-[300px]">
+        Scenes, Controls and the room are one state, not three copies of it. Press
+        a scene and every control moves; move one control and the scene lets go.
       </p>
     </div>
   );

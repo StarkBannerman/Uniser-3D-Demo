@@ -84,16 +84,22 @@ export function SpaceCanvas() {
   if (space.renderer === "3d") {
     return (
       /**
-       * Fills whatever the parent gives it rather than holding 16:9.
+       * Holds 16:9 on a phone, fills its container from `lg` up.
        *
-       * A real-time room has no fixed aspect to preserve — the camera's field of
-       * view is vertical, so a wider frame simply shows more room. Letting it
-       * fill means the stage takes every pixel the layout is not using, which on
-       * a laptop is most of the lower half of the screen. The illustrated
-       * renderer below still keeps 16:9, because that one is compositing a flat
-       * image whose aspect is fixed.
+       * A real-time room has no fixed aspect to preserve — the camera's field
+       * of view is re-solved for whatever shape it gets (see `Stage3D`) — so on
+       * a laptop it takes every pixel the layout is not using, which is most of
+       * the lower half of the screen.
+       *
+       * Below `lg` the page is a scrolling column with no definite height, and
+       * `h-full` there resolves against an auto-height parent: the stage grew
+       * past its slot and painted over the panel beneath it. An aspect ratio
+       * gives it a real height to occupy instead.
+       *
+       * The illustrated renderer below keeps 16:9 at every width, because that
+       * one is compositing a flat image whose aspect genuinely is fixed.
        */
-      <div className="relative h-full min-h-[340px] w-full overflow-hidden rounded-xl bg-black ring-1 ring-shell-800">
+      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black ring-1 ring-shell-800 lg:aspect-auto lg:h-full lg:min-h-[340px]">
         {space.model === "master-bedroom" ? (
           <BedroomStage />
         ) : space.model === "living-room" ? (

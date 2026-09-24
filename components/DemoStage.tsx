@@ -99,7 +99,7 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
           flex child defaults to min-height:auto, which refuses to shrink below
           its content and quietly caps the stage's height. */}
       <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 lg:flex-row lg:overflow-hidden">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+        <div className="flex shrink-0 flex-col gap-3 lg:min-h-0 lg:min-w-0 lg:flex-1">
           {/* A 3D room gets the whole panel. Its scenes live on the phone, so
               there is nothing to sit beside it; a space without a 3D room still
               needs the wide scene pad underneath. */}
@@ -130,7 +130,11 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
               </button>
             ))}
           </div>
-          <div className="u-scroll min-h-0 flex-1 overflow-y-auto pr-1 pb-4">
+          {/* The inner scroll region only exists from `lg`, where `main` has a
+              definite height to scroll within. Below that the page itself
+              scrolls; an `overflow-y-auto` on an auto-height flex child there
+              collapsed to nothing and the stage painted straight over it. */}
+          <div className="u-scroll pb-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
             <AppPanel view={tab} />
           </div>
         </aside>
