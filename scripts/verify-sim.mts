@@ -34,6 +34,7 @@ import { useSim } from "../lib/sim/store";
 // `lr-*` devices and scenes; the 3D rooms are covered structurally in §13.
 import { livingRoomIllustrated as livingRoom } from "../lib/spaces/residential/living-room-illustrated";
 import { spaces } from "../lib/spaces";
+import { masterBedroom } from "../lib/spaces/residential/master-bedroom";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail: string) {
@@ -645,6 +646,41 @@ check(
   "a scene with no stages arms nothing",
   store.getState().sequence === null && lightOf("t-general").level === 80,
   "unstaged scenes are unaffected",
+);
+
+/* ================================================================== */
+console.log("\n15. A scene named after an hour arrives at that hour\n");
+
+store.getState().loadSpace(masterBedroom);
+store.getState().setClock(19 * 60 + 20);
+store.getState().applyScene("morning");
+check(
+  "Morning moves the clock to the morning",
+  Math.abs(store.getState().clockMin - (7 * 60 + 30)) < 1,
+  `${formatClock(store.getState().clockMin)}`,
+);
+
+// A mood scene must leave the clock alone, or the circadian demonstration —
+// the same button cool at breakfast and warm at bedtime — has nothing to stand
+// on.
+store.getState().setClock(14 * 60);
+store.getState().applyScene("relax");
+run(30);
+check(
+  "Relax leaves the clock where the presenter put it",
+  Math.abs(store.getState().clockMin - 14 * 60) < 1,
+  `${formatClock(store.getState().clockMin)}`,
+);
+
+// Jumping the clock must not fire every schedule rule between here and there.
+store.getState().setClock(2 * 60);
+const eventsBefore = store.getState().events.length;
+store.getState().applyScene("night");
+run(60);
+check(
+  "the jump does not replay the rules it skipped over",
+  store.getState().events.length - eventsBefore <= 1,
+  `${store.getState().events.length - eventsBefore} event(s) logged`,
 );
 
 console.log(

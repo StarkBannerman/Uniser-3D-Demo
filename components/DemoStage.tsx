@@ -7,9 +7,9 @@
  * every pixel the rest of the layout is not using, and the two interfaces that
  * drive it share a rail that never pushes it off screen.
  *
- * App and Device are tabs rather than a split because they are two ways to do
- * one job, not two jobs. Pressing either moves the room, because there is one
- * state rather than three copies of it.
+ * Scenes and Controls are tabs rather than a split because they are two depths
+ * of one job, not two jobs. Pressing either moves the room, because there is one
+ * state rather than two copies of it.
  *
  * The wall keypad is still built — `components/keypad/Keypad.tsx`, with its
  * layouts and finishes — and is one import away. It comes back when the panel
@@ -22,20 +22,20 @@ import { useTicker } from "@/lib/sim/useTicker";
 import { getSpace } from "@/lib/spaces";
 import { SpaceCanvas } from "@/components/stage/SpaceCanvas";
 import { ScenePad, SceneCue } from "@/components/controls/ScenePad";
-import { DeviceControls } from "@/components/controls/DeviceControls";
 import { ClockScrubber } from "@/components/presenter/ClockScrubber";
 import { AppPanel } from "@/components/mobile/AppPanel";
 
 /**
- * The phone first, the per-device list behind it.
+ * Pick a scene, or reach past it to a single fixture.
  *
- * App leads because it is the interface a client recognises and the one that
- * matches the keypad beside the room. Device is the same state through one
- * control per fixture — the view an architect or an integrator asks for.
+ * That is the two-level split the requirement document asks for: a visitor who
+ * wants the experience presses a scene, and one who wants the depth opens
+ * Controls. Both drive the same state, so a slider move drops the scene
+ * highlight and a scene press moves every slider.
  */
 const TABS = [
-  { id: "app", label: "App" },
-  { id: "device", label: "Device" },
+  { id: "scenes", label: "Scenes" },
+  { id: "controls", label: "Controls" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -43,7 +43,7 @@ type TabId = (typeof TABS)[number]["id"];
 export function DemoStage({ spaceId }: { spaceId: string }) {
   const loadSpace = useSim((s) => s.loadSpace);
   const loadedId = useSim((s) => s.space?.id);
-  const [tab, setTab] = useState<TabId>("app");
+  const [tab, setTab] = useState<TabId>("scenes");
 
   useTicker();
 
@@ -131,8 +131,7 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
             ))}
           </div>
           <div className="u-scroll min-h-0 flex-1 overflow-y-auto pr-1 pb-4">
-            {tab === "app" && <AppPanel />}
-            {tab === "device" && <DeviceControls />}
+            <AppPanel view={tab} />
           </div>
         </aside>
       </main>

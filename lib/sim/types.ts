@@ -349,6 +349,20 @@ export interface Scene {
    * them, `targets` is stage zero and these follow in order.
    */
   steps?: SceneStep[];
+  /**
+   * Move the simulated clock to this time, minutes past midnight.
+   *
+   * A scene named after an hour has to arrive at that hour. Pressing Morning at
+   * half past seven in the evening otherwise opened the curtains onto a night
+   * skyline and lit the room cool white, which reads as a bug rather than as a
+   * scene.
+   *
+   * Omit it on scenes that are about a mood rather than a time. Those should
+   * work at whatever hour the presenter is standing in, and moving the clock
+   * under them would take away the circadian demonstration — the same button
+   * being cool at breakfast and warm at bedtime.
+   */
+  clockMin?: number;
   /** Products worth calling out while this scene is running. */
   highlight?: string[];
 }

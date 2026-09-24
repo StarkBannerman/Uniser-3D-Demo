@@ -426,6 +426,17 @@ export const useSim = create<SimStore>((set, get) => ({
       };
     }
 
+    /**
+     * A scene named after an hour moves the clock to it.
+     *
+     * `lastRuleMin` jumps with it, exactly as `setClock` does: without that,
+     * every schedule rule between the old time and the new one would fire at
+     * once on the next tick, which is not what pressing Morning means.
+     */
+    const clockMin =
+      scene.clockMin === undefined ? undefined : wrapMinutes(scene.clockMin);
+    if (clockMin !== undefined) lastRuleMin = clockMin;
+
     set({
       states: nextStates,
       activeSceneId: sceneId,
@@ -433,6 +444,7 @@ export const useSim = create<SimStore>((set, get) => ({
       commanded,
       cctLocked,
       sequence: sequenceView,
+      ...(clockMin === undefined ? {} : { clockMin }),
     });
   },
 

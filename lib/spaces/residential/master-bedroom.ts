@@ -290,6 +290,10 @@ export const masterBedroom: Space = {
       icon: "☀",
       blurb: "Curtains open to the city, general and cove up, everything else out.",
       fadeMs: 1600,
+      // Half past seven in the morning. Opening the curtains onto a night
+      // skyline made this scene look broken, and the daylight that now arrives
+      // is also what gives daylight harvesting something to harvest.
+      clockMin: 7 * 60 + 30,
       targets: {
         // Colour deliberately unspecified so circadian tuning owns it: Morning
         // at 7am is cool and alerting. That difference is the whole point of
@@ -357,6 +361,8 @@ export const masterBedroom: Space = {
       icon: "◑",
       blurb: "Every layer working at once — cove, a little general, bedside and wardrobe.",
       fadeMs: 2200,
+      // Just after sunset, when the city has come on behind the sheers.
+      clockMin: 19 * 60 + 20,
       targets: {
         "bd-general": { on: true, level: 35, cct: 2700 },
         "bd-cove": { on: true, level: 70, cct: 2700 },
@@ -378,6 +384,7 @@ export const masterBedroom: Space = {
       icon: "☾",
       blurb: "Path light and a trace of cove. Blackout drawn, fan down, AC for sleeping.",
       fadeMs: 3000,
+      clockMin: 22 * 60 + 40,
       targets: {
         "bd-general": { on: false },
         "bd-cove": { on: true, level: 8, cct: 2200 },
@@ -411,6 +418,7 @@ export const masterBedroom: Space = {
       blurb:
         "Five stages over about fifteen seconds: lights dim, bedside reduces, curtains close, air conditioning drops to its sleeping setpoint, and everything goes out but the path light.",
       fadeMs: 2600,
+      clockMin: 22 * 60 + 50,
       targets: {
         "bd-general": { on: true, level: 22, cct: 2300 },
         "bd-cove": { on: true, level: 30, cct: 2300 },

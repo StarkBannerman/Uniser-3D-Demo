@@ -16,7 +16,6 @@
  * only ever one state.
  */
 
-import { useState } from "react";
 import { useSim } from "@/lib/sim/store";
 import type {
   ClimateState,
@@ -31,13 +30,14 @@ import { formatClock } from "@/lib/sim/clock";
 import { cctGradient, Slider, Toggle } from "@/components/ui/Primitives";
 import { Icon, sceneIcon } from "@/components/keypad/icons";
 
-type TabId = "scenes" | "lights" | "comfort";
-
-const TABS: { id: TabId; label: string }[] = [
-  { id: "scenes", label: "Scenes" },
-  { id: "lights", label: "Lights" },
-  { id: "comfort", label: "Comfort" },
-];
+/**
+ * Which half of the app is showing.
+ *
+ * Driven from the rail's tabs rather than from a second row of tabs inside the
+ * phone. Two tab strips one above the other for the same three destinations was
+ * a nesting nobody could parse at a glance.
+ */
+export type AppView = "scenes" | "controls";
 
 /** The phone shell. Styling only — everything inside is live. */
 function Phone({ children, title }: { children: React.ReactNode; title: string }) {
@@ -92,14 +92,13 @@ function Row({
   );
 }
 
-export function AppPanel() {
+export function AppPanel({ view }: { view: AppView }) {
   const space = useSim((s) => s.space);
   const states = useSim((s) => s.states);
   const activeSceneId = useSim((s) => s.activeSceneId);
   const sequence = useSim((s) => s.sequence);
   const applyScene = useSim((s) => s.applyScene);
   const patch = useSim((s) => s.patch);
-  const [tab, setTab] = useState<TabId>("scenes");
 
   if (!space) return null;
 
@@ -111,25 +110,8 @@ export function AppPanel() {
   return (
     <div className="pb-4">
       <Phone title={space.name}>
-        <div className="mb-2.5 flex gap-1 rounded-lg bg-shell-950 p-1">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              aria-pressed={tab === t.id}
-              className={`flex-1 rounded-md py-1.5 text-[11px] font-medium transition-colors ${
-                tab === t.id
-                  ? "bg-shell-700 text-shell-100"
-                  : "text-shell-500 hover:text-shell-300"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
 
-        {tab === "scenes" && (
+        {view === "scenes" && (
           <div className="space-y-2">
             {/* Every scene, including the ones the four-gang plate could not
                 fit. That split is the argument for having an app at all. */}
@@ -178,8 +160,11 @@ export function AppPanel() {
           </div>
         )}
 
-        {tab === "lights" && (
+        {view === "controls" && (
           <div className="space-y-1.5">
+            <div className="px-1 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-shell-500">
+              Lighting
+            </div>
             {lights.map((device) => {
               const state = states[device.id] as LightState | undefined;
               if (!state) return null;
@@ -224,8 +209,11 @@ export function AppPanel() {
           </div>
         )}
 
-        {tab === "comfort" && (
-          <div className="space-y-1.5">
+        {view === "controls" && (
+          <div className="mt-1.5 space-y-1.5">
+            <div className="px-1 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-shell-500">
+              Comfort
+            </div>
             {shade &&
               (() => {
                 const s = states[shade.id] as ShadeState | undefined;
