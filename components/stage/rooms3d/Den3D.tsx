@@ -91,25 +91,30 @@ export const DN_PLAN = {
  */
 const M = {
   /**
-   * Charcoal, not black.
+   * Warm grey, not charcoal.
    *
-   * The first pass went too far the other way: at those values the room had
-   * almost no bounce, so everything more than a metre from a fixture fell to
-   * nothing and the work zone and the speakers simply were not visible. A real
-   * media room is dark in tone but still reads — it is the *projection wall*
-   * that wants to be near-black, not the whole box.
+   * These went too dark twice. At #5a524a the walls returned 10 per cent of the
+   * light that hit them, against 73 for the living room's ivory — so the room
+   * was eating six sevenths of its own light and no amount of extra output
+   * would have fixed it. sRGB is deceptive here: a hex value that looks like a
+   * mid grey is a tenth of the way up in linear terms, which is what the
+   * renderer actually multiplies by.
+   *
+   * The *projection wall* still wants to be near-black. The rest of the box
+   * does not, and treating the whole room as though it did is what made the
+   * work zone, the speakers and the far corners disappear.
    */
-  ceiling: new THREE.MeshStandardMaterial({ color: "#474138", roughness: 0.96 }),
-  soffit: new THREE.MeshStandardMaterial({ color: "#453f38", roughness: 0.93 }),
-  wall: new THREE.MeshStandardMaterial({ color: "#5a524a", roughness: 0.93 }),
+  ceiling: new THREE.MeshStandardMaterial({ color: "#595248", roughness: 0.96 }),
+  soffit: new THREE.MeshStandardMaterial({ color: "#665d52", roughness: 0.93 }),
+  wall: new THREE.MeshStandardMaterial({ color: "#6f665c", roughness: 0.93 }),
   floor: new THREE.MeshStandardMaterial({
-    color: "#5c4c3e",
+    color: "#6d5b49",
     roughness: 0.4,
     metalness: 0.02,
   }),
-  rug: new THREE.MeshStandardMaterial({ color: "#6d665c", roughness: 1 }),
+  rug: new THREE.MeshStandardMaterial({ color: "#837a6e", roughness: 1 }),
   joinery: new THREE.MeshStandardMaterial({ color: "#54432f", roughness: 0.5 }),
-  joineryBack: new THREE.MeshStandardMaterial({ color: "#241c16", roughness: 0.85 }),
+  joineryBack: new THREE.MeshStandardMaterial({ color: "#332822", roughness: 0.85 }),
   metal: new THREE.MeshStandardMaterial({
     color: "#26282c",
     roughness: 0.4,

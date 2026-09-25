@@ -254,9 +254,9 @@ export const den: Space = {
       targets: {
         // Colour left unset so circadian tuning owns it. Work at nine in the
         // morning should be cooler than Work at nine at night, from one button.
-        "dn-general": { on: true, level: 85 },
-        "dn-cove": { on: true, level: 60 },
-        "dn-accent": { on: true, level: 45, cct: 3500 },
+        "dn-general": { on: true, level: 92 },
+        "dn-cove": { on: true, level: 70 },
+        "dn-accent": { on: true, level: 55, cct: 3500 },
         "dn-rgb": { on: false },
         "dn-curtain": { sheer: 100, blackout: 0 },
         "dn-av": { on: false, screen: 0 },
@@ -274,8 +274,8 @@ export const den: Space = {
       fadeMs: 2400,
       targets: {
         "dn-general": { on: false },
-        "dn-cove": { on: true, level: 40, cct: 2400 },
-        "dn-accent": { on: true, level: 65, cct: 2700 },
+        "dn-cove": { on: true, level: 55, cct: 2400 },
+        "dn-accent": { on: true, level: 75, cct: 2700 },
         "dn-rgb": { on: true, level: 28, cct: 2700, sat: 0 },
         "dn-curtain": { sheer: 100, blackout: 0 },
         "dn-av": { on: false, screen: 0 },
@@ -475,7 +475,10 @@ export const den: Space = {
     sunsetMin: 18 * 60 + 55,
     outdoorPeakLux: 95000,
     windowFactor: 0.009,
-    designLux: 260,
+    // A den is designed to a lower working level than a living room, and the
+    // fill term is read against this. At 260 a perfectly reasonable 78 lux
+    // evening scene was being told it was a fifth as bright as intended.
+    designLux: 150,
     outdoorMinC: 26,
     outdoorMaxC: 34,
   },
