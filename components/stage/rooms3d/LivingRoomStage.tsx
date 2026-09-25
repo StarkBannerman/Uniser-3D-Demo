@@ -38,8 +38,18 @@ const CAMERA: CameraSpec = {
    * horizontal, so walls stay vertical and the room keeps its scale. This drops
    * 16 cm over eight metres: about one degree.
    */
-  position: [2.45, 1.58, 8.45],
-  target: [5.9, 1.2, 0.8],
+  /**
+   * The right-hand corner of the room, beside the glazing, looking back across
+   * the seating at the media wall — which is where the client's sheet stands.
+   * Measured, not chosen: on that drawing the sofa's centre falls at 0.16 of
+   * the frame width, the coffee table at 0.45, the ottomans at 0.61 and the
+   * chair at 0.78, and from here they land at 0.19, 0.42, 0.58 and 0.77.
+   *
+   * An earlier pass stood in the left corner. Mirroring the viewpoint is why
+   * nothing else that was moved ever helped.
+   */
+  position: [6.8, 1.55, 8.9],
+  target: [3.6, 1.2, 1.6],
   fov: 50,
 };
 

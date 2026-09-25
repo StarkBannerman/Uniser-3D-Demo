@@ -651,10 +651,10 @@ function Glazing({
  */
 function SeatingGroup() {
   return (
-    <group position={[2.9, 0, 5.0]} rotation={[0, 0.35, 0]}>
+    <group position={[4.5, 0, 4.92]} rotation={[0, 0.258, 0]}>
       {/* Rug, turned with the furniture standing on it. */}
-      <mesh position={[0.6, 0.006, 0.05]} receiveShadow>
-        <boxGeometry args={[4.9, 0.012, 4.0]} />
+      <mesh position={[0.1, 0.006, 0.05]} receiveShadow>
+        <boxGeometry args={[5.4, 0.012, 4.4]} />
         <primitive object={M.rug} attach="material" />
       </mesh>
 
@@ -666,13 +666,13 @@ function SeatingGroup() {
           Every upholstered part is a rounded box. A 4-6 cm radius is what real
           foam-and-fabric has, and sharp corners are the single strongest signal
           that something is a primitive rather than a sofa. */}
-      <group position={[-1.3, 0, 0]}>
+      <group position={[-1.75, 0, 0]}>
         <mesh position={[0, 0.05, 0]} receiveShadow>
-          <boxGeometry args={[0.92, 0.1, 3.66]} />
+          <boxGeometry args={[1.02, 0.1, 3.66]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
         <RoundedBox
-          args={[1.05, 0.32, 3.8]}
+          args={[1.15, 0.32, 3.8]}
           radius={0.05}
           smoothness={3}
           position={[0, 0.26, 0]}
@@ -685,7 +685,7 @@ function SeatingGroup() {
           args={[0.22, 0.58, 3.8]}
           radius={0.07}
           smoothness={3}
-          position={[-0.45, 0.6, 0]}
+          position={[-0.5, 0.6, 0]}
           rotation={[0, 0, 0.05]}
           castShadow
           receiveShadow
@@ -695,10 +695,10 @@ function SeatingGroup() {
         {[-1.26, 0, 1.26].map((z) => (
           <group key={`seat-${z}`}>
             <RoundedBox
-              args={[0.92, 0.19, 1.18]}
+              args={[1.0, 0.19, 1.18]}
               radius={0.075}
               smoothness={3}
-              position={[0.05, 0.51, z]}
+              position={[0.08, 0.51, z]}
               castShadow
               receiveShadow
             >
@@ -708,7 +708,7 @@ function SeatingGroup() {
               args={[0.2, 0.44, 1.16]}
               radius={0.08}
               smoothness={3}
-              position={[-0.27, 0.72, z]}
+              position={[-0.32, 0.72, z]}
               rotation={[0, 0, -0.14]}
               castShadow
             >
@@ -720,9 +720,9 @@ function SeatingGroup() {
             square to anything else — which is the opposite of the furniture
             itself, and is exactly why both matter. */}
         {[
-          { p: [-0.18, 0.78, -1.5], r: [0.2, 0.35, 0.3] },
-          { p: [-0.18, 0.78, -0.62], r: [0.16, -0.3, -0.26] },
-          { p: [-0.18, 0.78, 1.0], r: [0.18, 0.28, 0.24] },
+          { p: [-0.22, 0.78, -1.5], r: [0.2, 0.35, 0.3] },
+          { p: [-0.22, 0.78, -0.62], r: [0.16, -0.3, -0.26] },
+          { p: [-0.22, 0.78, 1.0], r: [0.18, 0.28, 0.24] },
         ].map((c, i) => (
           <RoundedBox
             key={`cu-${i}`}
@@ -740,9 +740,9 @@ function SeatingGroup() {
 
       {/* Round marble coffee table, square to the group and centred on the
           sofa's middle seat. */}
-      <group position={[0.5, 0, 0]}>
+      <group position={[0, 0, 0]}>
         <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.64, 0.64, 0.09, 36]} />
+          <cylinderGeometry args={[0.66, 0.66, 0.09, 36]} />
           <primitive object={M.marble} attach="material" />
         </mesh>
         <mesh position={[0, 0.17, 0]} castShadow>
@@ -762,8 +762,8 @@ function SeatingGroup() {
       {/* Two ottomans on a line with the table, and a tub chair beyond them —
           the near-right corner of the group, as on the sheet. */}
       {[
-        { x: 1.9, z: -0.58, w: 0.88, d: 0.82 },
-        { x: 1.9, z: 0.6, w: 0.8, d: 0.76 },
+        { x: 1.42, z: -0.56, w: 0.86, d: 0.8 },
+        { x: 1.42, z: 0.6, w: 0.8, d: 0.76 },
       ].map((o, i) => (
         <group key={`ott-${i}`} position={[o.x, 0, o.z]}>
           <RoundedBox
@@ -784,7 +784,7 @@ function SeatingGroup() {
       ))}
 
       {/* Tub chair, turned back toward the sofa so the group closes. */}
-      <group position={[2.5, 0, 1.62]} rotation={[0, -2.5, 0]}>
+      <group position={[2.45, 0, 1.4]} rotation={[0, -2.6, 0]}>
         <RoundedBox
           args={[0.8, 0.2, 0.76]}
           radius={0.075}
