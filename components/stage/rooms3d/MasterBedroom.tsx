@@ -25,6 +25,7 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { RoundedBox } from "@react-three/drei";
 import { COVE_Y, PALETTE, ROOM, materials } from "./materials";
 import { makeCurtainGeometry, makeCityTexture } from "./geometry";
 import { MAX_BLADE_STEP_RAD } from "@/lib/sim/fan";
@@ -371,24 +372,34 @@ function Bed() {
     <group>
       {/* Upholstered panelled headboard, in front of the slats. Five buttoned
           panels: the vertical joints are what stop a 2.5 m slab of fabric from
-          reading as a wall. */}
-      <mesh position={[x, 0.68, headZ - 0.13]} castShadow receiveShadow>
-        <boxGeometry args={[width + 0.62, 1.36, 0.1]} />
+          reading as a wall. Rounded, because foam under fabric has no sharp
+          arrises anywhere — that is most of what separates upholstery from a
+          painted box. */}
+      <RoundedBox
+        args={[width + 0.62, 1.36, 0.1]}
+        radius={0.035}
+        smoothness={3}
+        position={[x, 0.68, headZ - 0.13]}
+        castShadow
+        receiveShadow
+      >
         <primitive object={materials.headboard} attach="material" />
-      </mesh>
+      </RoundedBox>
       {Array.from({ length: 5 }, (_, i) => (
-        <mesh
+        <RoundedBox
           key={`panel-${i}`}
+          args={[(width + 0.62) / 5 - 0.045, 1.26, 0.05]}
+          radius={0.022}
+          smoothness={3}
           position={[
             x - (width + 0.62) / 2 + ((i + 0.5) * (width + 0.62)) / 5,
             0.68,
-            headZ - 0.07,
+            headZ - 0.06,
           ]}
           castShadow
         >
-          <boxGeometry args={[(width + 0.62) / 5 - 0.03, 1.28, 0.03]} />
           <primitive object={materials.headboard} attach="material" />
-        </mesh>
+        </RoundedBox>
       ))}
 
       {/* Base, then an inset platform. Two stacked slabs of slightly different
@@ -405,41 +416,64 @@ function Bed() {
       </mesh>
 
       {/* Mattress, duvet, and a folded runner across the foot. */}
-      <mesh position={[x, 0.53, midZ]} castShadow receiveShadow>
-        <boxGeometry args={[width, 0.3, length]} />
+      <RoundedBox
+        args={[width, 0.3, length]}
+        radius={0.05}
+        smoothness={3}
+        position={[x, 0.53, midZ]}
+        castShadow
+        receiveShadow
+      >
         <primitive object={materials.sheet} attach="material" />
-      </mesh>
-      <mesh position={[x, 0.695, midZ + 0.12]} castShadow receiveShadow>
-        <boxGeometry args={[width + 0.05, 0.09, length - 0.34]} />
+      </RoundedBox>
+      <RoundedBox
+        args={[width + 0.05, 0.12, length - 0.34]}
+        radius={0.055}
+        smoothness={3}
+        position={[x, 0.7, midZ + 0.12]}
+        castShadow
+        receiveShadow
+      >
         <primitive object={materials.duvet} attach="material" />
-      </mesh>
-      <mesh position={[x, 0.752, headZ + length - 0.26]} castShadow receiveShadow>
-        <boxGeometry args={[width + 0.07, 0.055, 0.46]} />
+      </RoundedBox>
+      <RoundedBox
+        args={[width + 0.07, 0.07, 0.46]}
+        radius={0.03}
+        smoothness={3}
+        position={[x, 0.76, headZ + length - 0.26]}
+        castShadow
+        receiveShadow
+      >
         <primitive object={materials.throw} attach="material" />
-      </mesh>
+      </RoundedBox>
 
-      {/* Pillows leaning back against the headboard, plus accent cushions. */}
+      {/* Pillows leaning back against the headboard, plus accent cushions.
+          Generous radii: a pillow is almost all edge. */}
       {[-0.46, 0.46].map((dx, i) => (
-        <mesh
+        <RoundedBox
           key={`pillow-${i}`}
+          args={[0.76, 0.2, 0.48]}
+          radius={0.085}
+          smoothness={3}
           position={[x + dx, 0.79, headZ + 0.3]}
           rotation={[-0.36, 0, 0]}
           castShadow
         >
-          <boxGeometry args={[0.76, 0.2, 0.48]} />
           <primitive object={materials.pillow} attach="material" />
-        </mesh>
+        </RoundedBox>
       ))}
       {[-0.3, 0.3].map((dx, i) => (
-        <mesh
+        <RoundedBox
           key={`cushion-${i}`}
+          args={[0.38, 0.17, 0.32]}
+          radius={0.07}
+          smoothness={3}
           position={[x + dx, 0.76, headZ + 0.52]}
-          rotation={[-0.2, 0, 0]}
+          rotation={[-0.2, dx > 0 ? -0.22 : 0.22, 0]}
           castShadow
         >
-          <boxGeometry args={[0.38, 0.17, 0.32]} />
           <primitive object={materials.pillowAccent} attach="material" />
-        </mesh>
+        </RoundedBox>
       ))}
     </group>
   );
@@ -494,10 +528,16 @@ function Furniture() {
 
   return (
     <group>
-      <mesh position={[bench.x, 0.44, bench.z]} castShadow receiveShadow>
-        <boxGeometry args={[1.62, 0.16, 0.46]} />
+      <RoundedBox
+        args={[1.62, 0.18, 0.46]}
+        radius={0.06}
+        smoothness={3}
+        position={[bench.x, 0.44, bench.z]}
+        castShadow
+        receiveShadow
+      >
         <primitive object={materials.bench} attach="material" />
-      </mesh>
+      </RoundedBox>
       {[-0.7, 0.7].map((dx, i) =>
         [-0.17, 0.17].map((dz, j) => (
           <mesh
@@ -511,21 +551,42 @@ function Furniture() {
         )),
       )}
 
-      {/* Armchair: seat, back and two arms, turned toward the bed. */}
+      {/* Armchair: seat, a back that leans, and two low arms, turned toward
+          the bed. Rounded throughout — the arms especially, since they are the
+          part nearest the camera. */}
       <group position={[chair.x, 0, chair.z]} rotation={[0, -0.75, 0]}>
-        <mesh position={[0, 0.38, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.78, 0.22, 0.74]} />
+        <RoundedBox
+          args={[0.78, 0.22, 0.74]}
+          radius={0.075}
+          smoothness={3}
+          position={[0, 0.38, 0]}
+          castShadow
+          receiveShadow
+        >
           <primitive object={materials.armchair} attach="material" />
-        </mesh>
-        <mesh position={[0, 0.66, -0.32]} rotation={[-0.14, 0, 0]} castShadow>
-          <boxGeometry args={[0.78, 0.62, 0.14]} />
+        </RoundedBox>
+        <RoundedBox
+          args={[0.78, 0.62, 0.16]}
+          radius={0.075}
+          smoothness={3}
+          position={[0, 0.66, -0.32]}
+          rotation={[-0.14, 0, 0]}
+          castShadow
+          receiveShadow
+        >
           <primitive object={materials.armchair} attach="material" />
-        </mesh>
-        {[-0.35, 0.35].map((dx, i) => (
-          <mesh key={`arm-${i}`} position={[dx, 0.53, 0]} castShadow>
-            <boxGeometry args={[0.1, 0.12, 0.72]} />
+        </RoundedBox>
+        {[-0.35, 0.35].map((dx) => (
+          <RoundedBox
+            key={`arm-${dx}`}
+            args={[0.12, 0.14, 0.72]}
+            radius={0.055}
+            smoothness={3}
+            position={[dx, 0.53, 0]}
+            castShadow
+          >
             <primitive object={materials.armchair} attach="material" />
-          </mesh>
+          </RoundedBox>
         ))}
         {[-0.3, 0.3].map((dx) =>
           [-0.3, 0.3].map((dz, j) => (

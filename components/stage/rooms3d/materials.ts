@@ -90,6 +90,15 @@ export const PALETTE = {
  * would rebuild and recompile shaders on every state change — and device state
  * changes here up to 60 times a second.
  */
+/**
+ * Note on the fabrics below.
+ *
+ * Every upholstered surface is a `MeshPhysicalMaterial` with `sheen`, not a
+ * plain diffuse one. Sheen is the retroreflective fuzz woven cloth has at
+ * grazing angles — the pale rim along the top of a pillow facing a window.
+ * Without it, linen and wool shade exactly like painted board, which together
+ * with sharp corners is why an earlier pass read as stacked cardboard.
+ */
 export const materials = {
   plaster: new THREE.MeshStandardMaterial({
     color: PALETTE.plaster,
@@ -126,55 +135,79 @@ export const materials = {
     roughness: 0.22,
     metalness: 0.04,
   }),
-  headboard: new THREE.MeshStandardMaterial({
+  headboard: new THREE.MeshPhysicalMaterial({
     color: PALETTE.headboard,
     roughness: 0.82,
     metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.7,
+    sheenColor: new THREE.Color("#c9b49c"),
   }),
   bedBase: new THREE.MeshStandardMaterial({
     color: PALETTE.bedBase,
     roughness: 0.6,
     metalness: 0,
   }),
-  duvet: new THREE.MeshStandardMaterial({
+  duvet: new THREE.MeshPhysicalMaterial({
     color: PALETTE.duvet,
     roughness: 0.92,
     metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.6,
+    sheenColor: new THREE.Color("#f0ebe0"),
   }),
-  sheet: new THREE.MeshStandardMaterial({
+  sheet: new THREE.MeshPhysicalMaterial({
     color: PALETTE.sheet,
     roughness: 0.9,
     metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.6,
+    sheenColor: new THREE.Color("#f6f2e9"),
   }),
-  throw: new THREE.MeshStandardMaterial({
+  throw: new THREE.MeshPhysicalMaterial({
     color: PALETTE.throw,
     roughness: 0.82,
     metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.55,
+    sheenColor: new THREE.Color("#a2958a"),
   }),
-  pillow: new THREE.MeshStandardMaterial({
+  pillow: new THREE.MeshPhysicalMaterial({
     color: PALETTE.pillow,
     roughness: 0.9,
     metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.55,
+    sheenColor: new THREE.Color("#f7f3ea"),
   }),
-  pillowAccent: new THREE.MeshStandardMaterial({
+  pillowAccent: new THREE.MeshPhysicalMaterial({
     color: PALETTE.pillowAccent,
     roughness: 0.88,
     metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.6,
+    sheenColor: new THREE.Color("#c4bcaf"),
   }),
   rug: new THREE.MeshStandardMaterial({
     color: PALETTE.rug,
     roughness: 1,
     metalness: 0,
   }),
-  bench: new THREE.MeshStandardMaterial({
+  bench: new THREE.MeshPhysicalMaterial({
     color: PALETTE.bench,
     roughness: 0.86,
     metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.65,
+    sheenColor: new THREE.Color("#9a9081"),
   }),
-  armchair: new THREE.MeshStandardMaterial({
+  armchair: new THREE.MeshPhysicalMaterial({
     color: PALETTE.armchair,
     roughness: 0.88,
     metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.65,
+    sheenColor: new THREE.Color("#a89d8e"),
   }),
   nightstand: new THREE.MeshStandardMaterial({
     color: PALETTE.nightstand,
