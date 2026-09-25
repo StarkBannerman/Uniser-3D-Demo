@@ -33,9 +33,27 @@ import { makeCityTexture } from "./geometry";
  * frame was never an option.
  */
 const CAMERA: CameraSpec = {
-  position: [3.8, 1.58, 8.8],
-  target: [3.8, 1.2, 0.5],
-  fov: 50,
+  /**
+   * The room's near-left corner, looking across at the far-right one — the
+   * sheet's viewpoint, and the only one that holds every callout at once: the
+   * display wall raking away on the left with its poster, shelving, slat panel
+   * and work zone, the screen and speakers ahead, the lounge chair and the
+   * curtains at the right edge.
+   *
+   * Solved against the drawing rather than chosen. Reading the sheet, the
+   * elements sit at these fractions of frame width, and from here they land:
+   *
+   *   poster 0.17 -> 0.12    screen   0.66 -> 0.66
+   *   slats  0.35 -> 0.34    speakers 0.86 -> 0.84
+   *   desk   0.42 -> 0.41    curtains 0.97 -> 0.98
+   *
+   * 56 degrees rather than 50 because at 50 there is no camera position in this
+   * room that holds all of them — the corner-to-corner spread simply does not
+   * fit an 79 degree horizontal field.
+   */
+  position: [2.9, 1.55, 9.4],
+  target: [1.73, 1.2, 1.49],
+  fov: 56,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };

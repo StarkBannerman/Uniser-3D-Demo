@@ -54,8 +54,8 @@ export const DN_DOWNLIGHTS = [
 
 /** Accent heads in the soffit, grazing the artwork on the left wall. */
 export const DN_ART_HEADS = [
-  { x: DN.soffit.depth + 0.12, z: DN_PLAN.art.z - 0.5 },
-  { x: DN.soffit.depth + 0.12, z: DN_PLAN.art.z + 0.5 },
+  { x: DN.soffit.depth + 0.12, z: DN_PLAN.art.z - 0.55 },
+  { x: DN.soffit.depth + 0.12, z: DN_PLAN.art.z + 0.55 },
 ] as const;
 
 function colourOf(state: LightState): THREE.Color {

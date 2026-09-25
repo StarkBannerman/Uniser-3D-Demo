@@ -55,26 +55,26 @@ export const DN_PLAN = {
   /** Ceiling-mounted projector, throwing at the screen. */
   projector: { x: 3.8, z: 5.9, y: 2.78 },
   /** Built-in shelving on the left wall. */
-  shelves: { z0: 2.2, z1: 5.6, y0: 0.35, y1: 2.5, bays: 4 },
+  shelves: { z0: 3.1, z1: 5.4, y0: 0.35, y1: 2.5, bays: 4 },
   /** Framed artwork on the left wall, beyond the shelving. */
-  art: { z: 6.9, y: 1.6, w: 1.35, h: 1.85 },
+  art: { z: 6.25, y: 1.6, w: 1.5, h: 1.95 },
   /** Work zone against the left wall, nearest the screen. */
-  desk: { z: 1.35, w: 1.9 },
+  desk: { z: 1.05, w: 1.9 },
   /** Slatted timber panel between the work zone and the shelving. */
-  slats: { z0: 0.35, z1: 2.05 },
+  slats: { z0: 1.8, z1: 2.9 },
   /** Acoustic panels flanking the screen, on the projection wall. */
   acoustic: [{ x0: 0.1, x1: 7.5 }],
   /** Vertical RGB battens: two on the left wall, two flanking the screen. */
   battens: [
-    { x: 0.04, z: 2.1, along: "z" as const },
-    { x: 0.04, z: 5.7, along: "z" as const },
+    { x: 0.04, z: 2.95, along: "z" as const },
+    { x: 0.04, z: 5.6, along: "z" as const },
     { x: 1.72, z: 0.05, along: "x" as const },
     { x: 5.88, z: 0.05, along: "x" as const },
   ],
   /** Seating group origin and rotation. */
   seating: { x: 3.7, z: 4.5, rot: 0.1 },
   /** Lounge chair and its ottoman, by the curtains. */
-  lounge: { x: 6.4, z: 4.7 },
+  lounge: { x: 6.15, z: 4.9 },
 } as const;
 
 /* ------------------------------------------------------------------ */
