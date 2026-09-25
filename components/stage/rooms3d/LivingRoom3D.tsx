@@ -28,6 +28,7 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { RoundedBox } from "@react-three/drei";
 import { MAX_BLADE_STEP_RAD } from "@/lib/sim/fan";
 import { makeCurtainGeometry, makeScreenTexture } from "./geometry";
 
@@ -81,11 +82,11 @@ export const LR_PLAN = {
   /** Floorstanders either side of the television. */
   speakers: [{ x: LR_TV.x - 1.75 }, { x: LR_TV.x + 1.75 }],
   /** Pendant cluster, hung over the dining table. */
-  pendants: { x: 1.6, z: 2.1 },
+  pendants: { x: 1.5, z: 1.6 },
   /** Ceiling fan hub, over the seating. */
-  fan: { x: 4.5, z: 5.4, y: 2.72 },
+  fan: { x: 4.3, z: 4.9, y: 2.72 },
   /** Dining table in the middle distance, under the pendants. */
-  dining: { x: 1.6, z: 2.1 },
+  dining: { x: 1.5, z: 1.6 },
   /** Recessed air-conditioning cassette in the ceiling. */
   ac: { x: 4.4, z: 3.2 },
 } as const;
@@ -123,9 +124,39 @@ const M = {
   }),
   plank: new THREE.MeshStandardMaterial({ color: "#584639", roughness: 0.42 }),
   rug: new THREE.MeshStandardMaterial({ color: "#c9bfae", roughness: 1 }),
-  sofa: new THREE.MeshStandardMaterial({ color: "#8d8778", roughness: 0.94 }),
-  sofaSeat: new THREE.MeshStandardMaterial({ color: "#9b9587", roughness: 0.94 }),
-  cushion: new THREE.MeshStandardMaterial({ color: "#5c6350", roughness: 0.92 }),
+  /**
+   * Upholstery, as a sheen material rather than a plain diffuse one.
+   *
+   * `sheen` is the retroreflective fuzz that woven fabric has at grazing
+   * angles — the pale rim you see along the top of a cushion facing a window.
+   * Without it, cloth shades exactly like painted board, which is half of why
+   * an earlier pass read as stacked cardboard. The other half was sharp
+   * corners; see `RoundedBox` below.
+   */
+  sofa: new THREE.MeshPhysicalMaterial({
+    color: "#8d8778",
+    roughness: 0.96,
+    metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.75,
+    sheenColor: new THREE.Color("#d8d2c4"),
+  }),
+  sofaSeat: new THREE.MeshPhysicalMaterial({
+    color: "#98927f",
+    roughness: 0.95,
+    metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.7,
+    sheenColor: new THREE.Color("#e2dccd"),
+  }),
+  cushion: new THREE.MeshPhysicalMaterial({
+    color: "#5c6350",
+    roughness: 0.93,
+    metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.65,
+    sheenColor: new THREE.Color("#9aa38a"),
+  }),
   marble: new THREE.MeshStandardMaterial({
     color: "#2b2723",
     roughness: 0.14,
@@ -610,95 +641,206 @@ function Glazing({
 function Seating() {
   return (
     <group>
-      <mesh position={[4.1, 0.006, 5.6]} receiveShadow>
-        <boxGeometry args={[5.4, 0.012, 5.0]} />
+      <mesh position={[3.7, 0.006, 5.2]} receiveShadow>
+        <boxGeometry args={[6.0, 0.012, 5.6]} />
         <primitive object={M.rug} attach="material" />
       </mesh>
 
       {/* Sectional down the left wall, open side toward the camera.
           On the client's sheet you are looking into the seating, not at the
-          back of it — the camera stands to its right. An L-shape with its back
-          to the lens is the one arrangement that guarantees a blank slab across
-          the foreground, however low you make it. */}
-      <group position={[2.35, 0, 6.3]}>
-        {/* Long run, back against the left wall, seats facing +x. */}
-        <mesh position={[0, 0.19, 0]} castShadow receiveShadow>
-          <boxGeometry args={[1.05, 0.38, 3.3]} />
-          <primitive object={M.sofa} attach="material" />
+          back of it — the camera stands to its right.
+
+          Every upholstered part is a rounded box. A 4-6 cm radius is what real
+          foam-and-fabric actually has, and sharp corners are the single
+          strongest signal that something is a primitive rather than a sofa. The
+          seat and back cushions are separate pieces with a visible gap between
+          them, because a continuous slab reads as a bench. */}
+      <group position={[2.75, 0, 6.1]} rotation={[0, 0.3, 0]}>
+        {/* Plinth, recessed, so the sofa sits in a shadow gap instead of
+            growing out of the floor. */}
+        <mesh position={[0, 0.05, 0]} receiveShadow>
+          <boxGeometry args={[0.92, 0.1, 3.16]} />
+          <primitive object={M.metal} attach="material" />
         </mesh>
-        <mesh position={[-0.46, 0.47, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.2, 0.56, 3.3]} />
+
+        {/* Base. */}
+        <RoundedBox
+          args={[1.05, 0.32, 3.3]}
+          radius={0.05}
+          smoothness={3}
+          position={[0, 0.26, 0]}
+          castShadow
+          receiveShadow
+        >
           <primitive object={M.sofa} attach="material" />
-        </mesh>
+        </RoundedBox>
+        {/* Back, leaning very slightly. */}
+        <RoundedBox
+          args={[0.22, 0.58, 3.3]}
+          radius={0.07}
+          smoothness={3}
+          position={[-0.45, 0.6, 0]}
+          rotation={[0, 0, 0.05]}
+          castShadow
+          receiveShadow
+        >
+          <primitive object={M.sofa} attach="material" />
+        </RoundedBox>
+
         {[-1.08, 0, 1.08].map((z) => (
           <group key={`seat-${z}`}>
-            <mesh position={[0.04, 0.44, z]} castShadow receiveShadow>
-              <boxGeometry args={[0.9, 0.16, 1.02]} />
+            {/* Seat cushion: wider than it is thick, and pillowed at the
+                edges by a generous radius. */}
+            <RoundedBox
+              args={[0.92, 0.19, 1.0]}
+              radius={0.075}
+              smoothness={3}
+              position={[0.05, 0.51, z]}
+              castShadow
+              receiveShadow
+            >
               <primitive object={M.sofaSeat} attach="material" />
-            </mesh>
-            <mesh position={[-0.3, 0.62, z]} rotation={[0, 0, -0.18]} castShadow>
-              <boxGeometry args={[0.17, 0.36, 1.02]} />
+            </RoundedBox>
+            {/* Back cushion, sitting proud of the frame. */}
+            <RoundedBox
+              args={[0.2, 0.44, 0.98]}
+              radius={0.08}
+              smoothness={3}
+              position={[-0.27, 0.72, z]}
+              rotation={[0, 0, -0.14]}
+              castShadow
+            >
               <primitive object={M.sofaSeat} attach="material" />
-            </mesh>
+            </RoundedBox>
           </group>
         ))}
+
         {/* Chaise returning across the far end, toward the television. */}
-        <mesh position={[0.95, 0.19, -2.05]} castShadow receiveShadow>
-          <boxGeometry args={[2.9, 0.38, 1.0]} />
-          <primitive object={M.sofa} attach="material" />
+        <mesh position={[0.95, 0.05, -1.95]} receiveShadow>
+          <boxGeometry args={[2.76, 0.1, 0.86]} />
+          <primitive object={M.metal} attach="material" />
         </mesh>
-        <mesh position={[0.95, 0.47, -2.45]} castShadow receiveShadow>
-          <boxGeometry args={[2.9, 0.56, 0.2]} />
+        <RoundedBox
+          args={[2.9, 0.32, 1.0]}
+          radius={0.05}
+          smoothness={3}
+          position={[0.95, 0.26, -1.95]}
+          castShadow
+          receiveShadow
+        >
           <primitive object={M.sofa} attach="material" />
-        </mesh>
+        </RoundedBox>
+        <RoundedBox
+          args={[2.9, 0.58, 0.22]}
+          radius={0.07}
+          smoothness={3}
+          position={[0.95, 0.6, -1.36]}
+          rotation={[0.05, 0, 0]}
+          castShadow
+          receiveShadow
+        >
+          <primitive object={M.sofa} attach="material" />
+        </RoundedBox>
         {[0.3, 1.5].map((dx) => (
-          <mesh key={`ch-${dx}`} position={[dx, 0.44, -2.03]} castShadow receiveShadow>
-            <boxGeometry args={[1.1, 0.16, 0.86]} />
-            <primitive object={M.sofaSeat} attach="material" />
-          </mesh>
+          <group key={`ch-${dx}`}>
+            <RoundedBox
+              args={[1.28, 0.19, 0.88]}
+              radius={0.075}
+              smoothness={3}
+              position={[dx, 0.51, -2.02]}
+              castShadow
+              receiveShadow
+            >
+              <primitive object={M.sofaSeat} attach="material" />
+            </RoundedBox>
+            <RoundedBox
+              args={[1.26, 0.44, 0.2]}
+              radius={0.08}
+              smoothness={3}
+              position={[dx, 0.72, -1.56]}
+              rotation={[-0.14, 0, 0]}
+              castShadow
+            >
+              <primitive object={M.sofaSeat} attach="material" />
+            </RoundedBox>
+          </group>
         ))}
+
+        {/* Scatter cushions, turned off-axis. Nothing on a real sofa is
+            square to anything else. */}
         {[
-          { p: [-0.26, 0.56, -1.3], r: 0.26 },
-          { p: [-0.26, 0.56, 1.2], r: -0.22 },
-          { p: [1.7, 0.56, -2.25], r: 0.3 },
+          { p: [-0.2, 0.78, -1.32], r: [0.2, 0.35, 0.3] },
+          { p: [-0.2, 0.78, 1.18], r: [0.18, -0.28, -0.24] },
+          { p: [1.66, 0.78, -1.5], r: [0.16, 1.2, 0.26] },
         ].map((c, i) => (
-          <mesh
+          <RoundedBox
             key={`cu-${i}`}
+            args={[0.4, 0.4, 0.14]}
+            radius={0.06}
+            smoothness={3}
             position={c.p as [number, number, number]}
-            rotation={[0.18, 0.3, c.r]}
+            rotation={c.r as [number, number, number]}
             castShadow
           >
-            <boxGeometry args={[0.13, 0.4, 0.4]} />
             <primitive object={M.cushion} attach="material" />
-          </mesh>
+          </RoundedBox>
         ))}
       </group>
 
       {/* Two swivel chairs opposite, closing the seating group as on the
           sheet. Kept well back: anything within three metres of the lens in a
-          wide frame stops being furniture and becomes an obstruction. */}
+          wide frame stops being furniture and becomes an obstruction.
+
+          Built as a tub chair — seat, one wrapping back and two low arms. An
+          earlier pass angled two loose panels behind the seat, which read as a
+          slab floating in mid air rather than as a chair. */}
       {[
-        { x: 5.9, z: 4.9 },
-        { x: 6.3, z: 6.1 },
+        { x: 6.35, z: 4.3 },
+        { x: 6.65, z: 5.7 },
       ].map((c, i) => (
-        <group key={`chair-${i}`} position={[c.x, 0, c.z]} rotation={[0, -1.15 - i * 0.18, 0]}>
-          <mesh position={[0, 0.38, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.72, 0.18, 0.7]} />
+        <group key={`chair-${i}`} position={[c.x, 0, c.z]} rotation={[0, -1.9 - i * 0.22, 0]}>
+          <RoundedBox
+            args={[0.8, 0.2, 0.76]}
+            radius={0.075}
+            smoothness={3}
+            position={[0, 0.43, 0.02]}
+            castShadow
+            receiveShadow
+          >
             <primitive object={M.cushion} attach="material" />
-          </mesh>
-          <mesh position={[0, 0.6, -0.3]} rotation={[-0.16, 0, 0]} castShadow>
-            <boxGeometry args={[0.72, 0.46, 0.14]} />
+          </RoundedBox>
+          <RoundedBox
+            args={[0.8, 0.52, 0.2]}
+            radius={0.09}
+            smoothness={3}
+            position={[0, 0.66, -0.3]}
+            rotation={[-0.16, 0, 0]}
+            castShadow
+            receiveShadow
+          >
             <primitive object={M.cushion} attach="material" />
-          </mesh>
-          <mesh position={[0, 0.15, 0]}>
-            <cylinderGeometry args={[0.2, 0.26, 0.3, 20]} />
+          </RoundedBox>
+          {[-0.35, 0.35].map((dx) => (
+            <RoundedBox
+              key={`arm-${dx}`}
+              args={[0.16, 0.26, 0.66]}
+              radius={0.07}
+              smoothness={3}
+              position={[dx, 0.53, 0.02]}
+              castShadow
+            >
+              <primitive object={M.cushion} attach="material" />
+            </RoundedBox>
+          ))}
+          <mesh position={[0, 0.17, 0]} castShadow>
+            <cylinderGeometry args={[0.19, 0.26, 0.32, 24]} />
             <primitive object={M.metal} attach="material" />
           </mesh>
         </group>
       ))}
 
       {/* Round marble coffee table, as on the sheet. */}
-      <group position={[4.1, 0, 5.9]}>
+      <group position={[4.0, 0, 5.1]}>
         <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[0.62, 0.62, 0.09, 36]} />
           <primitive object={M.marble} attach="material" />
