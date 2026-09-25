@@ -53,21 +53,24 @@ const GAIN = {
 
 /** Field downlights, on an even grid over the seating. */
 export const LR_DOWNLIGHTS = [
-  { x: 1.5, z: 1.5 },
-  { x: 3.4, z: 1.5 },
-  { x: 5.3, z: 1.5 },
-  { x: 1.5, z: 3.3 },
-  { x: 3.4, z: 3.3 },
-  { x: 5.3, z: 3.3 },
-  { x: 2.4, z: 5.2 },
-  { x: 4.9, z: 5.2 },
+  { x: 1.8, z: 1.6 },
+  { x: 4.2, z: 1.6 },
+  { x: 6.6, z: 1.6 },
+  { x: 1.8, z: 4.0 },
+  { x: 4.2, z: 4.0 },
+  { x: 6.6, z: 4.0 },
+  { x: 1.8, z: 6.4 },
+  { x: 4.2, z: 6.4 },
+  { x: 6.6, z: 6.4 },
+  { x: 3.0, z: 8.6 },
+  { x: 5.8, z: 8.6 },
 ] as const;
 
 /** Accent heads in the soffit, raking down the media wall at z = 0. */
 export const LR_WASH = [
-  { x: 1.7, z: LR.soffit.depth + 0.1 },
-  { x: 3.6, z: LR.soffit.depth + 0.1 },
-  { x: 5.4, z: LR.soffit.depth + 0.1 },
+  { x: 1.9, z: LR.soffit.depth + 0.12 },
+  { x: 4.2, z: LR.soffit.depth + 0.12 },
+  { x: 6.4, z: LR.soffit.depth + 0.12 },
 ] as const;
 
 function colourOf(state: LightState): THREE.Color {

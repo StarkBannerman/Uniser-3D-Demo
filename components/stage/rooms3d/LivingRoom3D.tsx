@@ -31,21 +31,38 @@ import { useFrame } from "@react-three/fiber";
 import { MAX_BLADE_STEP_RAD } from "@/lib/sim/fan";
 import { makeCurtainGeometry, makeScreenTexture } from "./geometry";
 
+/**
+ * Room dimensions.
+ *
+ * Measured off the client's sheet rather than guessed. On that drawing the
+ * sectional's back occupies about a tenth of the frame height and the room runs
+ * well past it to a dining zone — which only happens if the camera is nine or
+ * ten metres from the far wall and three or four from the sofa. An earlier pass
+ * put the whole room in 7.4 x 6.6, so the camera stood two metres behind the
+ * sofa and everything in it looked oversized.
+ */
 export const LR = {
   /** Across the room. The glazing wall is at x = w. */
-  w: 7.4,
+  w: 8.4,
   /** Away from the camera. The media wall is at z = 0. */
-  d: 6.6,
-  h: 3.0,
+  d: 10.0,
+  h: 3.3,
   /** Perimeter step in the ceiling; the cove sits at its inner edge. */
-  soffit: { depth: 0.5, drop: 0.18 },
+  soffit: { depth: 0.55, drop: 0.2 },
 } as const;
 
 export const LR_COVE_Y = LR.h - LR.soffit.drop + 0.03;
 /** Glazed opening in the x = LR.w wall. */
-export const LR_WINDOW = { z0: 0.45, z1: LR.d - 0.45, y0: 0.06, y1: LR.h - 0.42 };
+/**
+ * Glazed opening in the x = LR.w wall.
+ *
+ * It stops well short of the back of the room: on the sheet the glazing runs
+ * beside the media wall and the far end of that side is solid, which is what
+ * gives the view somewhere to end.
+ */
+export const LR_WINDOW = { z0: 0.5, z1: 6.2, y0: 0.06, y1: LR.h - 0.5 };
 /** Television, centred on the stone panel of the z = 0 wall. */
-export const LR_TV = { x: 5.05, y: 1.45, w: 2.1, h: 1.2 };
+export const LR_TV = { x: 5.7, y: 1.52, w: 2.2, h: 1.25 };
 
 /**
  * Where the rest of the client's sheet lands in the room.
@@ -56,17 +73,19 @@ export const LR_TV = { x: 5.05, y: 1.45, w: 2.1, h: 1.2 };
  */
 export const LR_PLAN = {
   /** Slatted timber panel, left of the stone. */
-  slats: { x0: 0.0, x1: 2.75 },
+  slats: { x0: 0.0, x1: 3.3 },
   /** Book-matched stone, carrying the television. */
-  stone: { x0: 2.75, x1: LR.w },
+  stone: { x0: 3.3, x1: LR.w },
   /** Shelving niches recessed into the slat panel, lit from inside. */
-  niche: { x0: 0.95, x1: 2.45, y0: 0.4, y1: 2.35, bays: 3 },
+  niche: { x0: 1.15, x1: 2.95, y0: 0.4, y1: 2.5, bays: 3 },
   /** Floorstanders either side of the television. */
-  speakers: [{ x: LR_TV.x - 1.6 }, { x: LR_TV.x + 1.6 }],
-  /** Pendant cluster, over the console on the left wall. */
-  pendants: { x: 1.15, z: 2.05 },
-  /** Ceiling fan hub. */
-  fan: { x: 3.7, z: 3.5, y: 2.4 },
+  speakers: [{ x: LR_TV.x - 1.75 }, { x: LR_TV.x + 1.75 }],
+  /** Pendant cluster, hung over the dining table. */
+  pendants: { x: 1.75, z: 2.6 },
+  /** Ceiling fan hub, over the seating. */
+  fan: { x: 4.5, z: 4.9, y: 2.72 },
+  /** Dining table in the middle distance, under the pendants. */
+  dining: { x: 1.75, z: 2.6 },
 } as const;
 
 /** Globe positions within the pendant cluster, relative to `LR_PLAN.pendants`. */
@@ -595,53 +614,52 @@ function Glazing({
 function Seating() {
   return (
     <group>
-      <mesh position={[4.15, 0.006, 2.35]} receiveShadow>
-        <boxGeometry args={[4.4, 0.012, 3.2]} />
+      <mesh position={[4.9, 0.006, 4.3]} receiveShadow>
+        <boxGeometry args={[5.0, 0.012, 4.4]} />
         <primitive object={M.rug} attach="material" />
       </mesh>
 
-      {/* Sectional facing the television: long run across the room with its
-          back to the camera, and a return up the left side. */}
-      <group position={[3.75, 0, 3.55]}>
-        <mesh position={[0, 0.2, 0]} castShadow receiveShadow>
-          <boxGeometry args={[3.5, 0.4, 1.0]} />
+      {/* Sectional facing the television.
+          Low-backed on purpose: the camera stands behind it, and a tall back
+          turns the nearest piece of furniture into a wall across the frame. */}
+      <group position={[4.7, 0, 5.3]}>
+        <mesh position={[0, 0.19, 0]} castShadow receiveShadow>
+          <boxGeometry args={[3.3, 0.38, 1.0]} />
           <primitive object={M.sofa} attach="material" />
         </mesh>
-        <mesh position={[0, 0.58, 0.44]} castShadow receiveShadow>
-          <boxGeometry args={[3.5, 0.76, 0.22]} />
+        <mesh position={[0, 0.47, 0.44]} castShadow receiveShadow>
+          <boxGeometry args={[3.3, 0.56, 0.2]} />
           <primitive object={M.sofa} attach="material" />
         </mesh>
-        {[-1.15, 0, 1.15].map((x) => (
+        {[-1.08, 0, 1.08].map((x) => (
           <group key={`seat-${x}`}>
-            <mesh position={[x, 0.46, -0.04]} castShadow receiveShadow>
-              <boxGeometry args={[1.08, 0.18, 0.88]} />
+            <mesh position={[x, 0.44, -0.04]} castShadow receiveShadow>
+              <boxGeometry args={[1.02, 0.16, 0.88]} />
               <primitive object={M.sofaSeat} attach="material" />
             </mesh>
-            <mesh position={[x, 0.7, 0.3]} rotation={[0.16, 0, 0]} castShadow>
-              <boxGeometry args={[1.08, 0.5, 0.18]} />
+            <mesh position={[x, 0.62, 0.3]} rotation={[0.18, 0, 0]} castShadow>
+              <boxGeometry args={[1.02, 0.36, 0.17]} />
               <primitive object={M.sofaSeat} attach="material" />
             </mesh>
           </group>
         ))}
-        {/* Return up the left. */}
-        <mesh position={[-2.0, 0.2, -0.95]} castShadow receiveShadow>
-          <boxGeometry args={[1.0, 0.4, 2.9]} />
+        {/* Return up the left, kept short so it does not reach the camera. */}
+        <mesh position={[-2.05, 0.19, -0.75]} castShadow receiveShadow>
+          <boxGeometry args={[1.0, 0.38, 1.9]} />
           <primitive object={M.sofa} attach="material" />
         </mesh>
-        <mesh position={[-2.44, 0.58, -0.95]} castShadow receiveShadow>
-          <boxGeometry args={[0.22, 0.76, 2.9]} />
+        <mesh position={[-2.45, 0.47, -0.75]} castShadow receiveShadow>
+          <boxGeometry args={[0.2, 0.56, 1.9]} />
           <primitive object={M.sofa} attach="material" />
         </mesh>
-        {[-1.65, -0.5].map((dz) => (
-          <mesh key={`ret-${dz}`} position={[-1.98, 0.46, dz - 0.3]} castShadow receiveShadow>
-            <boxGeometry args={[0.88, 0.18, 1.05]} />
-            <primitive object={M.sofaSeat} attach="material" />
-          </mesh>
-        ))}
+        <mesh position={[-2.03, 0.44, -0.75]} castShadow receiveShadow>
+          <boxGeometry args={[0.86, 0.16, 1.7]} />
+          <primitive object={M.sofaSeat} attach="material" />
+        </mesh>
         {[
-          { p: [-1.5, 0.66, 0.24], r: 0.26 },
-          { p: [1.4, 0.66, 0.24], r: -0.22 },
-          { p: [-2.2, 0.66, -1.5], r: 0.3 },
+          { p: [-1.4, 0.56, 0.26], r: 0.26 },
+          { p: [1.3, 0.56, 0.26], r: -0.22 },
+          { p: [-2.25, 0.56, -1.2], r: 0.3 },
         ].map((c, i) => (
           <mesh
             key={`cu-${i}`}
@@ -649,14 +667,14 @@ function Seating() {
             rotation={[0.2, 0, c.r]}
             castShadow
           >
-            <boxGeometry args={[0.42, 0.42, 0.14]} />
+            <boxGeometry args={[0.4, 0.4, 0.13]} />
             <primitive object={M.cushion} attach="material" />
           </mesh>
         ))}
       </group>
 
       {/* Round marble coffee table, as on the sheet. */}
-      <group position={[4.25, 0, 2.2]}>
+      <group position={[4.85, 0, 3.75]}>
         <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[0.62, 0.62, 0.09, 36]} />
           <primitive object={M.marble} attach="material" />
@@ -675,24 +693,58 @@ function Seating() {
         </mesh>
       </group>
 
-      {/* Console under the pendants, against the left wall. */}
-      <group position={[0.4, 0, LR_PLAN.pendants.z]}>
-        <mesh position={[0, 0.34, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.44, 0.06, 2.0]} />
+      {/* Dining zone in the middle distance, under the pendants.
+          The sheet leans on this for depth: something to see past the seating
+          is most of what stops a large room reading as a small one. */}
+      <group position={[LR_PLAN.dining.x, 0, LR_PLAN.dining.z]}>
+        <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
+          <boxGeometry args={[1.15, 0.06, 2.3]} />
           <primitive object={M.consoleWood} attach="material" />
         </mesh>
-        {[-0.85, 0.85].map((dz) => (
-          <mesh key={`cl-${dz}`} position={[0, 0.16, dz]} castShadow>
-            <boxGeometry args={[0.36, 0.34, 0.05]} />
-            <primitive object={M.metal} attach="material" />
-          </mesh>
-        ))}
+        {[-0.48, 0.48].map((dx) =>
+          [-0.95, 0.95].map((dz) => (
+            <mesh key={`tl-${dx}-${dz}`} position={[dx, 0.36, dz]} castShadow>
+              <boxGeometry args={[0.06, 0.72, 0.06]} />
+              <primitive object={M.metal} attach="material" />
+            </mesh>
+          )),
+        )}
+        {[-0.72, 0.72].map((dx) =>
+          [-0.62, 0, 0.62].map((dz) => (
+            <group key={`ch-${dx}-${dz}`} position={[dx, 0, dz]}>
+              <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
+                <boxGeometry args={[0.44, 0.07, 0.46]} />
+                <primitive object={M.cushion} attach="material" />
+              </mesh>
+              <mesh
+                position={[dx > 0 ? 0.19 : -0.19, 0.69, 0]}
+                rotation={[0, 0, dx > 0 ? -0.12 : 0.12]}
+                castShadow
+              >
+                <boxGeometry args={[0.07, 0.48, 0.44]} />
+                <primitive object={M.cushion} attach="material" />
+              </mesh>
+              {[-0.17, 0.17].map((lx) =>
+                [-0.17, 0.17].map((lz) => (
+                  <mesh key={`cl-${lx}-${lz}`} position={[lx, 0.22, lz]}>
+                    <boxGeometry args={[0.04, 0.44, 0.04]} />
+                    <primitive object={M.metal} attach="material" />
+                  </mesh>
+                )),
+              )}
+            </group>
+          )),
+        )}
+        <mesh position={[0, 0.85, 0]} castShadow>
+          <cylinderGeometry args={[0.14, 0.1, 0.16, 16]} />
+          <primitive object={M.pot} attach="material" />
+        </mesh>
       </group>
 
       {/* Floor plants, which the sheet leans on heavily for warmth. */}
       {[
-        { x: 6.75, z: 1.1 },
-        { x: 0.6, z: 1.5 },
+        { x: 7.7, z: 1.2 },
+        { x: 0.55, z: 5.6 },
       ].map((p, i) => (
         <group key={`plant-${i}`} position={[p.x, 0, p.z]}>
           <mesh position={[0, 0.16, 0]} castShadow receiveShadow>

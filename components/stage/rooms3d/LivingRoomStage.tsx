@@ -22,22 +22,18 @@ import { LivingRoomLightRig, type LivingFixtures } from "./LivingRoomLightRig";
 
 /** Fixed viewpoint, matched to the client's reference photograph. */
 const CAMERA: CameraSpec = {
-  // Stands at the near end and looks down the length of the room: glazing to
-  // the left, media wall to the right, hallway at the far end.
-  // High enough to see over the back of the sectional. From seated height the
-  // sofa is a blank wall across the bottom third of the frame.
-  position: [1.95, 2.02, 6.3],
-  // Aimed at the far-right corner, where the media wall meets the glazing. That
-  // single view carries the television, the stone, the slats, the niches, the
-  // speakers and the city — which is the composition the client's sheet uses,
-  // and the reason it reads as one room rather than a wall and a window.
-  target: [4.55, 1.02, 0.9],
   /**
-   * Read as the vertical field at 16:9 and re-solved for the real canvas — see
-   * `Stage3D`. On a squarer panel 58 here became a 70 degree vertical field and
-   * half the frame was ceiling and floorboards, so this is authored tighter
-   * than an interior photograph would be and widens back out on a wide screen.
+   * Standing eye height, aimed level.
+   *
+   * The pitch is the thing that was wrong. Tilted down from two metres the room
+   * read as a security camera looking into a box — verticals converged, the
+   * floor filled the frame and every object looked oversized. Interior
+   * photography keeps the camera near eye level and the axis close to
+   * horizontal, so walls stay vertical and the room keeps its scale. This drops
+   * 16 cm over eight metres: about one degree.
    */
+  position: [2.7, 1.42, 9.3],
+  target: [5.3, 1.26, 0.9],
   fov: 50,
 };
 
