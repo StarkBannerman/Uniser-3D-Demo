@@ -29,27 +29,21 @@ import { LivingRoomLightRig, type LivingFixtures } from "./LivingRoomLightRig";
 /** Fixed viewpoint, matched to the client's reference photograph. */
 const CAMERA: CameraSpec = {
   /**
-   * Standing eye height, aimed level.
+   * Straight down the room, on axis.
    *
-   * The pitch is the thing that was wrong. Tilted down from two metres the room
-   * read as a security camera looking into a box — verticals converged, the
-   * floor filled the frame and every object looked oversized. Interior
-   * photography keeps the camera near eye level and the axis close to
-   * horizontal, so walls stay vertical and the room keeps its scale. This drops
-   * 16 cm over eight metres: about one degree.
-   */
-  /**
-   * The right-hand corner of the room, beside the glazing, looking back across
-   * the seating at the media wall — which is where the client's sheet stands.
-   * Measured, not chosen: on that drawing the sofa's centre falls at 0.16 of
-   * the frame width, the coffee table at 0.45, the ottomans at 0.61 and the
-   * chair at 0.78, and from here they land at 0.19, 0.42, 0.58 and 0.77.
+   * A one-point perspective is the only setup that shows both side walls at
+   * once: the glazing and its curtains down the right, the artwork wall down
+   * the left, the media wall square ahead. Standing in either corner put one of
+   * those behind the camera — from the right corner barely any of the window
+   * was in shot at all.
    *
-   * An earlier pass stood in the left corner. Mirroring the viewpoint is why
-   * nothing else that was moved ever helped.
+   * Dead on axis rather than a few degrees off, because that is what maximises
+   * the side walls. Swinging the aim even three degrees toward the media wall
+   * costs a sixth of the window: 66 per cent of the glazing is in frame here,
+   * against 50 at +3.3 degrees and 39 at +5.2.
    */
-  position: [6.8, 1.55, 8.9],
-  target: [3.6, 1.2, 1.6],
+  position: [4.2, 1.52, 9.3],
+  target: [4.2, 1.22, 0.6],
   fov: 50,
 };
 
