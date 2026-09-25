@@ -55,19 +55,19 @@ export const DN_PLAN = {
   /** Ceiling-mounted projector, throwing at the screen. */
   projector: { x: 3.8, z: 5.9, y: 2.78 },
   /** Built-in shelving on the left wall. */
-  shelves: { z0: 2.25, z1: 4.35, y0: 0.35, y1: 2.5, bays: 4 },
+  shelves: { z0: 3.3, z1: 4.9, y0: 0.35, y1: 2.5, bays: 4 },
   /** Framed artwork on the left wall, beyond the shelving. */
-  art: { z: 5.15, y: 1.6, w: 1.5, h: 1.95 },
+  art: { z: 2.7, y: 1.6, w: 1.5, h: 1.95 },
   /** Work zone against the left wall, nearest the screen. */
   desk: { z: 0.85, w: 1.7 },
   /** Slatted timber panel between the work zone and the shelving. */
-  slats: { z0: 1.3, z1: 2.15 },
+  slats: { z0: 1.5, z1: 2.2 },
   /** Acoustic panels flanking the screen, on the projection wall. */
   acoustic: [{ x0: 0.1, x1: 7.5 }],
   /** Vertical RGB battens: two on the left wall, two flanking the screen. */
   battens: [
-    { x: 0.04, z: 2.2, along: "z" as const },
-    { x: 0.04, z: 4.5, along: "z" as const },
+    { x: 0.04, z: 2.35, along: "z" as const },
+    { x: 0.04, z: 5.25, along: "z" as const },
     { x: 1.72, z: 0.05, along: "x" as const },
     { x: 5.88, z: 0.05, along: "x" as const },
   ],

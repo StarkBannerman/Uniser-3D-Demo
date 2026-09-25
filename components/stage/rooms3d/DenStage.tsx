@@ -34,24 +34,29 @@ import { makeCityTexture } from "./geometry";
  */
 const CAMERA: CameraSpec = {
   /**
-   * Close enough that the screen is the subject.
+   * The room's right-hand side, looking across at the screen — the client's
+   * sheet's viewpoint.
    *
-   * The screen is what this room is for, and on the client's sheet it takes
-   * about 29 per cent of the frame width. From 8.5 m it takes 27, which is the
-   * closest this room allows while still holding the poster at one edge and the
-   * curtains at the other.
+   * Standing on the left put the display wall a metre and a half from the lens,
+   * so it raked across half the frame and the seating filled the rest. From
+   * here that same wall is seen end-on and compresses into the left quarter of
+   * the picture, which is the weight it should carry: the screen is the
+   * subject, the shelving is context.
    *
-   * An earlier pass stood 9.4 m back at 56 degrees. That fitted every callout
-   * comfortably and made the lit display wall the loudest thing in the picture,
-   * with the screen a small dark panel behind the seating — the room's subject
-   * relegated to background.
+   *   shelves 0.03    screen    0.52
+   *   poster  0.12    lounge    0.74
+   *   slats   0.17    speakers  0.31 / 0.75
+   *   desk    0.24    curtains  0.89
    *
-   * 52 degrees rather than 56 for the same reason: a narrower lens is what
-   * makes the screen bigger without moving the camera into the sofa.
+   * Not hard into the corner, though: at x = 5.9 the camera sits 1.7 m off the
+   * curtain wall and the drapes swallow the right third of the frame. 5.2 puts
+   * them 2.4 m away, where they read as the edge of the room rather than as
+   * the subject, and a 50 degree lens buys the screen back the width that
+   * costs — 27 per cent, against the sheet's 29.
    */
-  position: [2.5, 1.5, 8.4],
-  target: [2.36, 1.18, 0.4],
-  fov: 52,
+  position: [5.2, 1.5, 8.6],
+  target: [3.7, 1.2, 0.74],
+  fov: 50,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
