@@ -340,7 +340,17 @@ function ScreenLight({
   const sc = DN_PLAN.screen;
   return (
     <rectAreaLight
-      position={[sc.x, sc.y1 - sc.drop / 2, 0.2]}
+      position={[sc.x, sc.y1 - sc.drop / 2, 0.22]}
+      /**
+       * Turned to face the room.
+       *
+       * A `RectAreaLight` emits along its local -Z, so with no rotation this
+       * was firing into the wall behind the screen — lighting the plaster the
+       * screen is hung on, spilling round its edges as a halo, and never
+       * reaching the seating at all. The picture is supposed to light the
+       * people watching it.
+       */
+      rotation={[0, Math.PI, 0]}
       width={sc.w}
       height={sc.drop}
       // A slide is a near-full-field white rectangle, so it already throws

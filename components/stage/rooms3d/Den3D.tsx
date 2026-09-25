@@ -369,7 +369,7 @@ function DisplayWall({ deskOn }: { deskOn: boolean }) {
   const deskMat = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        map: deskTex,
+        color: new THREE.Color("#000000"),
         emissiveMap: deskTex,
         emissive: new THREE.Color("#ffffff"),
         emissiveIntensity: 0.9,
@@ -628,7 +628,20 @@ function ScreenWall({
   const pictureMat = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        map: picture,
+        /**
+         * Emissive only, with a black base.
+         *
+         * It carried `map` as well, so the room's own light landed on the slide
+         * as diffuse and *added* to the projection — the brighter the room, the
+         * brighter the screen, compounding exactly where it should not.
+         * Presentation is the most-lit scene in this space, so it compounded
+         * hardest there.
+         *
+         * A projected image is light thrown at fabric. What you see is the
+         * projection; the cloth underneath is not supposed to be reflecting the
+         * room back at you on top of it.
+         */
+        color: new THREE.Color("#000000"),
         emissiveMap: picture,
         emissive: new THREE.Color("#ffffff"),
         /**
