@@ -601,6 +601,14 @@ function AcousticPanels() {
  * is genuine travel — `screenTravelMs` belongs to the motor, and a scene cannot
  * hurry it — which is why Movie waits seven seconds before firing the projector.
  */
+/** Emissive per content, by how much of the frame is bright. */
+const SCREEN_EMISSIVE: Record<ScreenContent, number> = {
+  streaming: 1.0,
+  game: 0.85,
+  presentation: 0.34,
+  desktop: 0.8,
+};
+
 function ScreenWall({
   screen,
   projectorOn,
@@ -623,11 +631,21 @@ function ScreenWall({
         map: picture,
         emissiveMap: picture,
         emissive: new THREE.Color("#ffffff"),
-        emissiveIntensity: 1.0,
+        /**
+         * Scaled by what is on it.
+         *
+         * A streaming frame is mostly dark with bright highlights, so it can
+         * carry a full unit of emissive. A slide is a near-full-field pale
+         * rectangle: at the same value every pixel sits above the bloom
+         * threshold and the whole screen clips to white with the text lost.
+         * The projector is not putting out more light — the image simply has a
+         * far higher average, and the emissive channel has to respect that.
+         */
+        emissiveIntensity: SCREEN_EMISSIVE[content],
         roughness: 0.4,
         toneMapped: false,
       }),
-    [picture],
+    [picture, content],
   );
 
   return (

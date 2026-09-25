@@ -343,7 +343,9 @@ function ScreenLight({
       position={[sc.x, sc.y1 - sc.drop / 2, 0.2]}
       width={sc.w}
       height={sc.drop}
-      intensity={GAIN.screenBounce}
+      // A slide is a near-full-field white rectangle, so it already throws
+      // more into the room per unit of brightness than a film frame does.
+      intensity={GAIN.screenBounce * (content === "presentation" ? 0.6 : 1)}
       color={new THREE.Color(SCREEN_CAST[content] ?? SCREEN_CAST.streaming)}
     />
   );

@@ -196,13 +196,17 @@ export function makeScreenTexture(kind: ScreenContent = "streaming"): THREE.Canv
   };
 
   if (kind === "presentation") {
-    ctx.fillStyle = "#f4f2ed";
+    // Not paper-white. A projected slide in a dim room is a light grey at best
+    // — a beamer cannot make white brighter than its own output, and painting
+    // it at #f4f2ed then pushing it through an emissive channel clipped the
+    // whole rectangle to a featureless block with the text lost inside it.
+    ctx.fillStyle = "#cfccc4";
     ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = "#1d2733";
+    ctx.fillStyle = "#171f29";
     ctx.font = "600 62px system-ui, sans-serif";
     ctx.fillText("Lighting as", 90, 190);
     ctx.fillText("infrastructure", 90, 262);
-    ctx.fillStyle = "#7a8798";
+    ctx.fillStyle = "#5d6a7a";
     ctx.font = "400 30px system-ui, sans-serif";
     ctx.fillText("Residential programme  ·  Q3 review", 90, 322);
     ctx.fillStyle = "#c8a24a";
@@ -211,11 +215,11 @@ export function makeScreenTexture(kind: ScreenContent = "streaming"): THREE.Canv
     const bars = [0.42, 0.61, 0.55, 0.78, 0.9];
     bars.forEach((v, i) => {
       const bh = v * 230;
-      ctx.fillStyle = i === bars.length - 1 ? "#c8a24a" : "#93a3b5";
+      ctx.fillStyle = i === bars.length - 1 ? "#b08a33" : "#6d7e92";
       round(760 + i * 92, 560 - bh, 62, bh, 6);
       ctx.fill();
     });
-    ctx.strokeStyle = "#ccd3dc";
+    ctx.strokeStyle = "#a8b0ba";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(740, 562);
