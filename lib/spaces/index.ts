@@ -9,9 +9,16 @@ import type { Segment, Space } from "@/lib/sim/types";
 import { masterBedroom } from "./residential/master-bedroom";
 import { livingRoom } from "./residential/living-room";
 import { kitchen } from "./residential/kitchen";
+import { den } from "./residential/den";
 import { livingRoomIllustrated } from "./residential/living-room-illustrated";
 
-export const spaces: Space[] = [masterBedroom, livingRoom, kitchen, livingRoomIllustrated];
+export const spaces: Space[] = [
+  masterBedroom,
+  livingRoom,
+  den,
+  kitchen,
+  livingRoomIllustrated,
+];
 
 export function getSpace(id: string): Space | undefined {
   return spaces.find((s) => s.id === id);
