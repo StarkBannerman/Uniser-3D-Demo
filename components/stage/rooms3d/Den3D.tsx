@@ -99,9 +99,9 @@ const M = {
    * media room is dark in tone but still reads — it is the *projection wall*
    * that wants to be near-black, not the whole box.
    */
-  ceiling: new THREE.MeshStandardMaterial({ color: "#3b3731", roughness: 0.96 }),
+  ceiling: new THREE.MeshStandardMaterial({ color: "#474138", roughness: 0.96 }),
   soffit: new THREE.MeshStandardMaterial({ color: "#453f38", roughness: 0.93 }),
-  wall: new THREE.MeshStandardMaterial({ color: "#4e4740", roughness: 0.93 }),
+  wall: new THREE.MeshStandardMaterial({ color: "#5a524a", roughness: 0.93 }),
   floor: new THREE.MeshStandardMaterial({
     color: "#5c4c3e",
     roughness: 0.4,

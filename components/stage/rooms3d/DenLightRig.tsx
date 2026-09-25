@@ -44,8 +44,12 @@ export const DN_DOWNLIGHTS = [
   { x: 5.6, z: 1.5 },
   { x: 1.7, z: 4.4 },
   { x: 5.6, z: 4.4 },
-  { x: 2.5, z: 7.4 },
-  { x: 5.2, z: 7.4 },
+  { x: 1.7, z: 7.0 },
+  { x: 5.6, z: 7.0 },
+  // The near end of the room had no head at all, so the last metre and a half
+  // was lit only by whatever spilled back from the others.
+  { x: 2.4, z: 8.9 },
+  { x: 5.0, z: 8.9 },
 ] as const;
 
 /** Accent heads in the soffit, grazing the artwork on the left wall. */
@@ -76,11 +80,19 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
     () => emissive(colour, GAIN.coveEmissive * glow),
     [colour.getHex(), glow],
   );
+  /**
+   * Runs almost the full length of each wall.
+   *
+   * They used to stop 0.55 m short at every end, which left all four corners
+   * unlit — and the corner nearest the lens is a large, plain piece of wall
+   * with nothing else lighting it. A cove is a continuous extrusion in real
+   * joinery; stopping it short was a modelling convenience with a visible cost.
+   */
   const segments = [
-    { pos: [DN.w / 2, DN_COVE_Y, inset], along: "x", len: DN.w - 1.1 },
-    { pos: [DN.w / 2, DN_COVE_Y, DN.d - inset], along: "x", len: DN.w - 1.1 },
-    { pos: [inset, DN_COVE_Y, DN.d / 2], along: "z", len: DN.d - 1.1 },
-    { pos: [DN.w - inset, DN_COVE_Y, DN.d / 2], along: "z", len: DN.d - 1.1 },
+    { pos: [DN.w / 2, DN_COVE_Y, inset], along: "x", len: DN.w - 0.4 },
+    { pos: [DN.w / 2, DN_COVE_Y, DN.d - inset], along: "x", len: DN.w - 0.4 },
+    { pos: [inset, DN_COVE_Y, DN.d / 2], along: "z", len: DN.d - 0.4 },
+    { pos: [DN.w - inset, DN_COVE_Y, DN.d / 2], along: "z", len: DN.d - 0.4 },
   ] as const;
 
   return (
