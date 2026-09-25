@@ -34,26 +34,24 @@ import { makeCityTexture } from "./geometry";
  */
 const CAMERA: CameraSpec = {
   /**
-   * The room's near-left corner, looking across at the far-right one — the
-   * sheet's viewpoint, and the only one that holds every callout at once: the
-   * display wall raking away on the left with its poster, shelving, slat panel
-   * and work zone, the screen and speakers ahead, the lounge chair and the
-   * curtains at the right edge.
+   * Close enough that the screen is the subject.
    *
-   * Solved against the drawing rather than chosen. Reading the sheet, the
-   * elements sit at these fractions of frame width, and from here they land:
+   * The screen is what this room is for, and on the client's sheet it takes
+   * about 29 per cent of the frame width. From 8.5 m it takes 27, which is the
+   * closest this room allows while still holding the poster at one edge and the
+   * curtains at the other.
    *
-   *   poster 0.17 -> 0.12    screen   0.66 -> 0.66
-   *   slats  0.35 -> 0.34    speakers 0.86 -> 0.84
-   *   desk   0.42 -> 0.41    curtains 0.97 -> 0.98
+   * An earlier pass stood 9.4 m back at 56 degrees. That fitted every callout
+   * comfortably and made the lit display wall the loudest thing in the picture,
+   * with the screen a small dark panel behind the seating — the room's subject
+   * relegated to background.
    *
-   * 56 degrees rather than 50 because at 50 there is no camera position in this
-   * room that holds all of them — the corner-to-corner spread simply does not
-   * fit an 79 degree horizontal field.
+   * 52 degrees rather than 56 for the same reason: a narrower lens is what
+   * makes the screen bigger without moving the camera into the sofa.
    */
-  position: [2.9, 1.55, 9.4],
-  target: [1.73, 1.2, 1.49],
-  fov: 56,
+  position: [2.5, 1.5, 8.4],
+  target: [2.36, 1.18, 0.4],
+  fov: 52,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };

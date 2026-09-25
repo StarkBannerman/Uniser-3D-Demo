@@ -278,8 +278,12 @@ export const den: Space = {
         "dn-accent": { on: true, level: 75, cct: 2700 },
         "dn-rgb": { on: true, level: 28, cct: 2700, sat: 0 },
         "dn-curtain": { sheer: 100, blackout: 0 },
-        "dn-av": { on: false, screen: 0 },
-        "dn-audio": { on: true, source: "Playlist", volume: 26 },
+        // Screen down and something playing. A media room at rest is not a
+        // media room with a blank wall — the client's own sheet shows the
+        // screen lit in its hero image, and it is the one thing in here a
+        // client looks at first.
+        "dn-av": { on: true, source: "Streaming", screen: 100, volume: 22 },
+        "dn-audio": { on: true, source: "Projector", volume: 26 },
         "dn-desk": { on: false },
         "dn-ac": { on: true, setpointC: 24, fan: 1 },
       },
