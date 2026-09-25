@@ -20,6 +20,7 @@ import {
 } from "@/lib/sim/photometry";
 import { Stage3D, type CameraSpec } from "../Stage3D";
 import { Den3D } from "./Den3D";
+import type { ScreenContent } from "./geometry";
 import { DenLightRig, type DenFixtures } from "./DenLightRig";
 import { makeCityTexture } from "./geometry";
 
@@ -54,8 +55,11 @@ const CAMERA: CameraSpec = {
    * the subject, and a 50 degree lens buys the screen back the width that
    * costs — 27 per cent, against the sheet's 29.
    */
-  position: [5.2, 1.5, 8.6],
-  target: [3.7, 1.2, 0.74],
+  // Slightly above standing eye level and looking a little down — a 3/4 hero
+  // angle rather than a level security-camera view. Enough tilt to see the rug
+  // and the tops of the seating, not enough to converge the verticals.
+  position: [5.2, 1.78, 8.6],
+  target: [3.7, 1.05, 0.74],
   fov: 50,
 };
 
@@ -103,14 +107,30 @@ export function DenStage() {
 
   const screen = av?.screen ?? 0;
 
+  /**
+   * What the projector is showing, from the source the scene selected.
+   *
+   * Without this Work, Movie, Presentation and Gaming were the same room at
+   * four brightnesses. The screen is the one object that says what the room is
+   * being used for, so the source has to reach it.
+   */
+  const screenContent: ScreenContent =
+    av?.source === "Console"
+      ? "game"
+      : av?.source === "Laptop"
+        ? "presentation"
+        : "streaming";
+
   return (
     <Stage3D
       camera={CAMERA}
       ambient={ambient}
       // A dark room with a bright screen and saturated colour in it: bloom
       // wants a higher threshold here, or the charcoal walls go milky.
-      bloomIntensity={0.55}
-      bloomThreshold={1.3}
+      // Enough bloom that the cove and the screen bleed into what is beside
+      // them. Below about 0.7 a strip light reads as a painted line.
+      bloomIntensity={0.78}
+      bloomThreshold={1.05}
     >
       <Den3D
         curtains={curtains}
@@ -119,6 +139,7 @@ export function DenStage() {
         projectorOn={Boolean(av?.on)}
         deskOn={Boolean(desk?.on)}
         audioLevel={audio?.on ? audio.volume / 100 : 0}
+        screenContent={screenContent}
       />
       <DenLightRig
         fixtures={fixtures}
@@ -126,6 +147,7 @@ export function DenStage() {
         transmission={shadeTransmission(curtains.sheer, curtains.blackout)}
         projectorOn={Boolean(av?.on)}
         screenDeployed={screen / 100}
+        screenContent={screenContent}
       />
     </Stage3D>
   );

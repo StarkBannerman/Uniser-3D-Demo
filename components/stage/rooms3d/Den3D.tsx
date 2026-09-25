@@ -24,7 +24,12 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
-import { makeArtTexture, makeCurtainGeometry, makeScreenTexture } from "./geometry";
+import {
+  makeArtTexture,
+  makeCurtainGeometry,
+  makeScreenTexture,
+  type ScreenContent,
+} from "./geometry";
 
 export const DN = {
   /** Across the room. The curtain wall is at x = w. */
@@ -107,13 +112,31 @@ const M = {
   ceiling: new THREE.MeshStandardMaterial({ color: "#595248", roughness: 0.96 }),
   soffit: new THREE.MeshStandardMaterial({ color: "#665d52", roughness: 0.93 }),
   wall: new THREE.MeshStandardMaterial({ color: "#6f665c", roughness: 0.93 }),
-  floor: new THREE.MeshStandardMaterial({
+  /**
+   * Engineered timber with a satin lacquer.
+   *
+   * A clearcoat rather than plain roughness: it gives the floor a specular
+   * layer independent of the diffuse one, so the cove and the screen streak
+   * across it the way they do on a real finished floor. Without it every
+   * surface in the room returns light identically, which is the "clay render"
+   * look — geometry that is fine reading as unfinished.
+   */
+  floor: new THREE.MeshPhysicalMaterial({
     color: "#6d5b49",
-    roughness: 0.4,
-    metalness: 0.02,
+    roughness: 0.42,
+    metalness: 0,
+    clearcoat: 0.55,
+    clearcoatRoughness: 0.28,
   }),
   rug: new THREE.MeshStandardMaterial({ color: "#837a6e", roughness: 1 }),
-  joinery: new THREE.MeshStandardMaterial({ color: "#54432f", roughness: 0.5 }),
+  /** Oiled walnut: satin, not matt, and a touch of sheen along the grain. */
+  joinery: new THREE.MeshPhysicalMaterial({
+    color: "#54432f",
+    roughness: 0.46,
+    metalness: 0,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.45,
+  }),
   joineryBack: new THREE.MeshStandardMaterial({ color: "#332822", roughness: 0.85 }),
   metal: new THREE.MeshStandardMaterial({
     color: "#26282c",
@@ -133,7 +156,14 @@ const M = {
     metalness: 0,
     side: THREE.DoubleSide,
   }),
-  speaker: new THREE.MeshStandardMaterial({ color: "#232529", roughness: 0.45 }),
+  /** Speaker cabinets are lacquered; the grille cloth beside them is not. */
+  speaker: new THREE.MeshPhysicalMaterial({
+    color: "#232529",
+    roughness: 0.3,
+    metalness: 0,
+    clearcoat: 0.7,
+    clearcoatRoughness: 0.15,
+  }),
   cone: new THREE.MeshStandardMaterial({ color: "#2b2d31", roughness: 0.7 }),
   sofa: new THREE.MeshPhysicalMaterial({
     color: "#6d6a64",
@@ -335,6 +365,19 @@ function SlatPanel() {
  * flat, and that needs something in the recess to stop being revealed.
  */
 function DisplayWall({ deskOn }: { deskOn: boolean }) {
+  const deskTex = useMemo(() => makeScreenTexture("desktop"), []);
+  const deskMat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        map: deskTex,
+        emissiveMap: deskTex,
+        emissive: new THREE.Color("#ffffff"),
+        emissiveIntensity: 0.9,
+        roughness: 0.3,
+        toneMapped: false,
+      }),
+    [deskTex],
+  );
   const sh = DN_PLAN.shelves;
   const a = DN_PLAN.art;
   const dk = DN_PLAN.desk;
@@ -468,13 +511,11 @@ function DisplayWall({ deskOn }: { deskOn: boolean }) {
         </mesh>
         <mesh position={[0.265, 1.18, 0]} rotation={[0, 0.12, 0]}>
           <planeGeometry args={[0.72, 0.38]} />
-          <meshStandardMaterial
-            color={deskOn ? "#0b1520" : "#111315"}
-            emissive={new THREE.Color(deskOn ? "#4e7fb4" : "#000000")}
-            emissiveIntensity={deskOn ? 1.1 : 0}
-            roughness={0.3}
-            toneMapped={false}
-          />
+          {deskOn ? (
+            <primitive object={deskMat} attach="material" />
+          ) : (
+            <meshStandardMaterial color="#111315" roughness={0.3} />
+          )}
         </mesh>
         {/* Keyboard and a task chair. */}
         <mesh position={[0.5, 0.755, 0]} castShadow>
@@ -564,15 +605,18 @@ function ScreenWall({
   screen,
   projectorOn,
   audioLevel,
+  content,
 }: {
   screen: number;
   projectorOn: boolean;
   audioLevel: number;
+  /** What the projector is showing — see `ScreenContent`. */
+  content: ScreenContent;
 }) {
   const sc = DN_PLAN.screen;
   const co = DN_PLAN.console;
   const drop = Math.max(0, Math.min(1, screen / 100)) * sc.drop;
-  const picture = useMemo(() => makeScreenTexture(), []);
+  const picture = useMemo(() => makeScreenTexture(content), [content]);
   const pictureMat = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
@@ -703,7 +747,7 @@ export interface DenCurtains {
   blackout: number;
 }
 
-const PANELS = 5;
+const PANELS = 6;
 const PANEL_OVERLAP = 0.05;
 
 function Glazing({
@@ -765,8 +809,8 @@ function Glazing({
           const geo = makeCurtainGeometry({
             length: seg + PANEL_OVERLAP,
             height,
-            folds: 5,
-            foldDepth: 0.05,
+            folds: 9,
+            foldDepth: 0.11,
             gather,
           });
           const toStart = i < PANELS / 2;
@@ -907,8 +951,9 @@ function Seating() {
           </RoundedBox>
         ))}
 
-        {/* Round marble coffee table, with a control tablet on a side table
-            beside the chaise — the sheet shows one and it is the point. */}
+        {/* Round marble coffee table, with things actually on it.
+            A bare table reads as a showroom; the sheet has books, a bowl and a
+            tray, and it is that clutter that makes a room look occupied. */}
         <group position={[0.1, 0, -0.9]}>
           <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
             <cylinderGeometry args={[0.7, 0.7, 0.1, 36]} />
@@ -918,10 +963,60 @@ function Seating() {
             <cylinderGeometry args={[0.32, 0.4, 0.34, 28]} />
             <primitive object={M.marble} attach="material" />
           </mesh>
-          <mesh position={[0.18, 0.44, 0.1]} castShadow>
-            <cylinderGeometry args={[0.18, 0.18, 0.08, 24]} />
+          {/* A stack of three books, each a little off the one below. */}
+          {[0, 1, 2].map((i) => (
+            <mesh
+              key={`bk-${i}`}
+              position={[-0.24 + i * 0.012, 0.425 + i * 0.035, -0.12 + i * 0.015]}
+              rotation={[0, 0.2 + i * 0.16, 0]}
+              castShadow
+            >
+              <boxGeometry args={[0.3, 0.035, 0.22]} />
+              <meshStandardMaterial
+                color={["#5c2b28", "#2f3a46", "#8a7248"][i]}
+                roughness={0.82}
+              />
+            </mesh>
+          ))}
+          {/* A wide shallow bowl, and a remote lying beside it. */}
+          <mesh position={[0.24, 0.45, 0.06]} castShadow>
+            <cylinderGeometry args={[0.16, 0.1, 0.09, 28]} />
             <primitive object={M.joinery} attach="material" />
           </mesh>
+          <mesh position={[0.24, 0.49, 0.06]}>
+            <cylinderGeometry args={[0.135, 0.135, 0.02, 24]} />
+            <meshStandardMaterial color="#c8a978" roughness={0.75} />
+          </mesh>
+          <mesh position={[0.02, 0.415, 0.36]} rotation={[0, -0.5, 0]} castShadow>
+            <boxGeometry args={[0.05, 0.02, 0.2]} />
+            <primitive object={M.metal} attach="material" />
+          </mesh>
+        </group>
+
+        {/* A large upholstered pouf between the seating and the screen, as the
+            sheet has. It also stops the rug reading as empty floor. */}
+        <group position={[1.15, 0, -1.45]}>
+          <RoundedBox
+            args={[0.92, 0.38, 0.8]}
+            radius={0.16}
+            smoothness={4}
+            position={[0, 0.22, 0]}
+            castShadow
+            receiveShadow
+          >
+            <primitive object={M.sofa} attach="material" />
+          </RoundedBox>
+          {/* A throw tossed over one corner. */}
+          <RoundedBox
+            args={[0.5, 0.07, 0.62]}
+            radius={0.03}
+            smoothness={3}
+            position={[0.18, 0.43, 0.04]}
+            rotation={[0, 0.3, 0.05]}
+            castShadow
+          >
+            <primitive object={M.cushion} attach="material" />
+          </RoundedBox>
         </group>
         <group position={[-2.55, 0, -1.6]}>
           <mesh position={[0, 0.44, 0]} castShadow receiveShadow>
@@ -1009,6 +1104,8 @@ function Seating() {
       {[
         { x: 0.62, z: 8.4 },
         { x: 6.95, z: 1.0 },
+        { x: 6.9, z: 6.6 },
+        { x: 0.55, z: 6.1 },
       ].map((p, i) => (
         <group key={`plant-${i}`} position={[p.x, 0, p.z]}>
           <mesh position={[0, 0.2, 0]} castShadow receiveShadow>
@@ -1045,6 +1142,7 @@ export function Den3D({
   projectorOn,
   deskOn,
   audioLevel = 0,
+  screenContent = "streaming",
 }: {
   curtains: DenCurtains;
   view: THREE.Texture;
@@ -1053,6 +1151,7 @@ export function Den3D({
   projectorOn: boolean;
   deskOn: boolean;
   audioLevel?: number;
+  screenContent?: ScreenContent;
 }) {
   return (
     <group>
@@ -1060,7 +1159,12 @@ export function Den3D({
       <SlatPanel />
       <AcousticPanels />
       <DisplayWall deskOn={deskOn} />
-      <ScreenWall screen={screen} projectorOn={projectorOn} audioLevel={audioLevel} />
+      <ScreenWall
+        screen={screen}
+        projectorOn={projectorOn}
+        audioLevel={audioLevel}
+        content={screenContent}
+      />
       <Projector on={projectorOn} />
       <Glazing {...curtains} view={view} />
       <Seating />

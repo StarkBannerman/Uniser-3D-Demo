@@ -36,7 +36,7 @@ export function makeCurtainGeometry({
   gather?: number;
   segments?: number;
 }): THREE.BufferGeometry {
-  const g = new THREE.PlaneGeometry(1, height, segments, 2);
+  const g = new THREE.PlaneGeometry(1, height, segments, 6);
   const pos = g.attributes.position;
 
   // Bunching: the panel occupies less Z and the folds get deeper and tighter.
@@ -49,7 +49,26 @@ export function makeCurtainGeometry({
     const u = pos.getX(i) + 0.5;
     const y = pos.getY(i) + height / 2;
     const z = u * span;
-    const x = Math.sin(u * cycles * Math.PI * 2) * depth;
+
+    /**
+     * Two things make this read as cloth rather than as a shutter.
+     *
+     * The fold is a softened sine — raising it to a fractional power rounds the
+     * crests and deepens the troughs, which is how gathered fabric actually
+     * sits. A pure sine gives evenly spaced ridges of identical width, and that
+     * is exactly what a vertical blind looks like.
+     *
+     * And the fold shallows toward the top, where the fabric is held by the
+     * track, and swells toward the floor where it is free. A fold of constant
+     * depth from head to hem is the other half of the blind impression.
+     */
+    const t = y / height;
+    const swell = 0.45 + 0.55 * Math.pow(t < 1 ? 1 - t : 0, 0.7);
+    const raw = Math.sin(u * cycles * Math.PI * 2);
+    const soft = Math.sign(raw) * Math.pow(Math.abs(raw), 0.62);
+    // A slow second wave, so the folds are not all the same size.
+    const drift = Math.sin(u * cycles * Math.PI * 0.6 + 1.1) * 0.35;
+    const x = (soft + drift) * depth * swell;
     pos.setXYZ(i, x, y, z);
   }
 
@@ -138,76 +157,205 @@ export function makeCityTexture(night: boolean, seed = 7): THREE.CanvasTexture {
   return tex;
 }
 
+/** What a screen is showing. Each scene wants a different one. */
+export type ScreenContent = "streaming" | "presentation" | "game" | "desktop";
+
 /**
- * What is playing on the television.
+ * What is on the screen.
  *
- * A dark rectangle reads as a slab of plastic, not a screen — and the screen is
- * the thing a client looks at first on a media wall. Drawn rather than loaded so
- * the demo stays offline: a landscape still, a title, and a row of the services
- * anyone would recognise.
+ * A gradient placeholder was the single biggest thing making Movie,
+ * Presentation and Gaming read as "same room, slightly different light". The
+ * screen is the one object in a media room that tells you what the room is
+ * *for*, so it gets a real interface: a streaming home page with a hero banner
+ * and a row of posters, a slide deck, a game, or a desktop.
+ *
+ * Drawn rather than loaded so the demo stays offline, and deterministic so the
+ * tiles do not reshuffle on a remount.
  */
-export function makeScreenTexture(): THREE.CanvasTexture {
-  const w = 1024;
-  const h = 576;
+export function makeScreenTexture(kind: ScreenContent = "streaming"): THREE.CanvasTexture {
+  const w = 1280;
+  const h = 720;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d")!;
 
-  // Sky, from a high dusk blue down to a pale horizon.
-  const sky = ctx.createLinearGradient(0, 0, 0, h * 0.62);
-  sky.addColorStop(0, "#2d6d9e");
-  sky.addColorStop(0.55, "#7fb4d6");
-  sky.addColorStop(1, "#d6e6ee");
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, w, h);
-
-  // Two ranges of hills, the far one hazier.
-  const ridge = (baseY: number, amp: number, fill: string, seed: number) => {
-    ctx.fillStyle = fill;
+  let seed = 20250925;
+  const rnd = () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+  const round = (x: number, y: number, ww: number, hh: number, r: number) => {
     ctx.beginPath();
-    ctx.moveTo(0, h);
-    ctx.lineTo(0, baseY);
-    for (let x = 0; x <= w; x += 16) {
-      const y =
-        baseY -
-        Math.sin(x / 150 + seed) * amp -
-        Math.sin(x / 47 + seed * 2) * amp * 0.35;
-      ctx.lineTo(x, y);
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + ww, y, x + ww, y + hh, r);
+    ctx.arcTo(x + ww, y + hh, x, y + hh, r);
+    ctx.arcTo(x, y + hh, x, y, r);
+    ctx.arcTo(x, y, x + ww, y, r);
+    ctx.closePath();
+  };
+
+  if (kind === "presentation") {
+    ctx.fillStyle = "#f4f2ed";
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#1d2733";
+    ctx.font = "600 62px system-ui, sans-serif";
+    ctx.fillText("Lighting as", 90, 190);
+    ctx.fillText("infrastructure", 90, 262);
+    ctx.fillStyle = "#7a8798";
+    ctx.font = "400 30px system-ui, sans-serif";
+    ctx.fillText("Residential programme  ·  Q3 review", 90, 322);
+    ctx.fillStyle = "#c8a24a";
+    ctx.fillRect(90, 352, 120, 5);
+    // A bar chart, because a slide with no data on it reads as a placeholder.
+    const bars = [0.42, 0.61, 0.55, 0.78, 0.9];
+    bars.forEach((v, i) => {
+      const bh = v * 230;
+      ctx.fillStyle = i === bars.length - 1 ? "#c8a24a" : "#93a3b5";
+      round(760 + i * 92, 560 - bh, 62, bh, 6);
+      ctx.fill();
+    });
+    ctx.strokeStyle = "#ccd3dc";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(740, 562);
+    ctx.lineTo(1210, 562);
+    ctx.stroke();
+  } else if (kind === "game") {
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, "#160b2e");
+    g.addColorStop(0.5, "#2b1055");
+    g.addColorStop(1, "#06111f");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    // A horizon and a road, which is all a racing frame needs to read as one.
+    ctx.fillStyle = "#0b1a2b";
+    ctx.fillRect(0, h * 0.58, w, h * 0.42);
+    ctx.strokeStyle = "rgba(255,90,190,0.8)";
+    ctx.lineWidth = 3;
+    for (let i = 0; i <= 10; i++) {
+      ctx.beginPath();
+      ctx.moveTo(w / 2, h * 0.58);
+      ctx.lineTo((i / 10) * w * 2 - w * 0.5, h);
+      ctx.stroke();
     }
-    ctx.lineTo(w, h);
+    for (let i = 1; i < 7; i++) {
+      const y = h * 0.58 + Math.pow(i / 7, 2.2) * h * 0.42;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.font = "700 34px system-ui, sans-serif";
+    ctx.fillText("LAP 3 / 8", 70, 90);
+    ctx.font = "700 76px system-ui, sans-serif";
+    ctx.fillText("241", 70, 178);
+    ctx.font = "500 26px system-ui, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.fillText("KM / H", 200, 178);
+  } else if (kind === "desktop") {
+    ctx.fillStyle = "#121821";
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#1b2531";
+    ctx.fillRect(0, 0, w, 46);
+    ["#e06c5a", "#e0b85a", "#6cc06c"].forEach((c, i) => {
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.arc(34 + i * 26, 23, 8, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    // A code editor, which is what a den desk is actually used for.
+    const widths = [0.52, 0.34, 0.68, 0.24, 0.46, 0.6, 0.3, 0.55, 0.4, 0.66, 0.28, 0.5];
+    widths.forEach((v, i) => {
+      ctx.fillStyle = ["#7fa7d4", "#c9a06a", "#8fbf87", "#a89ac4"][i % 4];
+      ctx.globalAlpha = 0.85;
+      round(120, 96 + i * 44, v * 760, 16, 5);
+      ctx.fill();
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = "#6b7784";
+      ctx.fillText(String(i + 1), 74, 110 + i * 44);
+      ctx.globalAlpha = 1;
+    });
+    ctx.fillStyle = "#1b2531";
+    ctx.fillRect(960, 46, w - 960, h - 46);
+    ctx.fillStyle = "#2b3745";
+    for (let i = 0; i < 9; i++) round(990, 90 + i * 52, 250, 30, 6), ctx.fill();
+  } else {
+    // Streaming home page.
+    ctx.fillStyle = "#0b0d10";
+    ctx.fillRect(0, 0, w, h);
+
+    // Hero banner: a still, a title and two buttons.
+    const hero = ctx.createLinearGradient(0, 0, 0, h * 0.62);
+    hero.addColorStop(0, "#2f5f86");
+    hero.addColorStop(0.55, "#1d3a55");
+    hero.addColorStop(1, "#0b0d10");
+    ctx.fillStyle = hero;
+    ctx.fillRect(0, 0, w, h * 0.62);
+    ctx.fillStyle = "rgba(10,14,20,0.55)";
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.44);
+    for (let x = 0; x <= w; x += 20) {
+      ctx.lineTo(x, h * 0.44 - Math.sin(x / 190) * 36 - Math.sin(x / 61) * 12);
+    }
+    ctx.lineTo(w, h * 0.62);
+    ctx.lineTo(0, h * 0.62);
     ctx.closePath();
     ctx.fill();
-  };
-  ridge(h * 0.52, 46, "#5d7f92", 1.2);
-  ridge(h * 0.62, 30, "#3b5b66", 2.7);
 
-  // Water, and the light lying on it.
-  const water = ctx.createLinearGradient(0, h * 0.62, 0, h);
-  water.addColorStop(0, "#2f5570");
-  water.addColorStop(1, "#16293a");
-  ctx.fillStyle = water;
-  ctx.fillRect(0, h * 0.62, w, h * 0.38);
-  ctx.fillStyle = "rgba(255,238,200,0.16)";
-  for (let i = 0; i < 26; i++) {
-    const y = h * 0.64 + i * 8;
-    ctx.fillRect(w * 0.42 - i * 3, y, 90 + i * 7, 2.5);
+    ctx.fillStyle = "#e5322d";
+    ctx.font = "800 30px system-ui, sans-serif";
+    ctx.fillText("● ● ●", 62, 66);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 62px system-ui, sans-serif";
+    ctx.fillText("A BRIGHTER", 62, 236);
+    ctx.fillText("TOMORROW", 62, 302);
+    ctx.font = "400 24px system-ui, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.fillText("2026  ·  Documentary  ·  1h 48m", 62, 344);
+
+    ctx.fillStyle = "#ffffff";
+    round(62, 372, 148, 46, 6);
+    ctx.fill();
+    ctx.fillStyle = "#101418";
+    ctx.font = "600 22px system-ui, sans-serif";
+    ctx.fillText("▶  Play", 92, 402);
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    round(224, 372, 168, 46, 6);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText("+  My List", 250, 402);
+
+    // A row of posters. Two rows, the second clipped by the frame edge, which
+    // is what a home page actually looks like.
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.font = "600 24px system-ui, sans-serif";
+    ctx.fillText("Top 10 today", 62, h * 0.66 + 4);
+    const palette = [
+      ["#7c2230", "#d2515f"], ["#1d4a5e", "#3f9fb8"], ["#4a3a1e", "#c39b4a"],
+      ["#2d2148", "#7a5fb0"], ["#123425", "#3f9468"], ["#4a1f2b", "#b05068"],
+      ["#1b2a44", "#5678b0"],
+    ];
+    for (let i = 0; i < 7; i++) {
+      const x = 62 + i * 176;
+      const y = h * 0.7;
+      const g2 = ctx.createLinearGradient(x, y, x, y + 172);
+      g2.addColorStop(0, palette[i][1]);
+      g2.addColorStop(1, palette[i][0]);
+      ctx.fillStyle = g2;
+      round(x, y, 152, 172, 8);
+      ctx.fill();
+      // A rank numeral, as the streaming services print.
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.font = "800 54px system-ui, sans-serif";
+      ctx.fillText(String(i + 1), x + 12, y + 158);
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillRect(x + 66, y + 130, 70 * (0.4 + rnd() * 0.6), 6);
+    }
   }
-
-  // Title, lower left, as a streaming home screen would set it.
-  ctx.fillStyle = "rgba(0,0,0,0.28)";
-  ctx.fillRect(0, h * 0.58, w, h * 0.42);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "600 46px system-ui, sans-serif";
-  ctx.fillText("A BRIGHTER", 56, h * 0.74);
-  ctx.fillText("TOMORROW", 56, h * 0.83);
-
-  // A row of service tiles.
-  const tiles = ["#e50914", "#ff0000", "#0c2340", "#111111", "#00a8e1"];
-  tiles.forEach((c, i) => {
-    ctx.fillStyle = c;
-    ctx.fillRect(56 + i * 104, h * 0.88, 88, 44);
-  });
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;

@@ -24,7 +24,9 @@ import { DN, DN_COVE_Y, DN_PLAN, DN_WINDOW } from "./Den3D";
 
 const GAIN = {
   cove: 42,
-  coveEmissive: 4.8,
+  coveEmissive: 5.4,
+  /** The bleed beside the channel. Much weaker, much wider. */
+  coveSpill: 0.9,
   downlight: 40,
   downlightEmissive: 6,
   /** Shelf strips, and the heads grazing the artwork. */
@@ -80,6 +82,10 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
     () => emissive(colour, GAIN.coveEmissive * glow),
     [colour.getHex(), glow],
   );
+  const spill = useMemo(
+    () => emissive(colour, GAIN.coveSpill * glow),
+    [colour.getHex(), glow],
+  );
   /**
    * Runs almost the full length of each wall.
    *
@@ -109,12 +115,28 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
               color={colour}
             />
           )}
+          {/* The strip itself, and a wider, much fainter quad just inboard of
+              it standing in for the bleed onto the plaster.
+
+              A cove in a photograph is never a hard line — the light spills out
+              of the channel and fades across the surface beside it, and that
+              gradient is most of what reads as "ambient lighting design"
+              rather than "LED tape". Real-time rendering gives none of it for
+              free: the area light illuminates the ceiling above, but the
+              channel's own cheek stays dark, so the strip ends abruptly. */}
           <mesh
-            position={[s.pos[0], DN_COVE_Y - 0.015, s.pos[2]]}
+            position={[s.pos[0], DN_COVE_Y - 0.012, s.pos[2]]}
             rotation={[Math.PI / 2, 0, s.along === "x" ? 0 : Math.PI / 2]}
           >
-            <planeGeometry args={[s.len, 0.045]} />
+            <planeGeometry args={[s.len, 0.085]} />
             <primitive object={mat} attach="material" />
+          </mesh>
+          <mesh
+            position={[s.pos[0], DN_COVE_Y + 0.02, s.pos[2]]}
+            rotation={[Math.PI / 2, 0, s.along === "x" ? 0 : Math.PI / 2]}
+          >
+            <planeGeometry args={[s.len + 0.3, DN.soffit.depth * 0.95]} />
+            <primitive object={spill} attach="material" />
           </mesh>
         </group>
       ))}
@@ -296,7 +318,24 @@ function ColourLayer({ state, gain }: { state: LightState; gain: number }) {
  * room it is the dominant one, and the faces in front of it are lit by it. The
  * demo would look wrong without this the moment every fixture is off.
  */
-function ScreenLight({ on, deployed }: { on: boolean; deployed: number }) {
+const SCREEN_CAST: Record<string, string> = {
+  streaming: "#b9cbe6",
+  // A racing frame is magenta and violet, and the room should catch that.
+  game: "#c88ce0",
+  // A slide deck is a big white rectangle, so it throws near-white.
+  presentation: "#e8ecf2",
+  desktop: "#9fb6d6",
+};
+
+function ScreenLight({
+  on,
+  deployed,
+  content,
+}: {
+  on: boolean;
+  deployed: number;
+  content: string;
+}) {
   if (!on || deployed < 0.9) return null;
   const sc = DN_PLAN.screen;
   return (
@@ -305,7 +344,7 @@ function ScreenLight({ on, deployed }: { on: boolean; deployed: number }) {
       width={sc.w}
       height={sc.drop}
       intensity={GAIN.screenBounce}
-      color={new THREE.Color("#b9cbe6")}
+      color={new THREE.Color(SCREEN_CAST[content] ?? SCREEN_CAST.streaming)}
     />
   );
 }
@@ -358,6 +397,7 @@ export function DenLightRig({
   transmission = 1,
   projectorOn = false,
   screenDeployed = 0,
+  screenContent = "streaming",
 }: {
   fixtures: DenFixtures;
   gain?: number;
@@ -366,6 +406,8 @@ export function DenLightRig({
   projectorOn?: boolean;
   /** 0..1 screen deployment, so the picture only lights the room once down. */
   screenDeployed?: number;
+  /** What is on the screen, which decides the colour it casts. */
+  screenContent?: string;
 }) {
   useLayoutEffect(() => {
     RectAreaLightUniformsLib.init();
@@ -396,7 +438,7 @@ export function DenLightRig({
         angle={0.36}
       />
       <ColourLayer state={fixtures.rgb} gain={gain} />
-      <ScreenLight on={projectorOn} deployed={screenDeployed} />
+      <ScreenLight on={projectorOn} deployed={screenDeployed} content={screenContent} />
     </group>
   );
 }
