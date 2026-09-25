@@ -18,7 +18,14 @@ import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLigh
 import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { emissive } from "./materials";
-import { LR, LR_COVE_Y, LR_TV, LR_WINDOW } from "./LivingRoom3D";
+import {
+  LR,
+  LR_COVE_Y,
+  LR_PENDANT_GLOBES,
+  LR_PLAN,
+  LR_TV,
+  LR_WINDOW,
+} from "./LivingRoom3D";
 import { Spot } from "./Spot";
 
 const GAIN = {
@@ -26,22 +33,33 @@ const GAIN = {
   coveEmissive: 5,
   downlight: 30,
   downlightEmissive: 6.5,
-  wash: 26,
-  washEmissive: 6.5,
-  accentEmissive: 1.5,
+  /** Grazing heads down the stone, plus the strips inside the niches. */
+  accentGraze: 26,
+  accentStrip: 18,
+  accentEmissive: 3,
+  /** Decorative globes: a lamp is read through its own shade, not past it. */
+  decorative: 5,
+  decorativeGlobe: 3.6,
+  /** Concealed colour. Bright enough to tint the ceiling, never to light the
+      room — the moment RGB becomes the working light it stops reading as an
+      effect and starts reading as a mistake. */
+  rgb: 14,
+  rgbEmissive: 3.2,
 } as const;
 
 /** Field downlights, in the raised centre of the ceiling. */
 export const LR_DOWNLIGHTS = [
-  { x: 1.7, z: 1.6 },
-  { x: 3.5, z: 1.6 },
-  { x: 1.7, z: 3.5 },
-  { x: 3.5, z: 3.5 },
-  { x: 2.6, z: 5.5 },
+  { x: 1.6, z: 1.7 },
+  { x: 3.3, z: 1.7 },
+  { x: 1.6, z: 3.3 },
+  { x: 3.3, z: 3.3 },
+  { x: 1.6, z: 4.9 },
+  { x: 3.3, z: 4.9 },
+  { x: 2.45, z: 6.2 },
+  { x: 4.6, z: 5.8 },
 ] as const;
 
-/** Wall-wash heads in the soffit, grazing the media wall. */
-/** Wash heads in the soffit, grazing down the media wall at x = LR.w. */
+/** Accent heads in the soffit, grazing down the stone at x = LR.w. */
 export const LR_WASH = [
   { x: LR.w - 0.42, z: 1.6 },
   { x: LR.w - 0.42, z: 3.1 },
@@ -161,30 +179,163 @@ function Downlights({
   );
 }
 
-function TvAccent({ state, gain }: { state: LightState; gain: number }) {
+/**
+ * Accent: strips inside the shelving niches, plus the graze down the stone.
+ *
+ * Area lights rather than spots inside the recesses, because a niche wants to
+ * be evenly filled — and because `RectAreaLight` casting no shadows is an
+ * advantage here: the objects on the shelves occlude each other quite enough.
+ */
+function NicheAccent({ state, gain }: { state: LightState; gain: number }) {
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
+  const n = LR_PLAN.niche;
+  const bayH = (n.y1 - n.y0) / n.bays;
 
-  const mat = useMemo(
+  const strip = useMemo(
     () => emissive(colour, GAIN.accentEmissive * glow),
     [colour.getHex(), glow],
   );
 
   return (
     <group>
+      {Array.from({ length: n.bays }, (_, i) => {
+        const y = n.y0 + (i + 1) * bayH - 0.05;
+        return (
+          <group key={`niche-${i}`}>
+            {out > 0.001 && (
+              <rectAreaLight
+                position={[LR.w - 0.12, y - 0.02, (n.z0 + n.z1) / 2]}
+                rotation={[Math.PI, 0, 0]}
+                width={n.z1 - n.z0 - 0.08}
+                height={0.18}
+                intensity={GAIN.accentStrip * out * gain}
+                color={colour}
+              />
+            )}
+            <mesh
+              position={[LR.w - 0.12, y, (n.z0 + n.z1) / 2]}
+              rotation={[Math.PI / 2, 0, 0]}
+            >
+              <planeGeometry args={[0.14, n.z1 - n.z0 - 0.1]} />
+              <primitive object={strip} attach="material" />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+/**
+ * Decorative: the pendant globes.
+ *
+ * Point lights inside translucent spheres, not spots. A shaded fitting throws
+ * light up, down and through, and using a cone is what makes rendered pendants
+ * look like torches hanging from a ceiling.
+ */
+function Decorative({ state, gain }: { state: LightState; gain: number }) {
+  const colour = colourOf(state);
+  const out = output(state);
+  const glow = aperture(state);
+  const { x, z } = LR_PLAN.pendants;
+
+  const globe = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        // Smoked glass: it keeps a body colour when off instead of vanishing.
+        color: "#4a4038",
+        emissive: colour,
+        emissiveIntensity: GAIN.decorativeGlobe * glow,
+        roughness: 0.25,
+        metalness: 0,
+        transparent: true,
+        opacity: 0.86,
+        toneMapped: false,
+      }),
+    [colour.getHex(), glow],
+  );
+
+  return (
+    <group>
+      {LR_PENDANT_GLOBES.map((g, i) => (
+        <group key={`globe-${i}`}>
+          <mesh position={[x + g.dx, g.y, z + g.dz]}>
+            <sphereGeometry args={[g.r, 20, 16]} />
+            <primitive object={globe} attach="material" />
+          </mesh>
+          {/* Two of the seven carry the actual light. Seven point lights in one
+              cluster costs real frame time and looks no different. */}
+          {out > 0.001 && (i === 0 || i === 3) && (
+            <pointLight
+              position={[x + g.dx, g.y, z + g.dz]}
+              intensity={GAIN.decorative * out * gain}
+              distance={5}
+              decay={1.7}
+              color={colour}
+            />
+          )}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/**
+ * Optional RGB: a concealed run along the ceiling edge on the glazing side,
+ * and a second behind the television.
+ *
+ * Deliberately never the working light. It tints the ceiling and the wall
+ * behind the screen, which is what colour lighting is actually for; turned up
+ * far enough to illuminate the room it stops reading as an effect.
+ */
+function ColourWash({ state, gain }: { state: LightState; gain: number }) {
+  const colour = colourOf(state);
+  const out = output(state);
+  const glow = aperture(state);
+
+  const mat = useMemo(
+    () => emissive(colour, GAIN.rgbEmissive * glow),
+    [colour.getHex(), glow],
+  );
+
+  const inset = LR.soffit.depth - 0.07;
+
+  return (
+    <group>
+      {/* Ceiling edge, glazing side. */}
+      {out > 0.001 && (
+        <rectAreaLight
+          position={[inset + 0.06, LR_COVE_Y + 0.02, LR.d / 2]}
+          rotation={[Math.PI / 2, 0, Math.PI / 2]}
+          width={LR.d - 1.2}
+          height={LR.soffit.depth * 0.4}
+          intensity={GAIN.rgb * out * gain}
+          color={colour}
+        />
+      )}
+      <mesh
+        position={[inset + 0.06, LR_COVE_Y - 0.012, LR.d / 2]}
+        rotation={[Math.PI / 2, 0, Math.PI / 2]}
+      >
+        <planeGeometry args={[LR.d - 1.2, 0.035]} />
+        <primitive object={mat} attach="material" />
+      </mesh>
+
+      {/* Behind the television. */}
       <mesh
         position={[LR.w - 0.03, LR_TV.y, LR_TV.z]}
         rotation={[0, -Math.PI / 2, 0]}
       >
-        <planeGeometry args={[LR_TV.w + 0.3, LR_TV.h + 0.26]} />
+        <planeGeometry args={[LR_TV.w + 0.2, LR_TV.h + 0.18]} />
         <primitive object={mat} attach="material" />
       </mesh>
       {out > 0.001 && (
         <pointLight
-          position={[LR.w - 0.4, LR_TV.y, LR_TV.z]}
+          position={[LR.w - 0.42, LR_TV.y, LR_TV.z]}
           intensity={5 * out * gain}
-          distance={3.2}
+          distance={3.4}
           decay={1.7}
           color={colour}
         />
@@ -226,10 +377,11 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
 }
 
 export interface LivingFixtures {
-  cove: LightState;
   downlights: LightState;
-  wash: LightState;
+  cove: LightState;
+  decorative: LightState;
   accent: LightState;
+  rgb: LightState;
 }
 
 export function LivingRoomLightRig({
@@ -262,17 +414,19 @@ export function LivingRoomLightRig({
         intensity={GAIN.downlight}
         angle={0.6}
       />
+      {/* Accent, in two parts: the graze down the stone and the strips inside
+          the niches. One device, because on a keypad it is one button. */}
       <Downlights
-        state={fixtures.wash}
+        state={fixtures.accent}
         gain={gain}
         positions={LR_WASH}
-        // Aimed at the foot of the media wall, which is what produces the
-        // scalloped grazing light visible in the reference photograph.
         aim={(p) => [LR.w - 0.05, 0.25, p.z]}
-        intensity={GAIN.wash}
+        intensity={GAIN.accentGraze}
         angle={0.5}
       />
-      <TvAccent state={fixtures.accent} gain={gain} />
+      <NicheAccent state={fixtures.accent} gain={gain} />
+      <Decorative state={fixtures.decorative} gain={gain} />
+      <ColourWash state={fixtures.rgb} gain={gain} />
     </group>
   );
 }

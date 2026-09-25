@@ -4,9 +4,10 @@
  * Living Room, driven by the simulation.
  */
 
-import type { AvState, LightState, ShadeState } from "@/lib/sim/types";
+import type { AvState, FanState, LightState, ShadeState } from "@/lib/sim/types";
 import { useSim } from "@/lib/sim/store";
 import { roomAmbience } from "@/lib/sim/ambience";
+import { bladeRadPerSec } from "@/lib/sim/fan";
 import {
   clamp01,
   daylightLux,
@@ -21,10 +22,18 @@ import { LivingRoomLightRig, type LivingFixtures } from "./LivingRoomLightRig";
 const CAMERA: CameraSpec = {
   // Stands at the near end and looks down the length of the room: glazing to
   // the left, media wall to the right, hallway at the far end.
-  position: [2.55, 1.62, 6.75],
-  target: [3.9, 1.12, 1.5],
-  // Wide, as interior photography is — the reference is roughly a 20mm frame.
-  fov: 58,
+  position: [2.4, 1.58, 6.9],
+  // Aimed between the two walls that matter, favouring the media wall: it
+  // carries the television, the speakers, the accent niches and the colour
+  // behind the screen — four of the sheet's callouts against the glazing's one.
+  target: [4.2, 1.18, 1.9],
+  /**
+   * Read as the vertical field at 16:9 and re-solved for the real canvas — see
+   * `Stage3D`. On a squarer panel 58 here became a 70 degree vertical field and
+   * half the frame was ceiling and floorboards, so this is authored tighter
+   * than an interior photograph would be and widens back out on a wide screen.
+   */
+  fov: 52,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
@@ -38,17 +47,23 @@ export function LivingRoomStage() {
     (states[id] as LightState | undefined) ?? OFF;
 
   const fixtures: LivingFixtures = {
-    cove: light("lv-cove"),
     downlights: light("lv-downlights"),
-    wash: light("lv-wash"),
+    cove: light("lv-cove"),
+    decorative: light("lv-decorative"),
     accent: light("lv-accent"),
+    rgb: light("lv-rgb"),
   };
 
   const curtains = (states["lv-curtain"] as ShadeState | undefined) ?? {
     sheer: 0,
     blackout: 0,
   };
-  const av = states["lv-av"] as AvState | undefined;
+  const tv = states["lv-tv"] as AvState | undefined;
+  const audio = states["lv-audio"] as AvState | undefined;
+
+  const fanDevice = space?.devices.find((d) => d.id === "lv-fan");
+  const fanSpeeds = fanDevice?.kind === "fan" ? fanDevice.speeds : 5;
+  const fanSpin = bladeRadPerSec(states["lv-fan"] as FanState | undefined, fanSpeeds);
 
   const env = space?.environment;
   const daylight = env
@@ -75,8 +90,10 @@ export function LivingRoomStage() {
     >
       <LivingRoom3D
         curtains={curtains}
-        tvOn={Boolean(av?.on)}
+        tvOn={Boolean(tv?.on)}
         daylight={daylight}
+        audioLevel={audio?.on ? audio.volume / 100 : 0}
+        fanRadiansPerSecond={fanSpin}
       />
       <LivingRoomLightRig
         fixtures={fixtures}

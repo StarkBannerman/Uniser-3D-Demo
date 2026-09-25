@@ -24,8 +24,10 @@
  * Coordinates in metres.
  */
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
+import { useFrame } from "@react-three/fiber";
+import { MAX_BLADE_STEP_RAD } from "@/lib/sim/fan";
 import { makeCurtainGeometry } from "./geometry";
 
 export const LR = {
@@ -44,6 +46,39 @@ export const LR_COVE_Y = LR.h - LR.soffit.drop + 0.025;
 export const LR_WINDOW = { z0: 1.3, z1: 5.6, y0: 0.18, y1: LR.h - 0.4 };
 export const LR_TV = { z: 3.1, y: 1.45, w: 1.75, h: 1.0 };
 
+/**
+ * Where the rest of the client's sheet lands in the room.
+ *
+ * The callouts on that drawing are not decoration — each one is a device in the
+ * space config, and each needs somewhere real to live. Sharing the coordinates
+ * with the light rig keeps a strip and the thing it is supposed to be lighting
+ * from drifting apart.
+ */
+export const LR_PLAN = {
+  /** Pendant cluster: seven globes on staggered drops, left of the seating. */
+  pendants: { x: 1.35, z: 2.05 },
+  /** Shelving niches in the media wall, lit from inside. */
+  niche: { z0: 0.95, z1: 2.25, y0: 0.35, y1: 2.25, bays: 3 },
+  /** Floorstanders either side of the television. */
+  speakers: [
+    { z: LR_TV.z - 1.22 },
+    { z: LR_TV.z + 1.22 },
+  ],
+  /** Ceiling fan hub. */
+  fan: { x: 2.95, z: 3.5, y: 2.42 },
+} as const;
+
+/** Globe positions within the pendant cluster, relative to `LR_PLAN.pendants`. */
+export const LR_PENDANT_GLOBES: { dx: number; dz: number; y: number; r: number }[] = [
+  { dx: -0.34, dz: -0.12, y: 1.72, r: 0.115 },
+  { dx: -0.12, dz: 0.22, y: 2.02, r: 0.095 },
+  { dx: 0.14, dz: -0.24, y: 1.88, r: 0.105 },
+  { dx: 0.36, dz: 0.1, y: 2.16, r: 0.09 },
+  { dx: -0.02, dz: -0.02, y: 1.52, r: 0.125 },
+  { dx: 0.3, dz: 0.34, y: 1.66, r: 0.1 },
+  { dx: -0.36, dz: 0.34, y: 2.08, r: 0.085 },
+];
+
 /* ------------------------------------------------------------------ */
 /* Materials                                                           */
 /* ------------------------------------------------------------------ */
@@ -59,12 +94,14 @@ const M = {
   ceiling: new THREE.MeshStandardMaterial({ color: "#f6f5f2", roughness: 0.96 }),
   soffit: new THREE.MeshStandardMaterial({ color: "#f2f0eb", roughness: 0.93 }),
   wall: new THREE.MeshStandardMaterial({ color: "#efebe3", roughness: 0.94 }),
+  /** Muted, not orange. The first pass used a saturated red-brown that the
+      warm cove multiplied into a room lit by a bonfire. */
   floor: new THREE.MeshStandardMaterial({
-    color: "#7d4f2c",
-    roughness: 0.36,
+    color: "#6b5647",
+    roughness: 0.34,
     metalness: 0.02,
   }),
-  plank: new THREE.MeshStandardMaterial({ color: "#5f3a1f", roughness: 0.42 }),
+  plank: new THREE.MeshStandardMaterial({ color: "#584639", roughness: 0.42 }),
   rug: new THREE.MeshStandardMaterial({ color: "#ddd3c1", roughness: 1 }),
   sofa: new THREE.MeshStandardMaterial({ color: "#6f6e6b", roughness: 0.93 }),
   sofaSeat: new THREE.MeshStandardMaterial({ color: "#7b7a76", roughness: 0.93 }),
@@ -99,6 +136,21 @@ const M = {
   foliage: new THREE.MeshStandardMaterial({ color: "#4c6b46", roughness: 0.8 }),
   pot: new THREE.MeshStandardMaterial({ color: "#eae6de", roughness: 0.7 }),
   art: new THREE.MeshStandardMaterial({ color: "#54708c", roughness: 0.75 }),
+  /** Book-matched stone behind the television. */
+  stone: new THREE.MeshStandardMaterial({
+    color: "#8d8377",
+    roughness: 0.28,
+    metalness: 0.05,
+  }),
+  nicheBack: new THREE.MeshStandardMaterial({ color: "#3a2d22", roughness: 0.8 }),
+  speaker: new THREE.MeshStandardMaterial({ color: "#1a1b1e", roughness: 0.55 }),
+  cone: new THREE.MeshStandardMaterial({ color: "#2e3034", roughness: 0.7 }),
+  brass: new THREE.MeshStandardMaterial({
+    color: "#b08d55",
+    roughness: 0.3,
+    metalness: 0.85,
+  }),
+  fanBlade: new THREE.MeshStandardMaterial({ color: "#3b3129", roughness: 0.55 }),
 };
 
 /* ------------------------------------------------------------------ */
@@ -305,10 +357,13 @@ function MediaWall({ tvOn }: { tvOn: boolean }) {
       {tvOn && (
         <mesh position={[x - 0.09, LR_TV.y, LR_TV.z]} rotation={[0, -Math.PI / 2, 0]}>
           <planeGeometry args={[LR_TV.w - 0.06, LR_TV.h - 0.06]} />
+          {/* A television is bright, not a lightbox. At 1.7 it clipped to flat
+              white in a darkened room, which is the one place the screen most
+              needs to still look like a picture. */}
           <meshStandardMaterial
             color="#000000"
-            emissive="#9fb6d8"
-            emissiveIntensity={1.7}
+            emissive="#8fa8cc"
+            emissiveIntensity={0.85}
             toneMapped={false}
           />
         </mesh>
@@ -513,23 +568,225 @@ function Seating() {
   );
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Feature wall, speakers and the pendant cluster                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Stone panel behind the television, with lit shelving niches beside it.
+ *
+ * The niches are the point. Accent lighting is the hardest layer to sell on a
+ * drawing because it does nothing measurable — you argue for it by switching it
+ * off and watching the wall go flat. That only works if there is something in
+ * the recess to be revealed, so the shelves carry objects rather than being
+ * empty boxes.
+ */
+function FeatureWall() {
+  const x = LR.w;
+  const n = LR_PLAN.niche;
+  const bayH = (n.y1 - n.y0) / n.bays;
+
+  return (
+    <group>
+      {/* Book-matched stone, floor to soffit, behind the television. */}
+      <mesh position={[x - 0.02, (LR.h - LR.soffit.drop) / 2, LR_TV.z]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
+        <planeGeometry args={[2.9, LR.h - LR.soffit.drop]} />
+        <primitive object={M.stone} attach="material" />
+      </mesh>
+
+      {/* Recessed niches, set into the wall beside it. */}
+      <mesh
+        position={[x - 0.16, (n.y0 + n.y1) / 2, (n.z0 + n.z1) / 2]}
+        rotation={[0, -Math.PI / 2, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[n.z1 - n.z0, n.y1 - n.y0]} />
+        <primitive object={M.nicheBack} attach="material" />
+      </mesh>
+      {Array.from({ length: n.bays + 1 }, (_, i) => (
+        <mesh
+          key={`shelf-${i}`}
+          position={[x - 0.1, n.y0 + i * bayH, (n.z0 + n.z1) / 2]}
+          castShadow
+          receiveShadow
+        >
+          <boxGeometry args={[0.2, 0.03, n.z1 - n.z0]} />
+          <primitive object={M.consoleWood} attach="material" />
+        </mesh>
+      ))}
+      {/* Objects on the shelves, so the accent layer has something to reveal. */}
+      {Array.from({ length: n.bays }, (_, i) => {
+        const y = n.y0 + i * bayH + bayH / 2;
+        return (
+          <group key={`obj-${i}`}>
+            <mesh position={[x - 0.12, y - bayH / 2 + 0.14, n.z0 + 0.3]} castShadow>
+              <cylinderGeometry args={[0.055, 0.075, 0.24, 14]} />
+              <primitive object={M.pot} attach="material" />
+            </mesh>
+            <mesh position={[x - 0.12, y - bayH / 2 + 0.1, n.z0 + 0.62]} castShadow>
+              <boxGeometry args={[0.14, 0.18, 0.1]} />
+              <primitive object={M.brass} attach="material" />
+            </mesh>
+            {i !== 1 && (
+              <mesh position={[x - 0.12, y - bayH / 2 + 0.16, n.z1 - 0.28]} castShadow>
+                <sphereGeometry args={[0.1, 12, 10]} />
+                <primitive object={M.foliage} attach="material" />
+              </mesh>
+            )}
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+/**
+ * Floorstanding speakers, with cones that move on the volume.
+ *
+ * A still speaker is a prop. The requirement document asks for speaker
+ * animation by name, and it is the cheapest way to make "Music & Audio" read as
+ * a system doing something rather than a box in the corner.
+ */
+function Speakers({ level }: { level: number }) {
+  const x = LR.w - 0.3;
+
+  return (
+    <group>
+      {LR_PLAN.speakers.map((sp, i) => (
+        <group key={`spk-${i}`} position={[x, 0, sp.z]}>
+          <mesh position={[0, 0.55, 0]} castShadow receiveShadow>
+            <boxGeometry args={[0.26, 1.1, 0.3]} />
+            <primitive object={M.speaker} attach="material" />
+          </mesh>
+          <mesh position={[0, 0.025, 0]}>
+            <boxGeometry args={[0.32, 0.05, 0.36]} />
+            <primitive object={M.metal} attach="material" />
+          </mesh>
+          {/* Three drivers. The excursion is exaggerated — a real cone moves
+              under a millimetre — because the point is that it is alive. */}
+          {[0.36, 0.66, 0.92].map((y, j) => (
+            <mesh
+              key={`drv-${j}`}
+              position={[-0.13 - level * (0.012 - j * 0.003), y, 0]}
+              rotation={[0, 0, Math.PI / 2]}
+            >
+              <cylinderGeometry args={[0.085 - j * 0.02, 0.085 - j * 0.02, 0.02, 18]} />
+              <primitive object={M.cone} attach="material" />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* Soundbar under the television. */}
+      <mesh position={[LR.w - 0.2, 0.62, LR_TV.z]} castShadow>
+        <boxGeometry args={[0.1, 0.09, 1.3]} />
+        <primitive object={M.speaker} attach="material" />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * Pendant cluster — cords and canopy only.
+ *
+ * The globes themselves live in the light rig, because their brightness is
+ * device state. A decorative fitting that vanishes when it is switched off is
+ * the giveaway this whole approach exists to avoid.
+ */
+function PendantRig() {
+  const { x, z } = LR_PLAN.pendants;
+  const ceiling = LR.h;
+
+  return (
+    <group>
+      <mesh position={[x, ceiling - 0.015, z]}>
+        <cylinderGeometry args={[0.16, 0.16, 0.03, 24]} />
+        <primitive object={M.metal} attach="material" />
+      </mesh>
+      {LR_PENDANT_GLOBES.map((g, i) => (
+        <mesh
+          key={`cord-${i}`}
+          position={[x + g.dx, (ceiling + g.y + g.r) / 2, z + g.dz]}
+        >
+          <cylinderGeometry args={[0.004, 0.004, ceiling - g.y - g.r, 6]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/**
+ * Ceiling fan.
+ *
+ * Speed comes from the device rather than a constant, and the per-frame step is
+ * capped for the reason set out in `lib/sim/fan.ts`: three blades 120 degrees
+ * apart alias into running backwards if a frame turns them too far.
+ */
+function CeilingFan({ radiansPerSecond }: { radiansPerSecond: number }) {
+  const blades = useRef<THREE.Group>(null);
+  const { x, z, y } = LR_PLAN.fan;
+
+  useFrame((_, dt) => {
+    if (!blades.current) return;
+    blades.current.rotation.y += Math.min(radiansPerSecond * dt, MAX_BLADE_STEP_RAD);
+  });
+
+  return (
+    <group position={[x, 0, z]}>
+      <mesh position={[0, (LR.h + y) / 2 + 0.04, 0]}>
+        <cylinderGeometry args={[0.02, 0.02, LR.h - y - 0.08, 10]} />
+        <primitive object={M.metal} attach="material" />
+      </mesh>
+      <mesh position={[0, LR.h - 0.025, 0]}>
+        <cylinderGeometry args={[0.085, 0.065, 0.05, 20]} />
+        <primitive object={M.metal} attach="material" />
+      </mesh>
+      <group ref={blades} name="lr-fan-blades" position={[0, y, 0]}>
+        <mesh castShadow>
+          <cylinderGeometry args={[0.08, 0.095, 0.09, 24]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
+        {[0, 1, 2].map((i) => (
+          <group key={`bl-${i}`} rotation={[0, (i * Math.PI * 2) / 3, 0]}>
+            <mesh position={[0.36, 0.01, 0]} rotation={[0.12, 0, 0]} castShadow>
+              <boxGeometry args={[0.56, 0.013, 0.15]} />
+              <primitive object={M.fanBlade} attach="material" />
+            </mesh>
+          </group>
+        ))}
+      </group>
+    </group>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 
 export function LivingRoom3D({
   curtains,
   tvOn,
   daylight,
+  audioLevel = 0,
+  fanRadiansPerSecond = 0,
 }: {
   curtains: LivingCurtains;
   tvOn: boolean;
   /** 0..1 exterior brightness, so the window tracks the simulated clock. */
   daylight: number;
+  /** 0..1 music volume, which drives the speaker cones. */
+  audioLevel?: number;
+  fanRadiansPerSecond?: number;
 }) {
   return (
     <group>
       <Shell />
       <Glazing {...curtains} daylight={daylight} />
+      <FeatureWall />
       <MediaWall tvOn={tvOn} />
+      <Speakers level={audioLevel} />
+      <PendantRig />
+      <CeilingFan radiansPerSecond={fanRadiansPerSecond} />
       <Hallway />
       <Seating />
     </group>

@@ -107,12 +107,19 @@ function LockHorizontalFov({ fovAt16x9 }: { fovAt16x9: number }) {
     const halfHorizontal =
       Math.tan(THREE.MathUtils.degToRad(fovAt16x9) / 2) * REFERENCE_ASPECT;
     const vertical = 2 * Math.atan(halfHorizontal / aspect);
-    // Clamped so an extreme window shape cannot produce a fisheye or a
-    // pinhole; past these the framing is wrong either way.
+    /**
+     * Clamped at both ends.
+     *
+     * The upper bound is the one that earns its keep: on a squarer panel,
+     * holding the horizontal field fixed pushes the vertical past 68 degrees
+     * and half the frame becomes ceiling and floor. Past 60 the room stops
+     * reading as a photograph, so a very tall canvas gives back a little
+     * horizontal rather than piling on more vertical.
+     */
     camera.fov = THREE.MathUtils.clamp(
       THREE.MathUtils.radToDeg(vertical),
       28,
-      82,
+      60,
     );
     camera.updateProjectionMatrix();
   }, [camera, size.width, size.height, fovAt16x9]);

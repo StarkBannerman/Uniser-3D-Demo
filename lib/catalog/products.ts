@@ -247,6 +247,22 @@ export const products: Record<string, Product> = {
     verified: false,
   },
 
+  "smartspaces-audio": {
+    id: "smartspaces-audio",
+    name: "Multi-Room Audio System",
+    family: "SmartSpaces AV",
+    subsystem: "av",
+    summary:
+      "Floorstanding speakers and a soundbar on a zoned amplifier, switched and levelled by the same scene that sets the lights.",
+    specs: {
+      "Zones": "Up to 8, independently sourced",
+      "Sources": "Streaming, radio, turntable, TV return",
+      "Load": "240 W at reference level, 3 W standby",
+      "Control": "Scene-linked volume and source",
+    },
+    verified: false,
+  },
+
   "smart-lock-doorbell": {
     id: "smart-lock-doorbell",
     name: "Smart Lock & Video Doorbell",

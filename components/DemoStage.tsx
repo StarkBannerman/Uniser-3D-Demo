@@ -24,6 +24,7 @@ import { SpaceCanvas } from "@/components/stage/SpaceCanvas";
 import { ScenePad, SceneCue } from "@/components/controls/ScenePad";
 import { ClockScrubber } from "@/components/presenter/ClockScrubber";
 import { AppPanel } from "@/components/mobile/AppPanel";
+import { RoomSwitch } from "@/components/presenter/RoomSwitch";
 
 /**
  * Pick a scene, or reach past it to a single fixture.
@@ -93,6 +94,7 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
           </div>
         </div>
         <ClockScrubber />
+        <RoomSwitch currentId={space.id} />
       </header>
 
       {/* `min-h-0` on every rung of this ladder is what lets the room grow. A
