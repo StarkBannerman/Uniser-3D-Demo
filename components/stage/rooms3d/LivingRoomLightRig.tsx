@@ -1,15 +1,17 @@
 "use client";
 
 /**
- * Living room device state -> three.js lights.
+ * Device state -> three.js lights, for the living room.
  *
- * Same contract as the bedroom rig: brightness through `lightOutput()`, colour
- * through `cctToRgb()`, so the room, the lux sensor and the energy model can
- * never disagree about what a fixture is doing.
+ * The only bridge between the simulation and the 3D view, and deliberately
+ * thin. Brightness comes from `lightOutput()` (the square-law dimmer curve) and
+ * colour from `cctToRgb()` (the blackbody locus) — the same functions the lux
+ * sensor and the energy model use. Re-deriving either here would let the room
+ * disagree with the numbers in the panel about what the fixtures are doing.
  *
- * Four groups, matching what is visible in the reference photograph: the cove,
- * field downlights, a wall-wash grazing the media wall, and a concealed accent
- * behind the television.
+ * Five groups, matching the client's sheet: general downlights, cove, the
+ * decorative pendant cluster, accent (niche strips plus the graze down the
+ * media wall) and optional RGB.
  */
 
 import { useLayoutEffect, useMemo } from "react";
@@ -18,6 +20,7 @@ import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLigh
 import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { emissive } from "./materials";
+import { Spot } from "./Spot";
 import {
   LR,
   LR_COVE_Y,
@@ -26,44 +29,45 @@ import {
   LR_TV,
   LR_WINDOW,
 } from "./LivingRoom3D";
-import { Spot } from "./Spot";
 
 const GAIN = {
   cove: 40,
   coveEmissive: 5,
   downlight: 30,
   downlightEmissive: 6.5,
-  /** Grazing heads down the stone, plus the strips inside the niches. */
-  accentGraze: 26,
+  /** Grazing heads down the wall, plus the strips inside the niches. */
+  accentGraze: 24,
   accentStrip: 18,
   accentEmissive: 3,
-  /** Decorative globes: a lamp is read through its own shade, not past it. */
+  /** Decorative globes: a lamp is read through its shade, not past it. */
   decorative: 5,
   decorativeGlobe: 3.6,
-  /** Concealed colour. Bright enough to tint the ceiling, never to light the
-      room — the moment RGB becomes the working light it stops reading as an
-      effect and starts reading as a mistake. */
+  /**
+   * Concealed colour. Bright enough to tint the ceiling and the wall behind the
+   * screen, never to light the room — the moment RGB becomes the working light
+   * it stops reading as an effect and starts reading as a mistake.
+   */
   rgb: 14,
   rgbEmissive: 3.2,
 } as const;
 
-/** Field downlights, in the raised centre of the ceiling. */
+/** Field downlights, on an even grid over the seating. */
 export const LR_DOWNLIGHTS = [
-  { x: 1.6, z: 1.7 },
-  { x: 3.3, z: 1.7 },
-  { x: 1.6, z: 3.3 },
-  { x: 3.3, z: 3.3 },
-  { x: 1.6, z: 4.9 },
-  { x: 3.3, z: 4.9 },
-  { x: 2.45, z: 6.2 },
-  { x: 4.6, z: 5.8 },
+  { x: 1.5, z: 1.5 },
+  { x: 3.4, z: 1.5 },
+  { x: 5.3, z: 1.5 },
+  { x: 1.5, z: 3.3 },
+  { x: 3.4, z: 3.3 },
+  { x: 5.3, z: 3.3 },
+  { x: 2.4, z: 5.2 },
+  { x: 4.9, z: 5.2 },
 ] as const;
 
-/** Accent heads in the soffit, grazing down the stone at x = LR.w. */
+/** Accent heads in the soffit, raking down the media wall at z = 0. */
 export const LR_WASH = [
-  { x: LR.w - 0.42, z: 1.6 },
-  { x: LR.w - 0.42, z: 3.1 },
-  { x: LR.w - 0.42, z: 4.6 },
+  { x: 1.7, z: LR.soffit.depth + 0.1 },
+  { x: 3.6, z: LR.soffit.depth + 0.1 },
+  { x: 5.4, z: LR.soffit.depth + 0.1 },
 ] as const;
 
 function colourOf(state: LightState): THREE.Color {
@@ -80,6 +84,8 @@ const output = (s: LightState) => (s.on ? lightOutput(s.level) : 0);
  *  fixture still looks like a lit object. */
 const aperture = (s: LightState) => (s.on ? Math.pow(s.level / 100, 0.42) : 0);
 
+/* ------------------------------------------------------------------ */
+
 function Cove({ state, gain }: { state: LightState; gain: number }) {
   const colour = colourOf(state);
   const out = output(state);
@@ -92,10 +98,10 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
   );
 
   const segments = [
-    { pos: [LR.w / 2, LR_COVE_Y, inset], along: "x", len: LR.w - 0.9 },
-    { pos: [LR.w / 2, LR_COVE_Y, LR.d - inset], along: "x", len: LR.w - 0.9 },
-    { pos: [inset, LR_COVE_Y, LR.d / 2], along: "z", len: LR.d - 0.9 },
-    { pos: [LR.w - inset, LR_COVE_Y, LR.d / 2], along: "z", len: LR.d - 0.9 },
+    { pos: [LR.w / 2, LR_COVE_Y, inset], along: "x", len: LR.w - 1.1 },
+    { pos: [LR.w / 2, LR_COVE_Y, LR.d - inset], along: "x", len: LR.w - 1.1 },
+    { pos: [inset, LR_COVE_Y, LR.d / 2], along: "z", len: LR.d - 1.1 },
+    { pos: [LR.w - inset, LR_COVE_Y, LR.d / 2], along: "z", len: LR.d - 1.1 },
   ] as const;
 
   return (
@@ -180,11 +186,11 @@ function Downlights({
 }
 
 /**
- * Accent: strips inside the shelving niches, plus the graze down the stone.
+ * Accent, part two: the strips inside the shelving niches.
  *
- * Area lights rather than spots inside the recesses, because a niche wants to
- * be evenly filled — and because `RectAreaLight` casting no shadows is an
- * advantage here: the objects on the shelves occlude each other quite enough.
+ * Area lights rather than spots, because a recess wants to be evenly filled —
+ * and `RectAreaLight` casting no shadows is an advantage here, since the
+ * objects on the shelves occlude each other quite enough.
  */
 function NicheAccent({ state, gain }: { state: LightState; gain: number }) {
   const colour = colourOf(state);
@@ -206,19 +212,19 @@ function NicheAccent({ state, gain }: { state: LightState; gain: number }) {
           <group key={`niche-${i}`}>
             {out > 0.001 && (
               <rectAreaLight
-                position={[LR.w - 0.12, y - 0.02, (n.z0 + n.z1) / 2]}
+                position={[(n.x0 + n.x1) / 2, y - 0.02, 0.16]}
                 rotation={[Math.PI, 0, 0]}
-                width={n.z1 - n.z0 - 0.08}
-                height={0.18}
+                width={n.x1 - n.x0 - 0.08}
+                height={0.22}
                 intensity={GAIN.accentStrip * out * gain}
                 color={colour}
               />
             )}
             <mesh
-              position={[LR.w - 0.12, y, (n.z0 + n.z1) / 2]}
+              position={[(n.x0 + n.x1) / 2, y, 0.16]}
               rotation={[Math.PI / 2, 0, 0]}
             >
-              <planeGeometry args={[0.14, n.z1 - n.z0 - 0.1]} />
+              <planeGeometry args={[n.x1 - n.x0 - 0.1, 0.12]} />
               <primitive object={strip} attach="material" />
             </mesh>
           </group>
@@ -283,31 +289,30 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
 }
 
 /**
- * Optional RGB: a concealed run along the ceiling edge on the glazing side,
- * and a second behind the television.
+ * Optional RGB: a concealed run along the ceiling edge on the glazing side, and
+ * a second behind the television.
  *
  * Deliberately never the working light. It tints the ceiling and the wall
- * behind the screen, which is what colour lighting is actually for; turned up
- * far enough to illuminate the room it stops reading as an effect.
+ * behind the screen, which is what colour lighting is actually for.
  */
 function ColourWash({ state, gain }: { state: LightState; gain: number }) {
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
+  const inset = LR.soffit.depth - 0.07;
 
   const mat = useMemo(
     () => emissive(colour, GAIN.rgbEmissive * glow),
     [colour.getHex(), glow],
   );
 
-  const inset = LR.soffit.depth - 0.07;
-
   return (
     <group>
-      {/* Ceiling edge, glazing side. */}
+      {/* Ceiling edge on the glazing side — the run that reads first, because
+          it is the longest thing in the frame. */}
       {out > 0.001 && (
         <rectAreaLight
-          position={[inset + 0.06, LR_COVE_Y + 0.02, LR.d / 2]}
+          position={[LR.w - inset - 0.06, LR_COVE_Y + 0.02, LR.d / 2]}
           rotation={[Math.PI / 2, 0, Math.PI / 2]}
           width={LR.d - 1.2}
           height={LR.soffit.depth * 0.4}
@@ -316,7 +321,7 @@ function ColourWash({ state, gain }: { state: LightState; gain: number }) {
         />
       )}
       <mesh
-        position={[inset + 0.06, LR_COVE_Y - 0.012, LR.d / 2]}
+        position={[LR.w - inset - 0.06, LR_COVE_Y - 0.012, LR.d / 2]}
         rotation={[Math.PI / 2, 0, Math.PI / 2]}
       >
         <planeGeometry args={[LR.d - 1.2, 0.035]} />
@@ -324,16 +329,13 @@ function ColourWash({ state, gain }: { state: LightState; gain: number }) {
       </mesh>
 
       {/* Behind the television. */}
-      <mesh
-        position={[LR.w - 0.03, LR_TV.y, LR_TV.z]}
-        rotation={[0, -Math.PI / 2, 0]}
-      >
-        <planeGeometry args={[LR_TV.w + 0.2, LR_TV.h + 0.18]} />
+      <mesh position={[LR_TV.x, LR_TV.y, 0.045]}>
+        <planeGeometry args={[LR_TV.w + 0.22, LR_TV.h + 0.2]} />
         <primitive object={mat} attach="material" />
       </mesh>
       {out > 0.001 && (
         <pointLight
-          position={[LR.w - 0.42, LR_TV.y, LR_TV.z]}
+          position={[LR_TV.x, LR_TV.y, 0.45]}
           intensity={5 * out * gain}
           distance={3.4}
           decay={1.7}
@@ -345,12 +347,13 @@ function ColourWash({ state, gain }: { state: LightState; gain: number }) {
 }
 
 /**
- * Daylight through the glazing, as an area light on the window plane.
+ * Daylight through the glazing.
  *
- * Without this the window was a bright card that lit nothing, so the daytime
- * scene had to be carried entirely by the fixtures — the opposite of the
- * reference, where the room is mostly daylit and the cove is an accent. It is
- * also what gives daylight harvesting something real to harvest.
+ * The directional sun is not decoration. `RectAreaLight` cannot cast shadows in
+ * three.js, so on a daylit afternoon with the fixtures harvested down to
+ * nothing the room had no shadows in it at all and read completely flat. The
+ * sun carries the shadows; the area light on the window plane carries the soft
+ * wrap, and is also what gives daylight harvesting something real to harvest.
  */
 function Daylight({ amount, transmission }: { amount: number; transmission: number }) {
   const strength = amount * transmission;
@@ -361,20 +364,34 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
 
   return (
     <group>
-    <rectAreaLight
-      position={[0.12, (LR_WINDOW.y0 + LR_WINDOW.y1) / 2, (LR_WINDOW.z0 + LR_WINDOW.z1) / 2]}
-      // Faces +x, into the room.
-      rotation={[0, Math.PI / 2, 0]}
-      width={span}
-      height={height}
-      intensity={30 * strength}
-      // Overcast daylight is cool; matching the reference's neutral-white walls
-      // depends on it not being warm.
-      color={new THREE.Color("#cfe0f2")}
-    />
+      <directionalLight
+        position={[LR.w + 9, 6.5, LR.d / 2 - 2]}
+        intensity={2.3 * strength}
+        color={new THREE.Color("#fff2dd")}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0009}
+        shadow-camera-left={-8}
+        shadow-camera-right={8}
+        shadow-camera-top={8}
+        shadow-camera-bottom={-8}
+        shadow-camera-near={1}
+        shadow-camera-far={30}
+      />
+      <rectAreaLight
+        position={[LR.w - 0.14, (LR_WINDOW.y0 + LR_WINDOW.y1) / 2, LR.d / 2]}
+        // Faces -x, into the room.
+        rotation={[0, -Math.PI / 2, 0]}
+        width={span}
+        height={height}
+        intensity={15 * strength}
+        color={new THREE.Color("#d2e2f4")}
+      />
     </group>
   );
 }
+
+/* ------------------------------------------------------------------ */
 
 export interface LivingFixtures {
   downlights: LightState;
@@ -414,13 +431,13 @@ export function LivingRoomLightRig({
         intensity={GAIN.downlight}
         angle={0.6}
       />
-      {/* Accent, in two parts: the graze down the stone and the strips inside
-          the niches. One device, because on a keypad it is one button. */}
+      {/* Accent, in two parts: the graze down the media wall and the strips
+          inside the niches. One device, because on a keypad it is one button. */}
       <Downlights
         state={fixtures.accent}
         gain={gain}
         positions={LR_WASH}
-        aim={(p) => [LR.w - 0.05, 0.25, p.z]}
+        aim={(p) => [p.x, 0.3, 0.05]}
         intensity={GAIN.accentGraze}
         angle={0.5}
       />

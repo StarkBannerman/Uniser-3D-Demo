@@ -6,6 +6,7 @@
 
 import type { AvState, FanState, LightState, ShadeState } from "@/lib/sim/types";
 import { useSim } from "@/lib/sim/store";
+import { useMemo } from "react";
 import { roomAmbience } from "@/lib/sim/ambience";
 import { bladeRadPerSec } from "@/lib/sim/fan";
 import {
@@ -16,24 +17,28 @@ import {
 } from "@/lib/sim/photometry";
 import { Stage3D, type CameraSpec } from "../Stage3D";
 import { LivingRoom3D } from "./LivingRoom3D";
+import { makeCityTexture } from "./geometry";
 import { LivingRoomLightRig, type LivingFixtures } from "./LivingRoomLightRig";
 
 /** Fixed viewpoint, matched to the client's reference photograph. */
 const CAMERA: CameraSpec = {
   // Stands at the near end and looks down the length of the room: glazing to
   // the left, media wall to the right, hallway at the far end.
-  position: [2.4, 1.58, 6.9],
-  // Aimed between the two walls that matter, favouring the media wall: it
-  // carries the television, the speakers, the accent niches and the colour
-  // behind the screen — four of the sheet's callouts against the glazing's one.
-  target: [4.2, 1.18, 1.9],
+  // High enough to see over the back of the sectional. From seated height the
+  // sofa is a blank wall across the bottom third of the frame.
+  position: [1.95, 2.02, 6.3],
+  // Aimed at the far-right corner, where the media wall meets the glazing. That
+  // single view carries the television, the stone, the slats, the niches, the
+  // speakers and the city — which is the composition the client's sheet uses,
+  // and the reason it reads as one room rather than a wall and a window.
+  target: [4.55, 1.02, 0.9],
   /**
    * Read as the vertical field at 16:9 and re-solved for the real canvas — see
    * `Stage3D`. On a squarer panel 58 here became a 70 degree vertical field and
    * half the frame was ceiling and floorboards, so this is authored tighter
    * than an interior photograph would be and widens back out on a wide screen.
    */
-  fov: 52,
+  fov: 50,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
@@ -75,6 +80,15 @@ export function LivingRoomStage() {
       )
     : 0;
 
+  /**
+   * The city beyond the glazing, redrawn only when the sun crosses the horizon.
+   *
+   * Regenerating a 2048px canvas every frame would be pointless work; the view
+   * only has two states the eye can tell apart.
+   */
+  const night = daylight <= 0.02;
+  const view = useMemo(() => makeCityTexture(night), [night]);
+
   // Bounce light, from the same illuminance the sensor and energy model read.
   // A constant fill here is what made every scene look alike.
   const ambient = space
@@ -89,6 +103,7 @@ export function LivingRoomStage() {
       bloomThreshold={1.6}
     >
       <LivingRoom3D
+        view={view}
         curtains={curtains}
         tvOn={Boolean(tv?.on)}
         daylight={daylight}

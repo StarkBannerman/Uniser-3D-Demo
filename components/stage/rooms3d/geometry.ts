@@ -137,3 +137,80 @@ export function makeCityTexture(night: boolean, seed = 7): THREE.CanvasTexture {
   tex.needsUpdate = true;
   return tex;
 }
+
+/**
+ * What is playing on the television.
+ *
+ * A dark rectangle reads as a slab of plastic, not a screen — and the screen is
+ * the thing a client looks at first on a media wall. Drawn rather than loaded so
+ * the demo stays offline: a landscape still, a title, and a row of the services
+ * anyone would recognise.
+ */
+export function makeScreenTexture(): THREE.CanvasTexture {
+  const w = 1024;
+  const h = 576;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+
+  // Sky, from a high dusk blue down to a pale horizon.
+  const sky = ctx.createLinearGradient(0, 0, 0, h * 0.62);
+  sky.addColorStop(0, "#2d6d9e");
+  sky.addColorStop(0.55, "#7fb4d6");
+  sky.addColorStop(1, "#d6e6ee");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, h);
+
+  // Two ranges of hills, the far one hazier.
+  const ridge = (baseY: number, amp: number, fill: string, seed: number) => {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    ctx.lineTo(0, baseY);
+    for (let x = 0; x <= w; x += 16) {
+      const y =
+        baseY -
+        Math.sin(x / 150 + seed) * amp -
+        Math.sin(x / 47 + seed * 2) * amp * 0.35;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    ctx.fill();
+  };
+  ridge(h * 0.52, 46, "#5d7f92", 1.2);
+  ridge(h * 0.62, 30, "#3b5b66", 2.7);
+
+  // Water, and the light lying on it.
+  const water = ctx.createLinearGradient(0, h * 0.62, 0, h);
+  water.addColorStop(0, "#2f5570");
+  water.addColorStop(1, "#16293a");
+  ctx.fillStyle = water;
+  ctx.fillRect(0, h * 0.62, w, h * 0.38);
+  ctx.fillStyle = "rgba(255,238,200,0.16)";
+  for (let i = 0; i < 26; i++) {
+    const y = h * 0.64 + i * 8;
+    ctx.fillRect(w * 0.42 - i * 3, y, 90 + i * 7, 2.5);
+  }
+
+  // Title, lower left, as a streaming home screen would set it.
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  ctx.fillRect(0, h * 0.58, w, h * 0.42);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "600 46px system-ui, sans-serif";
+  ctx.fillText("A BRIGHTER", 56, h * 0.74);
+  ctx.fillText("TOMORROW", 56, h * 0.83);
+
+  // A row of service tiles.
+  const tiles = ["#e50914", "#ff0000", "#0c2340", "#111111", "#00a8e1"];
+  tiles.forEach((c, i) => {
+    ctx.fillStyle = c;
+    ctx.fillRect(56 + i * 104, h * 0.88, 88, 44);
+  });
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}

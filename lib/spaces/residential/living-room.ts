@@ -276,7 +276,11 @@ export const livingRoom: Space = {
         "lv-curtain": { sheer: 0, blackout: 0 },
         "lv-ac": { on: true, setpointC: 24, mode: "cool", fan: 2 },
         "lv-fan": { on: true, speed: 2 },
-        "lv-tv": { on: false },
+        // On, as the client's sheet shows it. A media wall with a dead black
+        // slab in the middle of it is the one thing on that drawing you could
+        // not sell, and a television idling on its home screen is what actually
+        // happens when someone walks in.
+        "lv-tv": { on: true, source: "Streaming", volume: 18 },
         "lv-audio": { on: false },
       },
       highlight: ["proplus-downlight", "connekt-profile"],
