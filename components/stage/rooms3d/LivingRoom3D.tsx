@@ -81,11 +81,13 @@ export const LR_PLAN = {
   /** Floorstanders either side of the television. */
   speakers: [{ x: LR_TV.x - 1.75 }, { x: LR_TV.x + 1.75 }],
   /** Pendant cluster, hung over the dining table. */
-  pendants: { x: 1.75, z: 2.6 },
+  pendants: { x: 1.6, z: 2.1 },
   /** Ceiling fan hub, over the seating. */
-  fan: { x: 4.5, z: 4.9, y: 2.72 },
+  fan: { x: 4.5, z: 5.4, y: 2.72 },
   /** Dining table in the middle distance, under the pendants. */
-  dining: { x: 1.75, z: 2.6 },
+  dining: { x: 1.6, z: 2.1 },
+  /** Recessed air-conditioning cassette in the ceiling. */
+  ac: { x: 4.4, z: 3.2 },
 } as const;
 
 /** Globe positions within the pendant cluster, relative to `LR_PLAN.pendants`. */
@@ -254,12 +256,6 @@ function Shell() {
         </mesh>
       ))}
 
-      {/* Linear air diffuser in the ceiling, as on the sheet. It also gives the
-          ceiling plane something to judge its size against. */}
-      <mesh position={[w / 2 - 0.6, h - 0.01, 1.5]}>
-        <boxGeometry args={[2.6, 0.02, 0.11]} />
-        <primitive object={M.metal} attach="material" />
-      </mesh>
 
       {/* Skirting. */}
       <mesh position={[w / 2, 0.05, 0.012]}>
@@ -614,67 +610,95 @@ function Glazing({
 function Seating() {
   return (
     <group>
-      <mesh position={[4.9, 0.006, 4.3]} receiveShadow>
-        <boxGeometry args={[5.0, 0.012, 4.4]} />
+      <mesh position={[4.1, 0.006, 5.6]} receiveShadow>
+        <boxGeometry args={[5.4, 0.012, 5.0]} />
         <primitive object={M.rug} attach="material" />
       </mesh>
 
-      {/* Sectional facing the television.
-          Low-backed on purpose: the camera stands behind it, and a tall back
-          turns the nearest piece of furniture into a wall across the frame. */}
-      <group position={[4.7, 0, 5.3]}>
+      {/* Sectional down the left wall, open side toward the camera.
+          On the client's sheet you are looking into the seating, not at the
+          back of it — the camera stands to its right. An L-shape with its back
+          to the lens is the one arrangement that guarantees a blank slab across
+          the foreground, however low you make it. */}
+      <group position={[2.35, 0, 6.3]}>
+        {/* Long run, back against the left wall, seats facing +x. */}
         <mesh position={[0, 0.19, 0]} castShadow receiveShadow>
-          <boxGeometry args={[3.3, 0.38, 1.0]} />
+          <boxGeometry args={[1.05, 0.38, 3.3]} />
           <primitive object={M.sofa} attach="material" />
         </mesh>
-        <mesh position={[0, 0.47, 0.44]} castShadow receiveShadow>
-          <boxGeometry args={[3.3, 0.56, 0.2]} />
+        <mesh position={[-0.46, 0.47, 0]} castShadow receiveShadow>
+          <boxGeometry args={[0.2, 0.56, 3.3]} />
           <primitive object={M.sofa} attach="material" />
         </mesh>
-        {[-1.08, 0, 1.08].map((x) => (
-          <group key={`seat-${x}`}>
-            <mesh position={[x, 0.44, -0.04]} castShadow receiveShadow>
-              <boxGeometry args={[1.02, 0.16, 0.88]} />
+        {[-1.08, 0, 1.08].map((z) => (
+          <group key={`seat-${z}`}>
+            <mesh position={[0.04, 0.44, z]} castShadow receiveShadow>
+              <boxGeometry args={[0.9, 0.16, 1.02]} />
               <primitive object={M.sofaSeat} attach="material" />
             </mesh>
-            <mesh position={[x, 0.62, 0.3]} rotation={[0.18, 0, 0]} castShadow>
-              <boxGeometry args={[1.02, 0.36, 0.17]} />
+            <mesh position={[-0.3, 0.62, z]} rotation={[0, 0, -0.18]} castShadow>
+              <boxGeometry args={[0.17, 0.36, 1.02]} />
               <primitive object={M.sofaSeat} attach="material" />
             </mesh>
           </group>
         ))}
-        {/* Return up the left, kept short so it does not reach the camera. */}
-        <mesh position={[-2.05, 0.19, -0.75]} castShadow receiveShadow>
-          <boxGeometry args={[1.0, 0.38, 1.9]} />
+        {/* Chaise returning across the far end, toward the television. */}
+        <mesh position={[0.95, 0.19, -2.05]} castShadow receiveShadow>
+          <boxGeometry args={[2.9, 0.38, 1.0]} />
           <primitive object={M.sofa} attach="material" />
         </mesh>
-        <mesh position={[-2.45, 0.47, -0.75]} castShadow receiveShadow>
-          <boxGeometry args={[0.2, 0.56, 1.9]} />
+        <mesh position={[0.95, 0.47, -2.45]} castShadow receiveShadow>
+          <boxGeometry args={[2.9, 0.56, 0.2]} />
           <primitive object={M.sofa} attach="material" />
         </mesh>
-        <mesh position={[-2.03, 0.44, -0.75]} castShadow receiveShadow>
-          <boxGeometry args={[0.86, 0.16, 1.7]} />
-          <primitive object={M.sofaSeat} attach="material" />
-        </mesh>
+        {[0.3, 1.5].map((dx) => (
+          <mesh key={`ch-${dx}`} position={[dx, 0.44, -2.03]} castShadow receiveShadow>
+            <boxGeometry args={[1.1, 0.16, 0.86]} />
+            <primitive object={M.sofaSeat} attach="material" />
+          </mesh>
+        ))}
         {[
-          { p: [-1.4, 0.56, 0.26], r: 0.26 },
-          { p: [1.3, 0.56, 0.26], r: -0.22 },
-          { p: [-2.25, 0.56, -1.2], r: 0.3 },
+          { p: [-0.26, 0.56, -1.3], r: 0.26 },
+          { p: [-0.26, 0.56, 1.2], r: -0.22 },
+          { p: [1.7, 0.56, -2.25], r: 0.3 },
         ].map((c, i) => (
           <mesh
             key={`cu-${i}`}
             position={c.p as [number, number, number]}
-            rotation={[0.2, 0, c.r]}
+            rotation={[0.18, 0.3, c.r]}
             castShadow
           >
-            <boxGeometry args={[0.4, 0.4, 0.13]} />
+            <boxGeometry args={[0.13, 0.4, 0.4]} />
             <primitive object={M.cushion} attach="material" />
           </mesh>
         ))}
       </group>
 
+      {/* Two swivel chairs opposite, closing the seating group as on the
+          sheet. Kept well back: anything within three metres of the lens in a
+          wide frame stops being furniture and becomes an obstruction. */}
+      {[
+        { x: 5.9, z: 4.9 },
+        { x: 6.3, z: 6.1 },
+      ].map((c, i) => (
+        <group key={`chair-${i}`} position={[c.x, 0, c.z]} rotation={[0, -1.15 - i * 0.18, 0]}>
+          <mesh position={[0, 0.38, 0]} castShadow receiveShadow>
+            <boxGeometry args={[0.72, 0.18, 0.7]} />
+            <primitive object={M.cushion} attach="material" />
+          </mesh>
+          <mesh position={[0, 0.6, -0.3]} rotation={[-0.16, 0, 0]} castShadow>
+            <boxGeometry args={[0.72, 0.46, 0.14]} />
+            <primitive object={M.cushion} attach="material" />
+          </mesh>
+          <mesh position={[0, 0.15, 0]}>
+            <cylinderGeometry args={[0.2, 0.26, 0.3, 20]} />
+            <primitive object={M.metal} attach="material" />
+          </mesh>
+        </group>
+      ))}
+
       {/* Round marble coffee table, as on the sheet. */}
-      <group position={[4.85, 0, 3.75]}>
+      <group position={[4.1, 0, 5.9]}>
         <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[0.62, 0.62, 0.09, 36]} />
           <primitive object={M.marble} attach="material" />
@@ -743,8 +767,8 @@ function Seating() {
 
       {/* Floor plants, which the sheet leans on heavily for warmth. */}
       {[
-        { x: 7.7, z: 1.2 },
-        { x: 0.55, z: 5.6 },
+        { x: 7.7, z: 1.3 },
+        { x: 0.5, z: 7.3 },
       ].map((p, i) => (
         <group key={`plant-${i}`} position={[p.x, 0, p.z]}>
           <mesh position={[0, 0.16, 0]} castShadow receiveShadow>
@@ -767,6 +791,55 @@ function Seating() {
             </mesh>
           ))}
         </group>
+      ))}
+    </group>
+  );
+}
+
+/**
+ * Recessed air-conditioning cassette.
+ *
+ * The client's sheet points an "AC Control" callout straight at the ceiling, so
+ * the unit has to be somewhere you can point at too. The louvres swing open when
+ * it runs and sit flush when it does not, which is the same trick the fan uses:
+ * a control whose effect you cannot see in the room is a control nobody
+ * believes.
+ */
+function AirConditioner({ on, fan }: { on: boolean; fan: number }) {
+  const { x, z } = LR_PLAN.ac;
+  const y = LR.h - 0.02;
+  // Flush when idle, wider as the fan is asked for more.
+  const tilt = on ? 0.5 + Math.min(fan, 3) * 0.16 : 0.02;
+
+  return (
+    <group position={[x, 0, z]}>
+      {/* Bezel, recessed into the ceiling. */}
+      <mesh position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[1.5, 0.62]} />
+        <primitive object={M.consoleBody} attach="material" />
+      </mesh>
+      <mesh position={[0, y - 0.012, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[1.3, 0.44]} />
+        <primitive object={M.slatBack} attach="material" />
+      </mesh>
+      {/* Louvres, along both long edges. */}
+      {[-0.19, 0.19].map((dz, i) => (
+        <mesh
+          key={`louvre-${i}`}
+          position={[0, y - 0.03, dz]}
+          rotation={[i === 0 ? tilt : -tilt, 0, 0]}
+          castShadow
+        >
+          <boxGeometry args={[1.28, 0.012, 0.14]} />
+          <primitive object={M.consoleBody} attach="material" />
+        </mesh>
+      ))}
+      {/* Return-air grille, as a row of fins. */}
+      {[-0.5, -0.25, 0, 0.25, 0.5].map((dx) => (
+        <mesh key={`fin-${dx}`} position={[dx, y - 0.018, 0]}>
+          <boxGeometry args={[0.012, 0.01, 0.4]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
       ))}
     </group>
   );
@@ -850,6 +923,7 @@ export function LivingRoom3D({
   view,
   audioLevel = 0,
   fanRadiansPerSecond = 0,
+  ac = { on: false, fan: 0 },
 }: {
   curtains: LivingCurtains;
   tvOn: boolean;
@@ -860,6 +934,8 @@ export function LivingRoom3D({
   /** 0..1 music volume, which drives the speaker cones. */
   audioLevel?: number;
   fanRadiansPerSecond?: number;
+  /** Air conditioning, so the cassette's louvres can show it running. */
+  ac?: { on: boolean; fan: number };
 }) {
   return (
     <group>
@@ -869,6 +945,7 @@ export function LivingRoom3D({
       <Glazing {...curtains} daylight={daylight} view={view} />
       <PendantRig />
       <CeilingFan radiansPerSecond={fanRadiansPerSecond} />
+      <AirConditioner on={ac.on} fan={ac.fan} />
       <Seating />
     </group>
   );

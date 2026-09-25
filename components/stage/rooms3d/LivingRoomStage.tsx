@@ -4,7 +4,13 @@
  * Living Room, driven by the simulation.
  */
 
-import type { AvState, FanState, LightState, ShadeState } from "@/lib/sim/types";
+import type {
+  AvState,
+  ClimateState,
+  FanState,
+  LightState,
+  ShadeState,
+} from "@/lib/sim/types";
 import { useSim } from "@/lib/sim/store";
 import { useMemo } from "react";
 import { roomAmbience } from "@/lib/sim/ambience";
@@ -32,8 +38,8 @@ const CAMERA: CameraSpec = {
    * horizontal, so walls stay vertical and the room keeps its scale. This drops
    * 16 cm over eight metres: about one degree.
    */
-  position: [2.7, 1.42, 9.3],
-  target: [5.3, 1.26, 0.9],
+  position: [5.45, 1.46, 9.15],
+  target: [3.7, 1.3, 1.0],
   fov: 50,
 };
 
@@ -60,6 +66,7 @@ export function LivingRoomStage() {
     blackout: 0,
   };
   const tv = states["lv-tv"] as AvState | undefined;
+  const climate = states["lv-ac"] as ClimateState | undefined;
   const audio = states["lv-audio"] as AvState | undefined;
 
   const fanDevice = space?.devices.find((d) => d.id === "lv-fan");
@@ -105,6 +112,7 @@ export function LivingRoomStage() {
         daylight={daylight}
         audioLevel={audio?.on ? audio.volume / 100 : 0}
         fanRadiansPerSecond={fanSpin}
+        ac={{ on: Boolean(climate?.on), fan: climate?.fan ?? 0 }}
       />
       <LivingRoomLightRig
         fixtures={fixtures}
