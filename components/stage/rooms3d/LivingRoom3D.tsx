@@ -82,11 +82,11 @@ export const LR_PLAN = {
   /** Floorstanders either side of the television. */
   speakers: [{ x: LR_TV.x - 1.75 }, { x: LR_TV.x + 1.75 }],
   /** Pendant cluster, hung over the dining table. */
-  pendants: { x: 1.5, z: 1.6 },
+  pendants: { x: 1.4, z: 1.7 },
   /** Ceiling fan hub, over the seating. */
-  fan: { x: 4.3, z: 4.9, y: 2.72 },
+  fan: { x: 4.1, z: 4.2, y: 2.72 },
   /** Dining table in the middle distance, under the pendants. */
-  dining: { x: 1.5, z: 1.6 },
+  dining: { x: 1.4, z: 1.7 },
   /** Recessed air-conditioning cassette in the ceiling. */
   ac: { x: 4.4, z: 3.2 },
 } as const;
@@ -641,31 +641,27 @@ function Glazing({
 function Seating() {
   return (
     <group>
-      <mesh position={[3.7, 0.006, 5.2]} receiveShadow>
-        <boxGeometry args={[6.0, 0.012, 5.6]} />
+      <mesh position={[3.8, 0.006, 5.3]} receiveShadow>
+        <boxGeometry args={[6.2, 0.012, 5.8]} />
         <primitive object={M.rug} attach="material" />
       </mesh>
 
-      {/* Sectional down the left wall, open side toward the camera.
-          On the client's sheet you are looking into the seating, not at the
-          back of it — the camera stands to its right.
+      {/* Sectional down the left of the frame, turned to address the media
+          wall — the arrangement on the client's sheet, where the sofa runs
+          away from the viewer on the left and its chaise end falls outside the
+          frame entirely. Straight rather than an L for that reason: the return
+          would sit behind the camera and only cost frame space.
 
           Every upholstered part is a rounded box. A 4-6 cm radius is what real
-          foam-and-fabric actually has, and sharp corners are the single
-          strongest signal that something is a primitive rather than a sofa. The
-          seat and back cushions are separate pieces with a visible gap between
-          them, because a continuous slab reads as a bench. */}
-      <group position={[2.75, 0, 6.1]} rotation={[0, 0.3, 0]}>
-        {/* Plinth, recessed, so the sofa sits in a shadow gap instead of
-            growing out of the floor. */}
+          foam-and-fabric has, and sharp corners are the single strongest signal
+          that something is a primitive rather than a sofa. */}
+      <group position={[2.2, 0, 5.2]} rotation={[0, 0.3, 0]}>
         <mesh position={[0, 0.05, 0]} receiveShadow>
-          <boxGeometry args={[0.92, 0.1, 3.16]} />
+          <boxGeometry args={[0.92, 0.1, 3.46]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
-
-        {/* Base. */}
         <RoundedBox
-          args={[1.05, 0.32, 3.3]}
+          args={[1.05, 0.32, 3.6]}
           radius={0.05}
           smoothness={3}
           position={[0, 0.26, 0]}
@@ -674,9 +670,8 @@ function Seating() {
         >
           <primitive object={M.sofa} attach="material" />
         </RoundedBox>
-        {/* Back, leaning very slightly. */}
         <RoundedBox
-          args={[0.22, 0.58, 3.3]}
+          args={[0.22, 0.58, 3.6]}
           radius={0.07}
           smoothness={3}
           position={[-0.45, 0.6, 0]}
@@ -686,13 +681,10 @@ function Seating() {
         >
           <primitive object={M.sofa} attach="material" />
         </RoundedBox>
-
-        {[-1.08, 0, 1.08].map((z) => (
+        {[-1.2, 0, 1.2].map((z) => (
           <group key={`seat-${z}`}>
-            {/* Seat cushion: wider than it is thick, and pillowed at the
-                edges by a generous radius. */}
             <RoundedBox
-              args={[0.92, 0.19, 1.0]}
+              args={[0.92, 0.19, 1.12]}
               radius={0.075}
               smoothness={3}
               position={[0.05, 0.51, z]}
@@ -701,9 +693,8 @@ function Seating() {
             >
               <primitive object={M.sofaSeat} attach="material" />
             </RoundedBox>
-            {/* Back cushion, sitting proud of the frame. */}
             <RoundedBox
-              args={[0.2, 0.44, 0.98]}
+              args={[0.2, 0.44, 1.1]}
               radius={0.08}
               smoothness={3}
               position={[-0.27, 0.72, z]}
@@ -714,64 +705,12 @@ function Seating() {
             </RoundedBox>
           </group>
         ))}
-
-        {/* Chaise returning across the far end, toward the television. */}
-        <mesh position={[0.95, 0.05, -1.95]} receiveShadow>
-          <boxGeometry args={[2.76, 0.1, 0.86]} />
-          <primitive object={M.metal} attach="material" />
-        </mesh>
-        <RoundedBox
-          args={[2.9, 0.32, 1.0]}
-          radius={0.05}
-          smoothness={3}
-          position={[0.95, 0.26, -1.95]}
-          castShadow
-          receiveShadow
-        >
-          <primitive object={M.sofa} attach="material" />
-        </RoundedBox>
-        <RoundedBox
-          args={[2.9, 0.58, 0.22]}
-          radius={0.07}
-          smoothness={3}
-          position={[0.95, 0.6, -1.36]}
-          rotation={[0.05, 0, 0]}
-          castShadow
-          receiveShadow
-        >
-          <primitive object={M.sofa} attach="material" />
-        </RoundedBox>
-        {[0.3, 1.5].map((dx) => (
-          <group key={`ch-${dx}`}>
-            <RoundedBox
-              args={[1.28, 0.19, 0.88]}
-              radius={0.075}
-              smoothness={3}
-              position={[dx, 0.51, -2.02]}
-              castShadow
-              receiveShadow
-            >
-              <primitive object={M.sofaSeat} attach="material" />
-            </RoundedBox>
-            <RoundedBox
-              args={[1.26, 0.44, 0.2]}
-              radius={0.08}
-              smoothness={3}
-              position={[dx, 0.72, -1.56]}
-              rotation={[-0.14, 0, 0]}
-              castShadow
-            >
-              <primitive object={M.sofaSeat} attach="material" />
-            </RoundedBox>
-          </group>
-        ))}
-
         {/* Scatter cushions, turned off-axis. Nothing on a real sofa is
             square to anything else. */}
         {[
-          { p: [-0.2, 0.78, -1.32], r: [0.2, 0.35, 0.3] },
-          { p: [-0.2, 0.78, 1.18], r: [0.18, -0.28, -0.24] },
-          { p: [1.66, 0.78, -1.5], r: [0.16, 1.2, 0.26] },
+          { p: [-0.2, 0.78, -1.45], r: [0.2, 0.35, 0.3] },
+          { p: [-0.2, 0.78, -0.55], r: [0.16, -0.3, -0.26] },
+          { p: [-0.2, 0.78, 0.95], r: [0.18, 0.28, 0.24] },
         ].map((c, i) => (
           <RoundedBox
             key={`cu-${i}`}
@@ -787,60 +726,73 @@ function Seating() {
         ))}
       </group>
 
-      {/* Two swivel chairs opposite, closing the seating group as on the
-          sheet. Kept well back: anything within three metres of the lens in a
-          wide frame stops being furniture and becomes an obstruction.
-
-          Built as a tub chair — seat, one wrapping back and two low arms. An
-          earlier pass angled two loose panels behind the seat, which read as a
-          slab floating in mid air rather than as a chair. */}
+      {/* Two upholstered ottomans and a swivel chair, closing the group at the
+          near right exactly as the sheet does. */}
       {[
-        { x: 6.35, z: 4.3 },
-        { x: 6.65, z: 5.7 },
-      ].map((c, i) => (
-        <group key={`chair-${i}`} position={[c.x, 0, c.z]} rotation={[0, -1.9 - i * 0.22, 0]}>
+        { x: 4.95, z: 6.65, r: 0.42 },
+        { x: 5.8, z: 7.15, r: 0.38 },
+      ].map((o, i) => (
+        <group key={`ott-${i}`} position={[o.x, 0, o.z]}>
           <RoundedBox
-            args={[0.8, 0.2, 0.76]}
-            radius={0.075}
-            smoothness={3}
-            position={[0, 0.43, 0.02]}
+            args={[o.r * 2, 0.36, o.r * 1.8]}
+            radius={0.14}
+            smoothness={4}
+            position={[0, 0.22, 0]}
             castShadow
             receiveShadow
           >
             <primitive object={M.cushion} attach="material" />
           </RoundedBox>
-          <RoundedBox
-            args={[0.8, 0.52, 0.2]}
-            radius={0.09}
-            smoothness={3}
-            position={[0, 0.66, -0.3]}
-            rotation={[-0.16, 0, 0]}
-            castShadow
-            receiveShadow
-          >
-            <primitive object={M.cushion} attach="material" />
-          </RoundedBox>
-          {[-0.35, 0.35].map((dx) => (
-            <RoundedBox
-              key={`arm-${dx}`}
-              args={[0.16, 0.26, 0.66]}
-              radius={0.07}
-              smoothness={3}
-              position={[dx, 0.53, 0.02]}
-              castShadow
-            >
-              <primitive object={M.cushion} attach="material" />
-            </RoundedBox>
-          ))}
-          <mesh position={[0, 0.17, 0]} castShadow>
-            <cylinderGeometry args={[0.19, 0.26, 0.32, 24]} />
+          <mesh position={[0, 0.03, 0]}>
+            <cylinderGeometry args={[o.r * 0.7, o.r * 0.7, 0.06, 20]} />
             <primitive object={M.metal} attach="material" />
           </mesh>
         </group>
       ))}
 
+      {/* Tub chair — seat, one wrapping back, two low arms. */}
+      <group position={[6.25, 0, 5.55]} rotation={[0, -2.15, 0]}>
+        <RoundedBox
+          args={[0.8, 0.2, 0.76]}
+          radius={0.075}
+          smoothness={3}
+          position={[0, 0.43, 0.02]}
+          castShadow
+          receiveShadow
+        >
+          <primitive object={M.cushion} attach="material" />
+        </RoundedBox>
+        <RoundedBox
+          args={[0.8, 0.52, 0.2]}
+          radius={0.09}
+          smoothness={3}
+          position={[0, 0.66, -0.3]}
+          rotation={[-0.16, 0, 0]}
+          castShadow
+          receiveShadow
+        >
+          <primitive object={M.cushion} attach="material" />
+        </RoundedBox>
+        {[-0.35, 0.35].map((dx) => (
+          <RoundedBox
+            key={`arm-${dx}`}
+            args={[0.16, 0.26, 0.66]}
+            radius={0.07}
+            smoothness={3}
+            position={[dx, 0.53, 0.02]}
+            castShadow
+          >
+            <primitive object={M.cushion} attach="material" />
+          </RoundedBox>
+        ))}
+        <mesh position={[0, 0.17, 0]} castShadow>
+          <cylinderGeometry args={[0.19, 0.26, 0.32, 24]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
+      </group>
+
       {/* Round marble coffee table, as on the sheet. */}
-      <group position={[4.0, 0, 5.1]}>
+      <group position={[4.0, 0, 5.0]}>
         <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[0.62, 0.62, 0.09, 36]} />
           <primitive object={M.marble} attach="material" />
@@ -910,7 +862,7 @@ function Seating() {
       {/* Floor plants, which the sheet leans on heavily for warmth. */}
       {[
         { x: 7.7, z: 1.3 },
-        { x: 0.5, z: 7.3 },
+        { x: 0.45, z: 7.6 },
       ].map((p, i) => (
         <group key={`plant-${i}`} position={[p.x, 0, p.z]}>
           <mesh position={[0, 0.16, 0]} castShadow receiveShadow>
