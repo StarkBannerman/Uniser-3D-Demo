@@ -38,7 +38,7 @@ const CAMERA: CameraSpec = {
    * horizontal, so walls stay vertical and the room keeps its scale. This drops
    * 16 cm over eight metres: about one degree.
    */
-  position: [3.4, 1.58, 8.4],
+  position: [2.45, 1.58, 8.45],
   target: [5.9, 1.2, 0.8],
   fov: 50,
 };

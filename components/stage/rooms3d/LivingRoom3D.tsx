@@ -638,30 +638,41 @@ function Glazing({
 /* Furniture                                                           */
 /* ------------------------------------------------------------------ */
 
-function Seating() {
+/**
+ * The seating group.
+ *
+ * Rug, sofa, coffee table, ottomans and chair all live inside **one** rotated
+ * group, laid out against each other in its local axes. That is the whole
+ * point: an earlier pass angled the sofa but left the rug square to the room
+ * and scattered the ottomans on their own coordinates, and the result looked
+ * like the furniture had been pushed aside for cleaning. A room reads as
+ * arranged when everything in a zone shares one axis — so the rug turns with
+ * the sofa, and the ottomans sit on a line with the table.
+ */
+function SeatingGroup() {
   return (
-    <group>
-      <mesh position={[3.8, 0.006, 5.3]} receiveShadow>
-        <boxGeometry args={[6.2, 0.012, 5.8]} />
+    <group position={[2.9, 0, 5.0]} rotation={[0, 0.35, 0]}>
+      {/* Rug, turned with the furniture standing on it. */}
+      <mesh position={[0.6, 0.006, 0.05]} receiveShadow>
+        <boxGeometry args={[4.9, 0.012, 4.0]} />
         <primitive object={M.rug} attach="material" />
       </mesh>
 
-      {/* Sectional down the left of the frame, turned to address the media
-          wall — the arrangement on the client's sheet, where the sofa runs
-          away from the viewer on the left and its chaise end falls outside the
-          frame entirely. Straight rather than an L for that reason: the return
-          would sit behind the camera and only cost frame space.
+      {/* Sofa, facing +x across the group toward the media wall. Straight
+          rather than an L: on the client's sheet the chaise end falls outside
+          the frame, so a return would sit behind the camera and only cost
+          frame space.
 
           Every upholstered part is a rounded box. A 4-6 cm radius is what real
           foam-and-fabric has, and sharp corners are the single strongest signal
           that something is a primitive rather than a sofa. */}
-      <group position={[2.2, 0, 5.2]} rotation={[0, 0.3, 0]}>
+      <group position={[-1.3, 0, 0]}>
         <mesh position={[0, 0.05, 0]} receiveShadow>
-          <boxGeometry args={[0.92, 0.1, 3.46]} />
+          <boxGeometry args={[0.92, 0.1, 3.66]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
         <RoundedBox
-          args={[1.05, 0.32, 3.6]}
+          args={[1.05, 0.32, 3.8]}
           radius={0.05}
           smoothness={3}
           position={[0, 0.26, 0]}
@@ -671,7 +682,7 @@ function Seating() {
           <primitive object={M.sofa} attach="material" />
         </RoundedBox>
         <RoundedBox
-          args={[0.22, 0.58, 3.6]}
+          args={[0.22, 0.58, 3.8]}
           radius={0.07}
           smoothness={3}
           position={[-0.45, 0.6, 0]}
@@ -681,10 +692,10 @@ function Seating() {
         >
           <primitive object={M.sofa} attach="material" />
         </RoundedBox>
-        {[-1.2, 0, 1.2].map((z) => (
+        {[-1.26, 0, 1.26].map((z) => (
           <group key={`seat-${z}`}>
             <RoundedBox
-              args={[0.92, 0.19, 1.12]}
+              args={[0.92, 0.19, 1.18]}
               radius={0.075}
               smoothness={3}
               position={[0.05, 0.51, z]}
@@ -694,7 +705,7 @@ function Seating() {
               <primitive object={M.sofaSeat} attach="material" />
             </RoundedBox>
             <RoundedBox
-              args={[0.2, 0.44, 1.1]}
+              args={[0.2, 0.44, 1.16]}
               radius={0.08}
               smoothness={3}
               position={[-0.27, 0.72, z]}
@@ -706,11 +717,12 @@ function Seating() {
           </group>
         ))}
         {/* Scatter cushions, turned off-axis. Nothing on a real sofa is
-            square to anything else. */}
+            square to anything else — which is the opposite of the furniture
+            itself, and is exactly why both matter. */}
         {[
-          { p: [-0.2, 0.78, -1.45], r: [0.2, 0.35, 0.3] },
-          { p: [-0.2, 0.78, -0.55], r: [0.16, -0.3, -0.26] },
-          { p: [-0.2, 0.78, 0.95], r: [0.18, 0.28, 0.24] },
+          { p: [-0.18, 0.78, -1.5], r: [0.2, 0.35, 0.3] },
+          { p: [-0.18, 0.78, -0.62], r: [0.16, -0.3, -0.26] },
+          { p: [-0.18, 0.78, 1.0], r: [0.18, 0.28, 0.24] },
         ].map((c, i) => (
           <RoundedBox
             key={`cu-${i}`}
@@ -726,15 +738,36 @@ function Seating() {
         ))}
       </group>
 
-      {/* Two upholstered ottomans and a swivel chair, closing the group at the
-          near right exactly as the sheet does. */}
+      {/* Round marble coffee table, square to the group and centred on the
+          sofa's middle seat. */}
+      <group position={[0.5, 0, 0]}>
+        <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.64, 0.64, 0.09, 36]} />
+          <primitive object={M.marble} attach="material" />
+        </mesh>
+        <mesh position={[0, 0.17, 0]} castShadow>
+          <cylinderGeometry args={[0.3, 0.38, 0.34, 28]} />
+          <primitive object={M.marble} attach="material" />
+        </mesh>
+        <mesh position={[0.12, 0.47, 0.08]} castShadow>
+          <sphereGeometry args={[0.1, 12, 10]} />
+          <primitive object={M.foliage} attach="material" />
+        </mesh>
+        <mesh position={[-0.22, 0.42, -0.12]} castShadow>
+          <boxGeometry args={[0.3, 0.04, 0.22]} />
+          <primitive object={M.consoleWood} attach="material" />
+        </mesh>
+      </group>
+
+      {/* Two ottomans on a line with the table, and a tub chair beyond them —
+          the near-right corner of the group, as on the sheet. */}
       {[
-        { x: 4.95, z: 6.65, r: 0.42 },
-        { x: 5.8, z: 7.15, r: 0.38 },
+        { x: 1.9, z: -0.58, w: 0.88, d: 0.82 },
+        { x: 1.9, z: 0.6, w: 0.8, d: 0.76 },
       ].map((o, i) => (
         <group key={`ott-${i}`} position={[o.x, 0, o.z]}>
           <RoundedBox
-            args={[o.r * 2, 0.36, o.r * 1.8]}
+            args={[o.w, 0.36, o.d]}
             radius={0.14}
             smoothness={4}
             position={[0, 0.22, 0]}
@@ -744,14 +777,14 @@ function Seating() {
             <primitive object={M.cushion} attach="material" />
           </RoundedBox>
           <mesh position={[0, 0.03, 0]}>
-            <cylinderGeometry args={[o.r * 0.7, o.r * 0.7, 0.06, 20]} />
+            <cylinderGeometry args={[o.w * 0.34, o.w * 0.34, 0.06, 20]} />
             <primitive object={M.metal} attach="material" />
           </mesh>
         </group>
       ))}
 
-      {/* Tub chair — seat, one wrapping back, two low arms. */}
-      <group position={[6.25, 0, 5.55]} rotation={[0, -2.15, 0]}>
+      {/* Tub chair, turned back toward the sofa so the group closes. */}
+      <group position={[2.5, 0, 1.62]} rotation={[0, -2.5, 0]}>
         <RoundedBox
           args={[0.8, 0.2, 0.76]}
           radius={0.075}
@@ -790,27 +823,14 @@ function Seating() {
           <primitive object={M.metal} attach="material" />
         </mesh>
       </group>
+    </group>
+  );
+}
 
-      {/* Round marble coffee table, as on the sheet. */}
-      <group position={[4.0, 0, 5.0]}>
-        <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.62, 0.62, 0.09, 36]} />
-          <primitive object={M.marble} attach="material" />
-        </mesh>
-        <mesh position={[0, 0.17, 0]} castShadow>
-          <cylinderGeometry args={[0.3, 0.36, 0.34, 28]} />
-          <primitive object={M.marble} attach="material" />
-        </mesh>
-        <mesh position={[0.1, 0.47, 0.06]} castShadow>
-          <sphereGeometry args={[0.1, 12, 10]} />
-          <primitive object={M.foliage} attach="material" />
-        </mesh>
-        <mesh position={[-0.24, 0.42, -0.1]} castShadow>
-          <boxGeometry args={[0.28, 0.04, 0.2]} />
-          <primitive object={M.consoleWood} attach="material" />
-        </mesh>
-      </group>
-
+/** Dining zone, console and plants — everything outside the seating group. */
+function RoomFurniture() {
+  return (
+    <group>
       {/* Dining zone in the middle distance, under the pendants.
           The sheet leans on this for depth: something to see past the seating
           is most of what stops a large room reading as a small one. */}
@@ -830,18 +850,26 @@ function Seating() {
         {[-0.72, 0.72].map((dx) =>
           [-0.62, 0, 0.62].map((dz) => (
             <group key={`ch-${dx}-${dz}`} position={[dx, 0, dz]}>
-              <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
-                <boxGeometry args={[0.44, 0.07, 0.46]} />
+              <RoundedBox
+                args={[0.44, 0.07, 0.46]}
+                radius={0.03}
+                smoothness={3}
+                position={[0, 0.45, 0]}
+                castShadow
+                receiveShadow
+              >
                 <primitive object={M.cushion} attach="material" />
-              </mesh>
-              <mesh
+              </RoundedBox>
+              <RoundedBox
+                args={[0.07, 0.48, 0.44]}
+                radius={0.03}
+                smoothness={3}
                 position={[dx > 0 ? 0.19 : -0.19, 0.69, 0]}
                 rotation={[0, 0, dx > 0 ? -0.12 : 0.12]}
                 castShadow
               >
-                <boxGeometry args={[0.07, 0.48, 0.44]} />
                 <primitive object={M.cushion} attach="material" />
-              </mesh>
+              </RoundedBox>
               {[-0.17, 0.17].map((lx) =>
                 [-0.17, 0.17].map((lz) => (
                   <mesh key={`cl-${lx}-${lz}`} position={[lx, 0.22, lz]}>
@@ -895,19 +923,17 @@ function Seating() {
  *
  * The client's sheet points an "AC Control" callout straight at the ceiling, so
  * the unit has to be somewhere you can point at too. The louvres swing open when
- * it runs and sit flush when it does not, which is the same trick the fan uses:
- * a control whose effect you cannot see in the room is a control nobody
- * believes.
+ * it runs and sit flush when it does not, wider as the fan is asked for more —
+ * the same trick the fan uses. A control whose effect you cannot see in the room
+ * is a control nobody believes.
  */
 function AirConditioner({ on, fan }: { on: boolean; fan: number }) {
   const { x, z } = LR_PLAN.ac;
   const y = LR.h - 0.02;
-  // Flush when idle, wider as the fan is asked for more.
   const tilt = on ? 0.5 + Math.min(fan, 3) * 0.16 : 0.02;
 
   return (
     <group position={[x, 0, z]}>
-      {/* Bezel, recessed into the ceiling. */}
       <mesh position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[1.5, 0.62]} />
         <primitive object={M.consoleBody} attach="material" />
@@ -916,7 +942,6 @@ function AirConditioner({ on, fan }: { on: boolean; fan: number }) {
         <planeGeometry args={[1.3, 0.44]} />
         <primitive object={M.slatBack} attach="material" />
       </mesh>
-      {/* Louvres, along both long edges. */}
       {[-0.19, 0.19].map((dz, i) => (
         <mesh
           key={`louvre-${i}`}
@@ -928,7 +953,6 @@ function AirConditioner({ on, fan }: { on: boolean; fan: number }) {
           <primitive object={M.consoleBody} attach="material" />
         </mesh>
       ))}
-      {/* Return-air grille, as a row of fins. */}
       {[-0.5, -0.25, 0, 0.25, 0.5].map((dx) => (
         <mesh key={`fin-${dx}`} position={[dx, y - 0.018, 0]}>
           <boxGeometry args={[0.012, 0.01, 0.4]} />
@@ -1040,7 +1064,8 @@ export function LivingRoom3D({
       <PendantRig />
       <CeilingFan radiansPerSecond={fanRadiansPerSecond} />
       <AirConditioner on={ac.on} fan={ac.fan} />
-      <Seating />
+      <SeatingGroup />
+      <RoomFurniture />
     </group>
   );
 }
