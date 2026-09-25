@@ -74,19 +74,29 @@ export const LR_TV = { x: 5.7, y: 1.52, w: 2.2, h: 1.25 };
  */
 export const LR_PLAN = {
   /** Slatted timber panel, left of the stone. */
-  slats: { x0: 0.0, x1: 3.3 },
+  slats: { x0: 2.05, x1: 3.3 },
   /** Book-matched stone, carrying the television. */
   stone: { x0: 3.3, x1: LR.w },
   /** Shelving niches recessed into the slat panel, lit from inside. */
-  niche: { x0: 1.15, x1: 2.95, y0: 0.4, y1: 2.5, bays: 3 },
+  niche: { x0: 2.2, x1: 3.15, y0: 0.45, y1: 2.45, bays: 3 },
   /** Floorstanders either side of the television. */
   speakers: [{ x: LR_TV.x - 1.75 }, { x: LR_TV.x + 1.75 }],
   /** Pendant cluster, hung over the dining table. */
-  pendants: { x: 1.4, z: 1.7 },
+  /**
+   * Pendant cluster, hung at the mouth of the dining bay.
+   *
+   * Inside the bay it was hidden behind the jamb, which loses the Decorative
+   * device entirely from the frame. Here it reads through the opening and does
+   * the other job a light in a doorway does: it pulls the eye through.
+   *
+   * `ceiling` because the bay's ceiling is lower than the room's, and cords
+   * dropped from the living room's slab would pass straight through it.
+   */
+  pendants: { x: 1.1, z: -0.85, ceiling: 2.55 },
   /** Ceiling fan hub, over the seating. */
   fan: { x: 4.1, z: 4.2, y: 2.72 },
   /** Dining table in the middle distance, under the pendants. */
-  dining: { x: 1.4, z: 1.7 },
+  dining: { x: 1.1, z: -2.2 },
   /** Recessed air-conditioning cassette in the ceiling. */
   ac: { x: 4.4, z: 3.2 },
   /**
@@ -97,17 +107,25 @@ export const LR_PLAN = {
    * an accent head aimed at bare plaster is not accent lighting.
    */
   art: { z: 4.7, y: 1.72, w: 3.0, h: 1.7 },
+  /**
+   * Cased opening at the left end of the media wall, and the passage beyond.
+   *
+   * A living room is never a sealed box — it opens onto a hall, a kitchen, the
+   * rest of the plan. Closing all four walls is what made this read as a
+   * showroom cube, so the far wall is cut and the space carries on behind it.
+   */
+  opening: { x0: 0.15, x1: 2.05, head: 2.55, depth: 4.6 },
 } as const;
 
 /** Globe positions within the pendant cluster, relative to `LR_PLAN.pendants`. */
 export const LR_PENDANT_GLOBES: { dx: number; dz: number; y: number; r: number }[] = [
-  { dx: -0.2, dz: -0.42, y: 1.78, r: 0.115 },
-  { dx: 0.14, dz: -0.16, y: 2.06, r: 0.095 },
-  { dx: -0.1, dz: 0.16, y: 1.9, r: 0.105 },
-  { dx: 0.22, dz: 0.46, y: 2.18, r: 0.09 },
-  { dx: -0.02, dz: -0.02, y: 1.56, r: 0.125 },
-  { dx: 0.26, dz: 0.16, y: 1.7, r: 0.1 },
-  { dx: -0.16, dz: 0.5, y: 2.1, r: 0.085 },
+  { dx: -0.2, dz: -0.34, y: 1.62, r: 0.115 },
+  { dx: 0.14, dz: -0.12, y: 1.9, r: 0.095 },
+  { dx: -0.1, dz: 0.14, y: 1.74, r: 0.105 },
+  { dx: 0.22, dz: 0.38, y: 2.02, r: 0.09 },
+  { dx: -0.02, dz: -0.02, y: 1.44, r: 0.125 },
+  { dx: 0.26, dz: 0.14, y: 1.56, r: 0.1 },
+  { dx: -0.16, dz: 0.42, y: 1.94, r: 0.085 },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -839,27 +857,34 @@ function SeatingGroup() {
 function RoomFurniture() {
   return (
     <group>
-      {/* Dining zone in the middle distance, under the pendants.
-          The sheet leans on this for depth: something to see past the seating
-          is most of what stops a large room reading as a small one. */}
+      {/* Dining zone, beyond the opening rather than inside the living room.
+          That is the arrangement on the sheet — the second zone is through the
+          gap, not squeezed in beside the sofa — and it is what tells the eye
+          the plan carries on. Round, because the bay is not wide enough for a
+          rectangular table with chairs down both sides. */}
       <group position={[LR_PLAN.dining.x, 0, LR_PLAN.dining.z]}>
         <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
-          <boxGeometry args={[1.15, 0.06, 2.3]} />
+          <cylinderGeometry args={[0.62, 0.62, 0.06, 32]} />
           <primitive object={M.consoleWood} attach="material" />
         </mesh>
-        {[-0.48, 0.48].map((dx) =>
-          [-0.95, 0.95].map((dz) => (
-            <mesh key={`tl-${dx}-${dz}`} position={[dx, 0.36, dz]} castShadow>
-              <boxGeometry args={[0.06, 0.72, 0.06]} />
-              <primitive object={M.metal} attach="material" />
-            </mesh>
-          )),
-        )}
-        {[-0.72, 0.72].map((dx) =>
-          [-0.62, 0, 0.62].map((dz) => (
-            <group key={`ch-${dx}-${dz}`} position={[dx, 0, dz]}>
+        <mesh position={[0, 0.36, 0]} castShadow>
+          <cylinderGeometry args={[0.09, 0.14, 0.72, 16]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
+        <mesh position={[0, 0.02, 0]}>
+          <cylinderGeometry args={[0.36, 0.4, 0.04, 20]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
+        {[0, 1, 2, 3].map((i) => {
+          const a = (i * Math.PI) / 2 + Math.PI / 4;
+          return (
+            <group
+              key={`dch-${i}`}
+              position={[Math.sin(a) * 0.86, 0, Math.cos(a) * 0.86]}
+              rotation={[0, a + Math.PI, 0]}
+            >
               <RoundedBox
-                args={[0.44, 0.07, 0.46]}
+                args={[0.42, 0.08, 0.42]}
                 radius={0.03}
                 smoothness={3}
                 position={[0, 0.45, 0]}
@@ -869,28 +894,28 @@ function RoomFurniture() {
                 <primitive object={M.cushion} attach="material" />
               </RoundedBox>
               <RoundedBox
-                args={[0.07, 0.48, 0.44]}
+                args={[0.42, 0.46, 0.08]}
                 radius={0.03}
                 smoothness={3}
-                position={[dx > 0 ? 0.19 : -0.19, 0.69, 0]}
-                rotation={[0, 0, dx > 0 ? -0.12 : 0.12]}
+                position={[0, 0.68, 0.18]}
+                rotation={[0.12, 0, 0]}
                 castShadow
               >
                 <primitive object={M.cushion} attach="material" />
               </RoundedBox>
-              {[-0.17, 0.17].map((lx) =>
-                [-0.17, 0.17].map((lz) => (
-                  <mesh key={`cl-${lx}-${lz}`} position={[lx, 0.22, lz]}>
-                    <boxGeometry args={[0.04, 0.44, 0.04]} />
+              {[-0.16, 0.16].map((lx) =>
+                [-0.16, 0.16].map((lz) => (
+                  <mesh key={`l-${lx}-${lz}`} position={[lx, 0.22, lz]}>
+                    <boxGeometry args={[0.035, 0.44, 0.035]} />
                     <primitive object={M.metal} attach="material" />
                   </mesh>
                 )),
               )}
             </group>
-          )),
-        )}
-        <mesh position={[0, 0.85, 0]} castShadow>
-          <cylinderGeometry args={[0.14, 0.1, 0.16, 16]} />
+          );
+        })}
+        <mesh position={[0, 0.84, 0]} castShadow>
+          <cylinderGeometry args={[0.12, 0.09, 0.14, 16]} />
           <primitive object={M.pot} attach="material" />
         </mesh>
       </group>
@@ -922,6 +947,102 @@ function RoomFurniture() {
           ))}
         </group>
       ))}
+    </group>
+  );
+}
+
+/**
+ * The opening in the media wall, and the passage it leads to.
+ *
+ * Built as a real volume rather than a dark rectangle: floor, two side walls, a
+ * lower ceiling and a return at the end, with its own warm light. A painted-on
+ * "doorway" reads as a poster of a doorway the moment the camera has any angle
+ * on it, and from here it has plenty.
+ *
+ * The passage turns at its end rather than running to a flat back wall, so the
+ * eye is told the plan continues instead of being shown where it stops.
+ */
+function Passage() {
+  const o = LR_PLAN.opening;
+  const w = o.x1 - o.x0;
+  const cx = (o.x0 + o.x1) / 2;
+  const ceil = o.head + 0.06;
+
+  return (
+    <group>
+      {/* Reveal around the opening: head and both jambs. */}
+      <mesh position={[cx, (o.head + LR.h - LR.soffit.drop) / 2, 0.01]} receiveShadow>
+        <planeGeometry args={[w, LR.h - LR.soffit.drop - o.head]} />
+        <primitive object={M.wall} attach="material" />
+      </mesh>
+      {[o.x0, o.x1].map((x, i) => (
+        <mesh
+          key={`jamb-${i}`}
+          position={[x, o.head / 2, -0.14]}
+          rotation={[0, i === 0 ? Math.PI / 2 : -Math.PI / 2, 0]}
+          receiveShadow
+        >
+          <planeGeometry args={[0.3, o.head]} />
+          <primitive object={M.wall} attach="material" />
+        </mesh>
+      ))}
+
+      {/* The passage. */}
+      <mesh position={[cx, 0, -o.depth / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[w, o.depth]} />
+        <primitive object={M.floor} attach="material" />
+      </mesh>
+      <mesh position={[cx, ceil, -o.depth / 2]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[w, o.depth]} />
+        <primitive object={M.ceiling} attach="material" />
+      </mesh>
+      <mesh
+        position={[o.x0, ceil / 2, -o.depth / 2]}
+        rotation={[0, Math.PI / 2, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[o.depth, ceil]} />
+        <primitive object={M.wall} attach="material" />
+      </mesh>
+      {/* Right-hand side stops short, so the passage turns rather than ending
+          in a wall you can read the end of. */}
+      <mesh
+        position={[o.x1, ceil / 2, -o.depth / 2 + 0.55]}
+        rotation={[0, -Math.PI / 2, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[o.depth - 1.1, ceil]} />
+        <primitive object={M.wall} attach="material" />
+      </mesh>
+      <mesh position={[cx + 0.35, ceil / 2, -o.depth]} receiveShadow>
+        <planeGeometry args={[w + 0.7, ceil]} />
+        <primitive object={M.wall} attach="material" />
+      </mesh>
+
+      {/* A sideboard against the far side of the bay. */}
+      <mesh position={[o.x0 + 0.3, 0.4, -o.depth + 0.32]} castShadow receiveShadow>
+        <boxGeometry args={[0.5, 0.8, 0.5]} />
+        <primitive object={M.consoleWood} attach="material" />
+      </mesh>
+
+      {/* Its own light, warm and low. Somewhere beyond that is lit is what
+          makes the plan feel like it continues; a dark hole reads as a cupboard. */}
+      <pointLight
+        position={[cx, ceil - 0.35, -o.depth + 1.1]}
+        intensity={3.4}
+        distance={5.5}
+        decay={1.8}
+        color={new THREE.Color("#ffd9a8")}
+      />
+      <mesh position={[cx, ceil - 0.02, -o.depth + 1.1]} rotation={[Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.07, 16]} />
+        <meshStandardMaterial
+          color="#000000"
+          emissive={new THREE.Color("#ffd9a8")}
+          emissiveIntensity={4}
+          toneMapped={false}
+        />
+      </mesh>
     </group>
   );
 }
@@ -1066,16 +1187,16 @@ function AirConditioner({ on, fan }: { on: boolean; fan: number }) {
  * whole approach exists to avoid.
  */
 function PendantRig() {
-  const { x, z } = LR_PLAN.pendants;
+  const { x, z, ceiling } = LR_PLAN.pendants;
   return (
     <group>
-      <mesh position={[x, LR.h - 0.015, z]}>
+      <mesh position={[x, ceiling - 0.015, z]}>
         <cylinderGeometry args={[0.17, 0.17, 0.03, 24]} />
         <primitive object={M.metal} attach="material" />
       </mesh>
       {LR_PENDANT_GLOBES.map((g, i) => (
-        <mesh key={`cord-${i}`} position={[x + g.dx, (LR.h + g.y + g.r) / 2, z + g.dz]}>
-          <cylinderGeometry args={[0.004, 0.004, LR.h - g.y - g.r, 6]} />
+        <mesh key={`cord-${i}`} position={[x + g.dx, (ceiling + g.y + g.r) / 2, z + g.dz]}>
+          <cylinderGeometry args={[0.004, 0.004, ceiling - g.y - g.r, 6]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
       ))}
@@ -1154,6 +1275,7 @@ export function LivingRoom3D({
     <group>
       <Shell />
       <SlatPanel />
+      <Passage />
       <FeatureWallLeft />
       <MediaWall tvOn={tvOn} audioLevel={audioLevel} />
       <Glazing {...curtains} daylight={daylight} view={view} />
