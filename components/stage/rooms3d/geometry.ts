@@ -214,3 +214,74 @@ export function makeScreenTexture(): THREE.CanvasTexture {
   tex.needsUpdate = true;
   return tex;
 }
+
+/**
+ * A large abstract relief panel, for the feature wall.
+ *
+ * The client's sheet hangs one of these on the long blank wall and points its
+ * "Accent Lighting — highlight artwork, textures and feature elements" callout
+ * straight at it. So the artwork is not decoration here: it is the thing that
+ * callout is about, and a bare plaster wall leaves the accent device with
+ * nothing to accent.
+ *
+ * Drawn rather than loaded, so the demo stays offline. Overlapping soft forms
+ * in close-valued off-whites, which is what reads as sculptural plaster under a
+ * raking light.
+ */
+export function makeArtTexture(seed = 11): THREE.CanvasTexture {
+  const w = 1024;
+  const h = 640;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+
+  let s = seed * 9301 + 49297;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+
+  const base = ctx.createLinearGradient(0, 0, w, h);
+  base.addColorStop(0, "#e8e3d9");
+  base.addColorStop(1, "#cfc8bb");
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, w, h);
+
+  // Overlapping petals, each with a light side and a shadowed side, so the
+  // panel reads as relief rather than as a printed pattern.
+  for (let i = 0; i < 34; i++) {
+    const cx = w * (0.12 + rnd() * 0.76);
+    const cy = h * (0.14 + rnd() * 0.72);
+    const r = 40 + rnd() * 120;
+    const rot = rnd() * Math.PI * 2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    const g = ctx.createLinearGradient(-r, -r, r, r);
+    g.addColorStop(0, "rgba(255,253,246,0.85)");
+    g.addColorStop(0.55, "rgba(226,219,206,0.7)");
+    g.addColorStop(1, "rgba(168,158,142,0.55)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r, r * (0.42 + rnd() * 0.3), 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(150,140,124,0.35)";
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // A soft vignette, so the panel does not fight the wall at its edges.
+  const vig = ctx.createRadialGradient(w / 2, h / 2, h * 0.2, w / 2, h / 2, h * 0.8);
+  vig.addColorStop(0, "rgba(0,0,0,0)");
+  vig.addColorStop(1, "rgba(60,54,46,0.28)");
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, w, h);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}

@@ -66,6 +66,18 @@ export const LR_DOWNLIGHTS = [
   { x: 5.8, z: 8.6 },
 ] as const;
 
+/**
+ * Accent heads aimed at the artwork on the left wall.
+ *
+ * The sheet's accent callout reads "highlight artwork, textures and feature
+ * elements", so the device has to actually do that — a head raking bare plaster
+ * is not accent lighting, it is a wall washer with better marketing.
+ */
+export const LR_ART_HEADS = [
+  { x: LR.soffit.depth + 0.12, z: LR_PLAN.art.z - 0.85 },
+  { x: LR.soffit.depth + 0.12, z: LR_PLAN.art.z + 0.85 },
+] as const;
+
 /** Accent heads in the soffit, raking down the media wall at z = 0. */
 export const LR_WASH = [
   { x: 1.9, z: LR.soffit.depth + 0.12 },
@@ -443,6 +455,15 @@ export function LivingRoomLightRig({
         aim={(p) => [p.x, 0.3, 0.05]}
         intensity={GAIN.accentGraze}
         angle={0.5}
+      />
+      <Downlights
+        state={fixtures.accent}
+        gain={gain}
+        positions={LR_ART_HEADS}
+        // Aimed at the canvas itself, not at the floor in front of it.
+        aim={(p) => [0.08, LR_PLAN.art.y, p.z]}
+        intensity={GAIN.accentGraze * 0.85}
+        angle={0.4}
       />
       <NicheAccent state={fixtures.accent} gain={gain} />
       <Decorative state={fixtures.decorative} gain={gain} />

@@ -30,7 +30,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import { MAX_BLADE_STEP_RAD } from "@/lib/sim/fan";
-import { makeCurtainGeometry, makeScreenTexture } from "./geometry";
+import { makeArtTexture, makeCurtainGeometry, makeScreenTexture } from "./geometry";
 
 /**
  * Room dimensions.
@@ -89,6 +89,14 @@ export const LR_PLAN = {
   dining: { x: 1.4, z: 1.7 },
   /** Recessed air-conditioning cassette in the ceiling. */
   ac: { x: 4.4, z: 3.2 },
+  /**
+   * Feature artwork on the long left wall.
+   *
+   * Shared with the light rig, because the sheet's "Accent Lighting — highlight
+   * artwork, textures and feature elements" callout points at exactly this, and
+   * an accent head aimed at bare plaster is not accent lighting.
+   */
+  art: { z: 4.7, y: 1.72, w: 3.0, h: 1.7 },
 } as const;
 
 /** Globe positions within the pendant cluster, relative to `LR_PLAN.pendants`. */
@@ -919,6 +927,93 @@ function RoomFurniture() {
 }
 
 /**
+ * The long left wall.
+ *
+ * It was a bare plaster plane, which is what made the room read as a hall
+ * rather than a living room — a big blank face with nothing on it and no edge
+ * to stop the eye. The sheet closes that side with a panelled wall, a large
+ * relief artwork and tall planting, so this does too.
+ */
+function FeatureWallLeft() {
+  const a = LR_PLAN.art;
+  const art = useMemo(() => makeArtTexture(), []);
+  const artMat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({ map: art, roughness: 0.82, metalness: 0 }),
+    [art],
+  );
+
+  return (
+    <group>
+      {/* Shallow vertical panelling across the wall, so it catches the cove
+          wash in bands instead of returning one flat value. */}
+      {Array.from({ length: 11 }, (_, i) => (
+        <mesh key={`rev-${i}`} position={[0.012, (LR.h - LR.soffit.drop) / 2, 0.7 + i * 0.86]}>
+          <boxGeometry args={[0.024, LR.h - LR.soffit.drop, 0.02]} />
+          <primitive object={M.slatBack} attach="material" />
+        </mesh>
+      ))}
+
+      {/* Frame, mount and canvas. */}
+      <mesh position={[0.03, a.y, a.z]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <planeGeometry args={[a.w + 0.12, a.h + 0.12]} />
+        <primitive object={M.consoleWood} attach="material" />
+      </mesh>
+      <mesh position={[0.05, a.y, a.z]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+        <planeGeometry args={[a.w, a.h]} />
+        <primitive object={artMat} attach="material" />
+      </mesh>
+
+      {/* Low console beneath it. */}
+      <mesh position={[0.28, 0.24, a.z]} castShadow receiveShadow>
+        <boxGeometry args={[0.52, 0.36, 2.4]} />
+        <primitive object={M.consoleWood} attach="material" />
+      </mesh>
+      {[-0.7, 0.7].map((dz) => (
+        <mesh key={`cd-${dz}`} position={[0.545, 0.24, a.z + dz]}>
+          <boxGeometry args={[0.02, 0.28, 1.1]} />
+          <primitive object={M.consoleBody} attach="material" />
+        </mesh>
+      ))}
+      {/* A vase and a stack of books, so the console is not a bare plinth. */}
+      <mesh position={[0.28, 0.58, a.z - 0.75]} castShadow>
+        <cylinderGeometry args={[0.1, 0.13, 0.32, 18]} />
+        <primitive object={M.pot} attach="material" />
+      </mesh>
+      <mesh position={[0.28, 0.46, a.z + 0.72]} castShadow>
+        <boxGeometry args={[0.3, 0.08, 0.24]} />
+        <primitive object={M.marble} attach="material" />
+      </mesh>
+
+      {/* Tall planting either side, as the sheet uses to close the corner. */}
+      {[a.z - 1.95, a.z + 2.05].map((z, i) => (
+        <group key={`tall-${i}`} position={[0.45, 0, z]}>
+          <mesh position={[0, 0.24, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[0.24, 0.19, 0.48, 18]} />
+            <primitive object={M.pot} attach="material" />
+          </mesh>
+          {Array.from({ length: 9 }, (_, j) => (
+            <mesh
+              key={`lf-${j}`}
+              position={[
+                Math.sin(j * 1.7 + i) * 0.22,
+                0.75 + (j % 5) * 0.22,
+                Math.cos(j * 1.7 + i) * 0.22,
+              ]}
+              rotation={[Math.sin(j) * 0.6, j * 1.7, Math.cos(j) * 0.6]}
+              castShadow
+            >
+              <sphereGeometry args={[0.24, 10, 6]} />
+              <primitive object={M.foliage} attach="material" />
+            </mesh>
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/**
  * Recessed air-conditioning cassette.
  *
  * The client's sheet points an "AC Control" callout straight at the ceiling, so
@@ -1059,6 +1154,7 @@ export function LivingRoom3D({
     <group>
       <Shell />
       <SlatPanel />
+      <FeatureWallLeft />
       <MediaWall tvOn={tvOn} audioLevel={audioLevel} />
       <Glazing {...curtains} daylight={daylight} view={view} />
       <PendantRig />
