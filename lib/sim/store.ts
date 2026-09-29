@@ -126,21 +126,64 @@ function cancelSequence(): void {
 }
 
 /**
- * Wall-clock time the interface unlocks, from `tweenNow()`.
+ * Wall-clock time the *whole* interface unlocks, from `tweenNow()`.
  *
  * Non-reactive for the same reason the tweens are: it is compared once a frame
  * and nothing subscribes to the number itself. `busy` on the store is the
  * boolean components actually watch.
+ *
+ * Armed only by `applyScene`. A scene is a claim about the entire room — Good
+ * Night dims the lights, closes the curtains and drops the AC in sequence — so
+ * a second press landing halfway through would leave the room in a state no
+ * scene describes. That is the case the lock exists for.
  */
 let busyUntil = 0;
+
+/**
+ * Wall-clock time each individual device unlocks, keyed by device id.
+ *
+ * Armed by `patch`. One fixture moving is not a claim about the room, so it
+ * locks only itself. The curtain here travels for eight seconds; taking the
+ * lights, the fan and the thermostat down with it for those eight seconds was
+ * the difference between the interface feeling slow and feeling broken.
+ */
+const deviceBusyUntil = new Map<string, number>();
 
 /** A little slack so a control does not re-enable a frame before it lands. */
 const BUSY_TAIL_MS = 120;
 
+/** Lock the whole interface. Scenes only. */
 function holdInput(durationMs: number): boolean {
   if (durationMs <= 0) return false;
   busyUntil = Math.max(busyUntil, tweenNow() + durationMs + BUSY_TAIL_MS);
   return true;
+}
+
+/** Lock one device's own controls while it travels. */
+function holdDevice(deviceId: string, durationMs: number): boolean {
+  if (durationMs <= 0) return false;
+  const until = tweenNow() + durationMs + BUSY_TAIL_MS;
+  const prev = deviceBusyUntil.get(deviceId) ?? 0;
+  deviceBusyUntil.set(deviceId, Math.max(prev, until));
+  return true;
+}
+
+/**
+ * Drop every device lock that has expired.
+ *
+ * Returns the remaining ids, or null when nothing expired — so the tick can
+ * skip the `set` entirely on the overwhelming majority of frames where no
+ * device is moving at all.
+ */
+function expireDeviceLocks(now: number): string[] | null {
+  let changed = false;
+  for (const [id, until] of deviceBusyUntil) {
+    if (now >= until) {
+      deviceBusyUntil.delete(id);
+      changed = true;
+    }
+  }
+  return changed ? [...deviceBusyUntil.keys()] : null;
 }
 
 /**
@@ -282,14 +325,22 @@ export interface SimStore {
    * when this clears.
    */
   /**
-   * A press is still playing out, so the interface is locked.
+   * A scene is still playing out, so the whole interface is locked.
    *
-   * Set only by `applyScene` and `patch` — the two things a person can do — and
-   * never by the rule engine. Rules adjust fixtures constantly in the
-   * background, and letting those raise this would leave the demo permanently
-   * unclickable.
+   * Set only by `applyScene` — not by `patch`, and never by the rule engine.
+   * Rules adjust fixtures constantly in the background, and letting those raise
+   * this would leave the demo permanently unclickable.
    */
   busy: boolean;
+  /**
+   * Devices mid-travel, whose own controls are locked while they move.
+   *
+   * An array rather than a Set because Zustand compares selected slices by
+   * identity: a new array is written only when the membership actually changes,
+   * so a subscriber re-renders when a curtain starts or stops and at no other
+   * time. It is never more than a couple of ids long.
+   */
+  busyDevices: string[];
   sequence: {
     sceneId: string;
     /** The stage's own label once one has run, otherwise the scene's name. */
@@ -326,12 +377,14 @@ export const useSim = create<SimStore>((set, get) => ({
   commanded: {},
   cctLocked: {},
   busy: false,
+  busyDevices: [],
   sequence: null,
 
   loadSpace: (space) => {
     clearTweens();
     cancelSequence();
     busyUntil = 0;
+    deviceBusyUntil.clear();
     pendingOff.clear();
     liveTotals = { ...zeroTotals };
     lastRuleAt = 0;
@@ -368,6 +421,7 @@ export const useSim = create<SimStore>((set, get) => ({
       commanded,
       cctLocked: {},
       busy: false,
+      busyDevices: [],
       sequence: null,
     });
 
@@ -377,7 +431,8 @@ export const useSim = create<SimStore>((set, get) => ({
     // and the presenter should be able to reach for anything the moment the
     // room appears, so the lock that `applyScene` just armed is released again.
     busyUntil = 0;
-    set({ busy: false });
+    deviceBusyUntil.clear();
+    set({ busy: false, busyDevices: [] });
   },
 
   resetSpace: () => {
@@ -400,9 +455,13 @@ export const useSim = create<SimStore>((set, get) => ({
     if (!next) return;
 
     // A hand on any control ends a running demonstration. Letting the remaining
-    // stages fire would mean the room overriding the presenter mid-sentence.
+    // stages fire would mean the room overriding the presenter mid-sentence —
+    // and because the demonstration is over, the whole-interface lock it was
+    // holding goes with it. Only the fixture that was actually touched stays
+    // locked, and only for as long as it is still moving.
     cancelSequence();
-    const locked = holdInput(duration);
+    busyUntil = 0;
+    const locked = holdDevice(deviceId, duration);
 
     set((s) => ({
       states: { ...s.states, [deviceId]: next },
@@ -410,7 +469,8 @@ export const useSim = create<SimStore>((set, get) => ({
       // hand — leaving the scene highlighted would be a lie.
       activeSceneId: null,
       sequence: null,
-      busy: locked || s.busy,
+      busy: false,
+      busyDevices: locked ? [...deviceBusyUntil.keys()] : s.busyDevices,
       touchedProductIds: s.touchedProductIds.includes(device.productId)
         ? s.touchedProductIds
         : [...s.touchedProductIds, device.productId],
@@ -480,6 +540,7 @@ export const useSim = create<SimStore>((set, get) => ({
     const clockMin =
       scene.clockMin === undefined ? undefined : wrapMinutes(scene.clockMin);
     if (clockMin !== undefined) lastRuleMin = clockMin;
+    deviceBusyUntil.clear();
 
     set({
       states: nextStates,
@@ -488,6 +549,9 @@ export const useSim = create<SimStore>((set, get) => ({
       commanded,
       cctLocked,
       busy: locked,
+      // A scene drives every fixture, so whatever one device was doing on its
+      // own is now part of the scene and no longer needs a lock of its own.
+      busyDevices: [],
       sequence: sequenceView,
       ...(clockMin === undefined ? {} : { clockMin }),
     });
@@ -704,6 +768,8 @@ export const useSim = create<SimStore>((set, get) => ({
     if (cctLocked !== state.cctLocked) next.cctLocked = cctLocked;
     if (touchedProducts) next.touchedProductIds = touchedProducts;
     if (state.busy && realNow >= busyUntil) next.busy = false;
+    const freedDevices = expireDeviceLocks(realNow);
+    if (freedDevices) next.busyDevices = freedDevices;
     if (sequenceUpdate !== undefined) next.sequence = sequenceUpdate;
     if (publish) {
       next.power = power;

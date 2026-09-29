@@ -9,15 +9,15 @@
  * put a real second interface on screen, wired to the same store, and let the
  * client press either one.
  *
- * So there is no local state in here beyond which tab is open. Every control
- * reads and writes `useSim` exactly as the keypad and the device panel do, which
- * is why pressing Reading on the phone lights the keypad's Reading button and
- * moves the room — not because anything synchronises them, but because there is
- * only ever one state.
+ * So there is no local state in here beyond which tab is open, and the one
+ * deliberate exception: `usePredicted`, which lets a switch move the instant it
+ * is pressed rather than waiting out the dim-down that follows it. That is a
+ * disagreement about *when*, not about what the state is — see the hook.
  */
 
-import { useSim } from "@/lib/sim/store";
+import { useSim, TOGGLE_FADE_MS } from "@/lib/sim/store";
 import type {
+  ClimateDevice,
   ClimateState,
   FanDevice,
   FanState,
@@ -28,6 +28,7 @@ import type {
 } from "@/lib/sim/types";
 import { formatClock } from "@/lib/sim/clock";
 import { cctGradient, Segmented, Slider, Toggle } from "@/components/ui/Primitives";
+import { usePredicted } from "@/components/ui/usePredicted";
 import { Icon, sceneIcon, type IconName } from "@/components/keypad/icons";
 
 /**
@@ -39,7 +40,6 @@ import { Icon, sceneIcon, type IconName } from "@/components/keypad/icons";
  */
 export type AppView = "scenes" | "controls";
 
-/** The phone shell. Styling only — everything inside is live. */
 /**
  * The phone shell. Styling only — everything inside is live.
  *
@@ -88,7 +88,7 @@ function Phone({ children, title }: { children: React.ReactNode; title: string }
  *
  * Open and Close are the only two things anyone asks a curtain for, so the
  * control is two buttons rather than a slider. The travel is still real —
- * nine seconds of motor — and this is where that shows: mid-travel the readout
+ * eight seconds of motor — and this is where that shows: mid-travel the readout
  * gives the live position, which is the detail that tells a client these are
  * motorised tracks rather than an on/off graphic.
  */
@@ -152,21 +152,241 @@ function Row({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Device rows                                                         */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Each device is its own component for one reason: it needs its own
+ * `usePredicted`, and hooks cannot live inside a `.map` in the parent.
+ *
+ * Two rules run through all of them.
+ *
+ * **What disables what.** `roomBusy` means a scene is playing out, and locks
+ * everything — a scene is a claim about the whole room and a second press
+ * mid-sequence leaves it somewhere no scene describes. `moving` means this one
+ * device is mid-travel, and locks only its own control. A curtain taking eight
+ * seconds must not take the lights with it.
+ *
+ * **What gets predicted.** Only the properties the simulation is deliberately
+ * slow to report: a light's `on` (true for the whole dim-down) and a curtain's
+ * open/closed (which flips at the halfway point of an eight-second run).
+ * Brightness, colour temperature, fan speed and setpoint all land on the store
+ * synchronously, so they are read straight from it — predicting them would add
+ * machinery that never fires.
+ */
+
+function LightRow({
+  device,
+  state,
+  roomBusy,
+  moving,
+}: {
+  device: LightDevice;
+  state: LightState;
+  roomBusy: boolean;
+  moving: boolean;
+}) {
+  const patch = useSim((s) => s.patch);
+  const [on, predictOn] = usePredicted(state.on, TOGGLE_FADE_MS + 400);
+
+  return (
+    <Row
+      label={device.name}
+      value={on ? `${Math.round(state.level)}%` : "Off"}
+    >
+      <SliderRow
+        icon="sun"
+        hint="Brightness"
+        trailing={
+          <Toggle
+            on={on}
+            disabled={roomBusy || moving}
+            label={`${device.name} power`}
+            onChange={(next) => {
+              predictOn(next);
+              patch(device.id, { on: next }, TOGGLE_FADE_MS);
+            }}
+          />
+        }
+      >
+        <Slider
+          label={`${device.name} brightness`}
+          value={state.level}
+          min={1}
+          max={100}
+          disabled={roomBusy || !on}
+          onChange={(level) => patch(device.id, { level })}
+        />
+      </SliderRow>
+      {device.tunable && (
+        <SliderRow icon="dim" hint="Colour temperature">
+          <Slider
+            label={`${device.name} colour temperature`}
+            value={state.cct}
+            min={device.tunable.minK}
+            max={device.tunable.maxK}
+            step={50}
+            disabled={roomBusy || !on}
+            fill={cctGradient(device.tunable.minK, device.tunable.maxK)}
+            onChange={(cct) => patch(device.id, { cct })}
+          />
+        </SliderRow>
+      )}
+    </Row>
+  );
+}
+
+function ShadeLayerRow({
+  shade,
+  layer,
+  position,
+  roomBusy,
+  moving,
+}: {
+  shade: ShadeDevice;
+  layer: string;
+  position: number;
+  roomBusy: boolean;
+  moving: boolean;
+}) {
+  const patch = useSim((s) => s.patch);
+  const [choice, predictChoice] = usePredicted<"open" | "closed">(
+    position > 50 ? "closed" : "open",
+    shade.travelMs + 600,
+  );
+
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between text-[10px]">
+        <span className="capitalize text-shell-400">{layer}</span>
+        {/* Straight from the store, deliberately. The button says what was
+            asked for; this says where the fabric actually is. Both are true,
+            and the gap between them is the motor. */}
+        <span className="font-mono text-shell-300">{curtainStatus(position)}</span>
+      </div>
+      <Segmented
+        disabled={roomBusy || moving}
+        label={`${shade.name} ${layer}`}
+        value={choice}
+        options={[
+          { value: "open", label: "Open" },
+          { value: "closed", label: "Close" },
+        ]}
+        onChange={(v) => {
+          predictChoice(v);
+          patch(shade.id, { [layer]: v === "closed" ? 100 : 0 });
+        }}
+      />
+    </div>
+  );
+}
+
+function ClimateRow({
+  device,
+  state,
+  roomBusy,
+}: {
+  device: ClimateDevice;
+  state: ClimateState;
+  roomBusy: boolean;
+}) {
+  const patch = useSim((s) => s.patch);
+
+  return (
+    <Row label={device.name} value={`${state.setpointC.toFixed(0)}°C`}>
+      <SliderRow
+        icon="thermo"
+        hint="Target temperature"
+        trailing={
+          <Toggle
+            on={state.on}
+            disabled={roomBusy}
+            label={`${device.name} power`}
+            onChange={(on) => patch(device.id, { on })}
+          />
+        }
+      >
+        <Slider
+          label={`${device.name} setpoint`}
+          value={state.setpointC}
+          min={device.minC}
+          max={device.maxC}
+          disabled={roomBusy || !state.on}
+          onChange={(setpointC) => patch(device.id, { setpointC })}
+        />
+      </SliderRow>
+      <div className="text-[10px] text-shell-500">
+        Room is {state.currentC.toFixed(1)}°C
+      </div>
+    </Row>
+  );
+}
+
+function FanRow({
+  device,
+  state,
+  roomBusy,
+}: {
+  device: FanDevice;
+  state: FanState;
+  roomBusy: boolean;
+}) {
+  const patch = useSim((s) => s.patch);
+
+  return (
+    <Row label={device.name} value={state.on ? `Speed ${state.speed}` : "Off"}>
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 gap-1">
+          {Array.from({ length: device.speeds }, (_, i) => i + 1).map((speed) => (
+            <button
+              key={speed}
+              type="button"
+              onClick={() => patch(device.id, { speed, on: true })}
+              aria-pressed={state.on && state.speed === speed}
+              disabled={roomBusy}
+              className={`flex-1 rounded-md py-1.5 text-[11px] font-medium transition-colors ${
+                state.on && state.speed === speed
+                  ? "bg-brass-600/25 text-brass-300"
+                  : "bg-shell-800 text-shell-400 hover:text-shell-200"
+              } ${roomBusy ? "pointer-events-none opacity-40" : ""}`}
+            >
+              {speed}
+            </button>
+          ))}
+        </div>
+        <Toggle
+          on={state.on}
+          disabled={roomBusy}
+          label={`${device.name} power`}
+          onChange={(on) => patch(device.id, { on })}
+        />
+      </div>
+    </Row>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* The panel                                                           */
+/* ------------------------------------------------------------------ */
+
 export function AppPanel({ view }: { view: AppView }) {
   const space = useSim((s) => s.space);
   const states = useSim((s) => s.states);
   const activeSceneId = useSim((s) => s.activeSceneId);
   const sequence = useSim((s) => s.sequence);
   const busy = useSim((s) => s.busy);
+  const busyDevices = useSim((s) => s.busyDevices);
   const applyScene = useSim((s) => s.applyScene);
-  const patch = useSim((s) => s.patch);
 
   if (!space) return null;
 
   const lights = space.devices.filter((d): d is LightDevice => d.kind === "light");
   const shade = space.devices.find((d): d is ShadeDevice => d.kind === "shade");
-  const climate = space.devices.find((d) => d.kind === "climate");
+  const climate = space.devices.find((d): d is ClimateDevice => d.kind === "climate");
   const fan = space.devices.find((d): d is FanDevice => d.kind === "fan");
+
+  const moving = (id: string) => busyDevices.includes(id);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col pb-4">
@@ -174,7 +394,12 @@ export function AppPanel({ view }: { view: AppView }) {
 
         {/* A locked interface with no explanation reads as a crash. This is the
             difference between "the room is doing what you asked" and "nothing
-            happened when I tapped". */}
+            happened when I tapped".
+
+            Scenes only. A single device travelling no longer locks the panel,
+            and it announces itself where it is happening — the curtain's own
+            readout counting up to Closed — rather than with a banner over
+            everything else. */}
         {busy && (
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-brass-700/40 bg-brass-600/10 px-2.5 py-1.5">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brass-400" />
@@ -241,47 +466,13 @@ export function AppPanel({ view }: { view: AppView }) {
               const state = states[device.id] as LightState | undefined;
               if (!state) return null;
               return (
-                <Row
+                <LightRow
                   key={device.id}
-                  label={device.name}
-                  value={state.on ? `${Math.round(state.level)}%` : "Off"}
-                >
-                  <SliderRow
-                    icon="sun"
-                    hint="Brightness"
-                    trailing={
-                      <Toggle
-                        on={state.on}
-                        disabled={busy}
-                        label={`${device.name} power`}
-                        onChange={(on) => patch(device.id, { on }, 700)}
-                      />
-                    }
-                  >
-                    <Slider
-                      label={`${device.name} brightness`}
-                      value={state.level}
-                      min={1}
-                      max={100}
-                      disabled={busy || !state.on}
-                      onChange={(level) => patch(device.id, { level })}
-                    />
-                  </SliderRow>
-                  {device.tunable && (
-                    <SliderRow icon="dim" hint="Colour temperature">
-                      <Slider
-                        label={`${device.name} colour temperature`}
-                        value={state.cct}
-                        min={device.tunable.minK}
-                        max={device.tunable.maxK}
-                        step={50}
-                        disabled={busy || !state.on}
-                        fill={cctGradient(device.tunable.minK, device.tunable.maxK)}
-                        onChange={(cct) => patch(device.id, { cct })}
-                      />
-                    </SliderRow>
-                  )}
-                </Row>
+                  device={device}
+                  state={state}
+                  roomBusy={busy}
+                  moving={moving(device.id)}
+                />
               );
             })}
           </div>
@@ -299,67 +490,30 @@ export function AppPanel({ view }: { view: AppView }) {
                 return (
                   <Row key={shade.id} label={shade.name}>
                     {shade.layers.map((layer) => (
-                      <div key={layer}>
-                        <div className="mb-1 flex items-baseline justify-between text-[10px]">
-                          <span className="capitalize text-shell-400">{layer}</span>
-                          <span className="font-mono text-shell-300">
-                            {curtainStatus(s[layer])}
-                          </span>
-                        </div>
-                        <Segmented
-                          disabled={busy}
-                          label={`${shade.name} ${layer}`}
-                          value={s[layer] > 50 ? "closed" : "open"}
-                          options={[
-                            { value: "open", label: "Open" },
-                            { value: "closed", label: "Close" },
-                          ]}
-                          onChange={(v) =>
-                            patch(shade.id, { [layer]: v === "closed" ? 100 : 0 })
-                          }
-                        />
-                      </div>
+                      <ShadeLayerRow
+                        key={layer}
+                        shade={shade}
+                        layer={layer}
+                        position={s[layer]}
+                        roomBusy={busy}
+                        moving={moving(shade.id)}
+                      />
                     ))}
                   </Row>
                 );
               })()}
 
             {climate &&
-              climate.kind === "climate" &&
               (() => {
                 const s = states[climate.id] as ClimateState | undefined;
                 if (!s) return null;
                 return (
-                  <Row
+                  <ClimateRow
                     key={climate.id}
-                    label={climate.name}
-                    value={`${s.setpointC.toFixed(0)}°C`}
-                  >
-                    <SliderRow
-                      icon="thermo"
-                      hint="Target temperature"
-                      trailing={
-                        <Toggle
-                          on={s.on}
-                          disabled={busy}
-                          label={`${climate.name} power`}
-                          onChange={(on) => patch(climate.id, { on })}
-                        />
-                      }
-                    >
-                      <Slider
-                        label={`${climate.name} setpoint`}
-                        value={s.setpointC}
-                        min={climate.minC}
-                        max={climate.maxC}
-                        disabled={busy || !s.on}
-                        onChange={(setpointC) => patch(climate.id, { setpointC })}
-                      />
-                    </SliderRow>
-                    <div className="text-[10px] text-shell-500">
-                      Room is {s.currentC.toFixed(1)}°C
-                    </div>
-                  </Row>
+                    device={climate}
+                    state={s}
+                    roomBusy={busy}
+                  />
                 );
               })()}
 
@@ -368,40 +522,7 @@ export function AppPanel({ view }: { view: AppView }) {
                 const s = states[fan.id] as FanState | undefined;
                 if (!s) return null;
                 return (
-                  <Row
-                    key={fan.id}
-                    label={fan.name}
-                    value={s.on ? `Speed ${s.speed}` : "Off"}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="flex min-w-0 flex-1 gap-1">
-                        {Array.from({ length: fan.speeds }, (_, i) => i + 1).map(
-                          (speed) => (
-                            <button
-                              key={speed}
-                              type="button"
-                              onClick={() => patch(fan.id, { speed, on: true })}
-                              aria-pressed={s.on && s.speed === speed}
-                              disabled={busy}
-                              className={`flex-1 rounded-md py-1.5 text-[11px] font-medium transition-colors ${
-                                s.on && s.speed === speed
-                                  ? "bg-brass-600/25 text-brass-300"
-                                  : "bg-shell-800 text-shell-400 hover:text-shell-200"
-                              } ${busy ? "pointer-events-none opacity-40" : ""}`}
-                            >
-                              {speed}
-                            </button>
-                          ),
-                        )}
-                      </div>
-                      <Toggle
-                        on={s.on}
-                        disabled={busy}
-                        label={`${fan.name} power`}
-                        onChange={(on) => patch(fan.id, { on })}
-                      />
-                    </div>
-                  </Row>
+                  <FanRow key={fan.id} device={fan} state={s} roomBusy={busy} />
                 );
               })()}
           </div>

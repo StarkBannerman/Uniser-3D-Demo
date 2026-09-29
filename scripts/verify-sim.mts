@@ -690,7 +690,7 @@ console.log("\n16. Input locks while a press plays out, and unlocks after\n");
 store.getState().loadSpace(masterBedroom);
 check(
   "nothing is locked at rest",
-  store.getState().busy === false,
+  store.getState().busy === false && store.getState().busyDevices.length === 0,
   `busy=${store.getState().busy} after load`,
 );
 
@@ -735,33 +735,83 @@ check(
 store.getState().patch("bd-cove", { cct: 3000 });
 check(
   "a slider drag does not lock",
-  store.getState().busy === false,
-  `busy=${store.getState().busy}`,
+  store.getState().busy === false && store.getState().busyDevices.length === 0,
+  `busy=${store.getState().busy} devices=[${store.getState().busyDevices}]`,
 );
 
-// A curtain does, for as long as its motor actually runs. Open it first —
-// Good Night left the blackout closed, and a patch that changes nothing is
-// correctly not worth locking for.
+/**
+ * A curtain locks — but only itself.
+ *
+ * This is the distinction the two-level lock exists for. The motor runs for
+ * nine seconds, and taking the lights, the fan and the thermostat down with it
+ * for all nine is what made the interface feel broken rather than merely slow.
+ *
+ * Open it first: Good Night left the blackout closed, and a patch that changes
+ * nothing is correctly not worth locking for.
+ */
 store.getState().patch("bd-curtain", { blackout: 0 });
 run(700);
 store.getState().patch("bd-curtain", { blackout: 100 });
 check(
-  "a curtain press locks",
-  store.getState().busy === true,
+  "a curtain press locks the curtain",
+  store.getState().busyDevices.includes("bd-curtain"),
+  `busyDevices=[${store.getState().busyDevices}]`,
+);
+check(
+  "a curtain press does not lock the room",
+  store.getState().busy === false,
   `busy=${store.getState().busy}`,
 );
+check(
+  "every other fixture stays unlocked",
+  store.getState().busyDevices.length === 1,
+  `only [${store.getState().busyDevices}] is held`,
+);
+
 run(200); // ~3.3s of a 9s travel
 check(
-  "still locked mid-travel",
-  store.getState().busy === true,
+  "the curtain is still held mid-travel",
+  store.getState().busyDevices.includes("bd-curtain"),
   `${(200 * FRAME) / 1000}s into a 9s travel`,
 );
+
+// The point of all of it: a light really does answer while the motor runs.
+store.getState().patch("bd-cove", { level: 55 });
+const coveMidTravel = store.getState().states["bd-cove"] as LightState;
+check(
+  "a light responds while the curtain is still moving",
+  Math.abs(coveMidTravel.level - 55) < 0.01 &&
+    store.getState().busyDevices.includes("bd-curtain"),
+  `cove at ${coveMidTravel.level.toFixed(1)}%, curtain still held`,
+);
+
 run(400); // past it
 check(
-  "unlocks when the curtain seats",
-  store.getState().busy === false,
-  `${(600 * FRAME) / 1000}s total`,
+  "the curtain unlocks when it seats",
+  store.getState().busyDevices.length === 0,
+  `${(600 * FRAME) / 1000}s total, busyDevices=[${store.getState().busyDevices}]`,
 );
+
+/**
+ * A scene supersedes anything already moving.
+ *
+ * Otherwise a curtain's own lock would outlive the press that cancelled it, and
+ * its control would sit disabled inside a scene that had already sent it
+ * somewhere else.
+ */
+store.getState().patch("bd-curtain", { blackout: 0 });
+check(
+  "the curtain is moving again",
+  store.getState().busyDevices.includes("bd-curtain"),
+  `busyDevices=[${store.getState().busyDevices}]`,
+);
+store.getState().applyScene("morning");
+check(
+  "a scene takes over the device locks it supersedes",
+  store.getState().busyDevices.length === 0,
+  `busy=${store.getState().busy} devices=[${store.getState().busyDevices}]`,
+);
+run(900); // let it land, so section 17 starts from rest
 
 /* ================================================================== */
 console.log("\n17. Fan speed is visibly different at every setting\n");
