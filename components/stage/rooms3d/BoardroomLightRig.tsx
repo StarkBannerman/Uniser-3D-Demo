@@ -67,12 +67,18 @@ const GAIN = {
   /**
    * What the screen throws back into the room.
    *
-   * Was 4, which put a blown white pool across the far end of the table while
-   * the screen itself sat at a quiet grey — the relationship inverted. A
-   * projection screen is a dim, diffuse source: it should tint the first couple
-   * of metres of table, not light them.
+   * 4, then 1.5, then 0.4, now 0.18 — the measurement settled every step. With
+   * the display lit, the far end of the table read 134/255 against 28 with the
+   * AV off, and against 52 for the near end of the same table. The near end is
+   * directly under the pendant and the table heads, so a screen two metres away
+   * making it brighter than that is backwards.
+   *
+   * It lands at 58 against the near end's 50: a lit screen lifts the end of the
+   * table nearest it by about a sixth, which is what a bright panel in a lit
+   * room actually does. It is a 3.4 x 1.9 m source, so even a small gain is a
+   * great deal of total flux — that is why the number had to go so far.
    */
-  screenBounce: 1.5,
+  screenBounce: 0.18,
   /** Daylight through the glazing. */
   sun: 1.35,
   sky: 3.0,

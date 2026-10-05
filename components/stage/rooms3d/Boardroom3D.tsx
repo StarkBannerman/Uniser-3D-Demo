@@ -139,10 +139,15 @@ const M = {
     // Dark walnut. The lighter value read as orange laminate, and a boardroom
     // table is the one surface in here nobody will forgive.
     color: "#43301f",
-    roughness: 0.22,
+    // Satin, not mirror. At 0.22/0.12 the table reflected the screen almost
+    // specularly, so a lit screen laid a hard bright sheet across its far half.
+    // Spreading the highlight keeps the pendant's streak — which is most of why
+    // the table photographs well — and turns the screen's reflection into a
+    // sheen instead of an image.
+    roughness: 0.34,
     metalness: 0.02,
-    clearcoat: 0.8,
-    clearcoatRoughness: 0.12,
+    clearcoat: 0.6,
+    clearcoatRoughness: 0.26,
   }),
   /** Tan leather, as on the sheet. Sheen, or it shades like painted board. */
   leather: new THREE.MeshPhysicalMaterial({
@@ -500,10 +505,14 @@ const SCREEN_EMISSIVE: Record<ScreenContent, number> = {
 function ScreenWall({
   screen,
   displayOn,
+  projectorOn,
   content,
 }: {
   screen: number;
+  /** The wall panel is awake. */
   displayOn: boolean;
+  /** The projector is running, so the fabric carries an image. */
+  projectorOn: boolean;
   content: ScreenContent;
 }) {
   const plan = BR_PLAN;
@@ -562,12 +571,12 @@ function ScreenWall({
         <primitive object={M.housing} attach="material" />
       </mesh>
 
-      {/* The fabric. Matte white when stowed-ish, the projected image when the
-          projector is running — and it hangs clear of the display behind it. */}
+      {/* The fabric. Matte white until the projector fires and the projected
+          image after it — driven by the projector, not by the panel behind. */}
       {deployed > 0.01 && (
         <mesh position={[plan.screen.x, plan.screen.y1 - drop / 2, 0.14]}>
           <planeGeometry args={[plan.screen.w, drop]} />
-          {displayOn ? (
+          {projectorOn ? (
             <primitive object={lit} attach="material" />
           ) : (
             <meshStandardMaterial color="#cfcec9" roughness={0.95} />
@@ -929,7 +938,12 @@ export function Boardroom3D({
       <SlatWall />
       <Glazing sheer={blinds.sheer} blackout={blinds.blackout} view={view} />
       <StatementPanel />
-      <ScreenWall screen={screen} displayOn={displayOn} content={screenContent} />
+      <ScreenWall
+        screen={screen}
+        displayOn={displayOn}
+        projectorOn={projectorOn}
+        content={screenContent}
+      />
       <Projector on={projectorOn} />
       <Table />
       <Seating />

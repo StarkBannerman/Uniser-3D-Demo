@@ -75,7 +75,8 @@ export function BoardroomStage() {
     blackout: 0,
   };
   const av = states["br-av"] as AvState | undefined;
-  const avsys = states["br-avsys"] as AvState | undefined;
+  const display = states["br-display"] as AvState | undefined;
+  const conf = states["br-conf"] as AvState | undefined;
 
   const env = space?.environment;
   const daylight = env
@@ -97,20 +98,25 @@ export function BoardroomStage() {
   const screen = av?.screen ?? 0;
 
   /**
-   * What is on the screen, from the source the scene selected.
+   * What is on whichever surface is live.
    *
-   * It matters more here than anywhere else in the building: Presentation and
+   * It matters more here than anywhere else in the building. Presentation and
    * Video Conference light the room in opposite directions for opposite
-   * reasons, and without this they would have been the same room at two
-   * brightnesses with the same slide on the wall.
+   * reasons, and they now use different hardware to do it — the projector and
+   * its screen for one, the wall panel for the other. Without this they would
+   * have been the same room at two brightnesses with the same slide on it.
    */
-  const source = av?.on ? av.source : avsys?.source;
-  const screenContent: ScreenContent =
-    source === "Conference" ? "conference" : source === "Room PC" ? "desktop" : "presentation";
+  const screenContent: ScreenContent = conf?.on
+    ? "conference"
+    : display?.source === "Room PC" || av?.source === "Room PC"
+      ? "desktop"
+      : "presentation";
 
-  /** Either box lights the surface — the projector when the screen is down, the
-      display when it is not. */
-  const lit = Boolean(av?.on) || Boolean(avsys?.on);
+  const projectorOn = Boolean(av?.on);
+  /** The panel is dark whenever the fabric has come down in front of it. */
+  const displayOn = Boolean(display?.on) && screen < 50;
+  /** Either surface counts as a source for the bounce light. */
+  const lit = projectorOn || displayOn;
 
   return (
     <Stage3D
@@ -126,8 +132,8 @@ export function BoardroomStage() {
         blinds={blinds}
         view={view}
         screen={screen}
-        projectorOn={Boolean(av?.on)}
-        displayOn={lit}
+        projectorOn={projectorOn}
+        displayOn={displayOn}
         screenContent={screenContent}
       />
       <BoardroomLightRig

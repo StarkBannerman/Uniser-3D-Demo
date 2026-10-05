@@ -13,7 +13,10 @@
  *   Tunable White           -> a property of all six, not a seventh device
  *   Blinds / Daylight       -> br-blinds    solar filter plus blackout
  *   Projector / Screen      -> br-av        motorised screen and projector
- *   AV System               -> br-avsys     display, speakers, conferencing
+ *   Display                 -> br-display   the permanent wall panel
+ *   Projector / Screen      -> br-av        projector and motorised screen
+ *   Speakers                -> br-audio     column pair either side
+ *   Video conferencing      -> br-conf      camera bar and codec
  *
  * Six lighting groups rather than four is the whole argument of the sheet. A
  * boardroom is the one room where "turn the lights down for the slides" is
@@ -103,7 +106,10 @@ export const boardroom: Space = {
       pitch:
         "A 5.4 m suspended linear on axis with the table. It is the only fitting in the room anybody will remember, and it is also what stops a long table reading as a corridor.",
       dimmable: true,
-      tunable: { minK: 2700, maxK: 4000 },
+      // To 5000, not 4000. At a 4000 ceiling the one fitting everybody looks at
+      // could only just reach the neutral white the rest of the room works at,
+      // with no headroom above it.
+      tunable: { minK: 2700, maxK: 5000 },
       fixtures: 1,
       wattsEach: 110,
       lumensEach: 9000,
@@ -190,18 +196,55 @@ export const boardroom: Space = {
       ratedWatts: 380,
       glow: [],
     },
+    /**
+     * Section 11 lists five AV items — display, projector, screen, speakers,
+     * video conferencing — and three of them were folded into one "AV System"
+     * box. Split out, because the two display paths are genuinely different
+     * products doing different jobs: the projector and its motorised screen
+     * carry a presentation in a darkened room, and the flat panel carries a
+     * call in a lit one. A room that can only do one of those is half a
+     * boardroom, and the two scenes now demonstrate one each.
+     */
     {
-      id: "br-avsys",
+      id: "br-display",
       kind: "av",
-      name: "AV System",
+      name: "Display",
+      zoneId: "br-main",
+      productId: "smartspaces-av",
+      subsystem: "av",
+      pitch:
+        "The permanent panel. It is what a video call uses — a call wants a bright image in a lit room, which is the one thing a projector cannot give you — and what carries the room's own agenda between meetings.",
+      sources: ["Conference", "Laptop", "Room PC", "Signage"],
+      hasScreen: false,
+      ratedWatts: 180,
+      glow: [],
+    },
+    {
+      id: "br-audio",
+      kind: "av",
+      name: "Speakers",
       zoneId: "br-main",
       productId: "smartspaces-audio",
       subsystem: "av",
       pitch:
-        "Display, column speakers either side of the screen and the conferencing codec, on one circuit. A room that wakes its own AV is a room nobody has to arrive ten minutes early for.",
-      sources: ["Conference", "Laptop", "Room PC", "Programme Audio"],
+        "Column speakers either side of the display, carrying programme audio and voice lift on the same pair. Across a twelve metre table the far end cannot hear the near end without them, which is the argument nobody expects to need.",
+      sources: ["Conference", "Programme", "Laptop"],
       hasScreen: false,
-      ratedWatts: 260,
+      ratedWatts: 220,
+      glow: [],
+    },
+    {
+      id: "br-conf",
+      kind: "av",
+      name: "Video Conferencing",
+      zoneId: "br-main",
+      productId: "smartspaces-av",
+      subsystem: "av",
+      pitch:
+        "Camera bar under the display, codec behind it. Pressing Video Conference wakes this, puts the call on the panel and brings the front wash up — one button for the three things everyone otherwise does by hand while the call waits.",
+      sources: ["Room Camera", "Laptop Camera"],
+      hasScreen: false,
+      ratedWatts: 90,
       glow: [],
     },
 
@@ -276,8 +319,18 @@ export const boardroom: Space = {
         // owns them: the same button is cooler at ten in the morning than at
         // six in the evening, which is the entire point of tunable white.
         "br-general": { on: true, level: 88 },
-        "br-cove": { on: true, level: 60, cct: 3500 },
-        "br-feature": { on: true, level: 70, cct: 3200 },
+        // 4000 K, not 3500 and 3200.
+        //
+        // Office lighting standards put a conference room at 3500-4000 K, and
+        // 2700-3200 is the residential band. Carrying the house palette across
+        // gave this room a domestic warmth that quietly undercut the thing it
+        // is meant to be selling: the warm cove and warm pendant read as a
+        // hotel lounge rather than as a place anybody does work.
+        //
+        // Lunch is the one scene that stays warm, and it now reads as a
+        // deliberate change of mode rather than as more of the same.
+        "br-cove": { on: true, level: 60, cct: 4000 },
+        "br-feature": { on: true, level: 70, cct: 4000 },
         "br-table": { on: true, level: 85 },
         "br-front": { on: true, level: 80 },
         "br-vc": { on: false },
@@ -287,7 +340,9 @@ export const boardroom: Space = {
         // in it — the client's hero image has the display lit, and it is the
         // first thing anyone looks at.
         "br-av": { on: false, screen: 0 },
-        "br-avsys": { on: true, source: "Laptop", volume: 0 },
+        "br-display": { on: true, source: "Signage", volume: 0 },
+        "br-audio": { on: false },
+        "br-conf": { on: false },
         "br-ac": { on: true, setpointC: 23, mode: "cool", fan: 2 },
       },
       highlight: ["proplus-downlight", "pipeline-pendant"],
@@ -315,8 +370,8 @@ export const boardroom: Space = {
         // contributing nothing, the levels that read as "dimmed" against
         // daylight read as "switched off" against nothing, and the room beyond
         // the table went to black.
-        "br-cove": { on: true, level: 44, cct: 3000 },
-        "br-feature": { on: true, level: 34, cct: 2900 },
+        "br-cove": { on: true, level: 44, cct: 3500 },
+        "br-feature": { on: true, level: 34, cct: 3400 },
         "br-vc": { on: false },
       },
       steps: [
@@ -333,8 +388,8 @@ export const boardroom: Space = {
           label: "Front lights dim",
           holdMs: 2000,
           targets: {
-            "br-front": { on: true, level: 8, cct: 2900, fadeMs: 2200 },
-            "br-general": { on: true, level: 40, cct: 3200, fadeMs: 2200 },
+            "br-front": { on: true, level: 8, cct: 3200, fadeMs: 2200 },
+            "br-general": { on: true, level: 40, cct: 3700, fadeMs: 2200 },
           },
         },
         {
@@ -343,15 +398,24 @@ export const boardroom: Space = {
           targets: { "br-table": { on: true, level: 88, cct: 4000 } },
         },
         {
-          label: "Screen down, projector on",
-          holdMs: 7000,
-          targets: { "br-av": { on: true, source: "Laptop", screen: 100, volume: 34 } },
+          // The document separates the screen's descent from the projector
+          // firing, and is right to: the motor takes six seconds, and starting
+          // the image early throws away the best part of the demonstration.
+          // The display goes dark here because the fabric is about to cover it.
+          label: "Screen comes down",
+          holdMs: 6800,
+          targets: { "br-av": { screen: 100 }, "br-display": { on: false } },
         },
         {
-          label: "AV system on",
+          label: "Projector on",
+          holdMs: 1600,
+          targets: { "br-av": { on: true, source: "Laptop", volume: 34 } },
+        },
+        {
+          label: "AV on",
           holdMs: 1200,
           targets: {
-            "br-avsys": { on: true, source: "Laptop", volume: 38 },
+            "br-audio": { on: true, source: "Programme", volume: 38 },
             "br-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
           },
         },
@@ -374,13 +438,19 @@ export const boardroom: Space = {
          */
         "br-general": { on: true, level: 55, cct: 4000 },
         "br-cove": { on: true, level: 45, cct: 4000 },
-        "br-feature": { on: true, level: 40, cct: 3500 },
+        "br-feature": { on: true, level: 40, cct: 4000 },
         "br-table": { on: true, level: 60, cct: 4000 },
         "br-front": { on: true, level: 35, cct: 4000 },
         "br-vc": { on: true, level: 92, cct: 4300 },
         "br-blinds": { sheer: 100, blackout: 35 },
-        "br-av": { on: true, source: "Conference", screen: 100, volume: 40 },
-        "br-avsys": { on: true, source: "Conference", volume: 44 },
+        // Screen stowed, deliberately. A call belongs on the panel — it wants
+        // a bright image in a lit room, which is exactly what a projector
+        // cannot do. Presentation drives the other path, so between them the
+        // two scenes show each product doing the job it is for.
+        "br-av": { on: false, screen: 0 },
+        "br-display": { on: true, source: "Conference", volume: 40 },
+        "br-audio": { on: true, source: "Conference", volume: 44 },
+        "br-conf": { on: true, source: "Room Camera" },
         "br-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
       },
       highlight: ["connekt-profile", "smartspaces-audio"],
@@ -393,15 +463,21 @@ export const boardroom: Space = {
         "Screen away, feature light up, general back. Warmer and lower — the room for talking rather than presenting.",
       fadeMs: 2200,
       targets: {
-        "br-general": { on: true, level: 45, cct: 3200 },
-        "br-cove": { on: true, level: 65, cct: 3000 },
-        "br-feature": { on: true, level: 85, cct: 3000 },
-        "br-table": { on: true, level: 70, cct: 3500 },
-        "br-front": { on: true, level: 30, cct: 3000 },
+        // Lower than Meeting rather than warmer than it. A discussion scene
+        // that drops to 3000 K is a lighting designer's instinct from a house;
+        // in an office the right move is to take the level down and leave the
+        // colour where people are working.
+        "br-general": { on: true, level: 45, cct: 3800 },
+        "br-cove": { on: true, level: 65, cct: 3600 },
+        "br-feature": { on: true, level: 85, cct: 3600 },
+        "br-table": { on: true, level: 70, cct: 4000 },
+        "br-front": { on: true, level: 30, cct: 3600 },
         "br-vc": { on: false },
         "br-blinds": { sheer: 100, blackout: 0 },
         "br-av": { on: false, screen: 0 },
-        "br-avsys": { on: false },
+        "br-display": { on: false },
+        "br-audio": { on: false },
+        "br-conf": { on: false },
         "br-ac": { on: true, setpointC: 23, fan: 1 },
       },
       highlight: ["pipeline-pendant", "connekt-profile"],
@@ -414,6 +490,9 @@ export const boardroom: Space = {
         "Blinds open to the city, warm light on the table, everything technical asleep.",
       fadeMs: 2400,
       targets: {
+        // The one scene in the room that goes warm, on purpose. It is the
+        // only one that is not work, and against five neutral-white scenes the
+        // change of colour is what tunable white looks like in one press.
         "br-general": { on: true, level: 35, cct: 2900 },
         "br-cove": { on: true, level: 75, cct: 2700 },
         "br-feature": { on: true, level: 60, cct: 2700 },
@@ -422,7 +501,9 @@ export const boardroom: Space = {
         "br-vc": { on: false },
         "br-blinds": { sheer: 0, blackout: 0 },
         "br-av": { on: false, screen: 0 },
-        "br-avsys": { on: false },
+        "br-display": { on: false },
+        "br-audio": { on: false },
+        "br-conf": { on: false },
         "br-ac": { on: true, setpointC: 24, fan: 1 },
       },
       highlight: ["connekt-profile"],
@@ -443,7 +524,9 @@ export const boardroom: Space = {
         "br-vc": { on: false },
         "br-blinds": { sheer: 0, blackout: 0 },
         "br-av": { on: false, screen: 0 },
-        "br-avsys": { on: false },
+        "br-display": { on: false },
+        "br-audio": { on: false },
+        "br-conf": { on: false },
         "br-ac": { on: false },
       },
     },
@@ -472,7 +555,9 @@ export const boardroom: Space = {
         "br-front": { on: false, fadeMs: 4000 },
         "br-vc": { on: false, fadeMs: 3000 },
         "br-av": { on: false, screen: 0 },
-        "br-avsys": { on: false },
+        "br-display": { on: false },
+        "br-audio": { on: false },
+        "br-conf": { on: false },
         "br-ac": { on: false },
       },
     },
@@ -496,13 +581,18 @@ export const boardroom: Space = {
       enabledByDefault: true,
       deviceIds: ["br-general", "br-table"],
       curve: [
-        { min: 0, cct: 2700 },
-        { min: 420, cct: 3200 },
-        { min: 540, cct: 4800 },
-        { min: 780, cct: 5200 },
-        { min: 960, cct: 4400 },
-        { min: 1140, cct: 3200 },
-        { min: 1380, cct: 2700 },
+        // Flatter and cooler than the residential curves. An office holds
+        // neutral white right through the working day — the swing down to
+        // 2700 K that suits a bedroom at nine in the evening would put a
+        // boardroom into candlelight in the middle of a late meeting. It still
+        // drifts warm after hours, which is the part worth demonstrating.
+        { min: 0, cct: 3000 },
+        { min: 420, cct: 3500 },
+        { min: 540, cct: 4500 },
+        { min: 780, cct: 4800 },
+        { min: 960, cct: 4300 },
+        { min: 1140, cct: 3500 },
+        { min: 1380, cct: 3000 },
       ],
     },
     {
@@ -526,7 +616,9 @@ export const boardroom: Space = {
         "br-front": { on: false, fadeMs: 6000 },
         "br-vc": { on: false, fadeMs: 6000 },
         "br-av": { on: false, screen: 0 },
-        "br-avsys": { on: false },
+        "br-display": { on: false },
+        "br-audio": { on: false },
+        "br-conf": { on: false },
         "br-ac": { on: false },
       },
     },
