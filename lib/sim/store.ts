@@ -69,6 +69,7 @@ const SENSOR_INTERVAL_MS = 100;
 const PUBLISH_INTERVAL_MS = 250;
 /** Default fade for a manual on/off press. */
 export const TOGGLE_FADE_MS = 700;
+
 /** Thermal time constant of a room, simulated minutes. */
 const THERMAL_TAU_MIN = 25;
 const MAX_EVENTS = 40;
@@ -157,6 +158,22 @@ function holdInput(durationMs: number): boolean {
   if (durationMs <= 0) return false;
   busyUntil = Math.max(busyUntil, tweenNow() + durationMs + BUSY_TAIL_MS);
   return true;
+}
+
+/**
+ * Is this device's movement the kind a second press should not interrupt?
+ *
+ * A dimmer ramp is cosmetic. Re-aiming one mid-fade just starts a new tween
+ * from wherever it had got to, which is exactly what a person pressing a second
+ * preset expects to happen — so locking a light during its own fade buys
+ * nothing and costs the interface half a second of feeling stuck.
+ *
+ * A motor is a different thing. A curtain or a projection screen has a physical
+ * position, and re-targeting it mid-travel is a real problem rather than a free
+ * one. Those hold the lock; nothing else does.
+ */
+function physicallyTravels(device: Device): boolean {
+  return device.kind === "shade" || device.kind === "av";
 }
 
 /** Lock one device's own controls while it travels. */
@@ -461,7 +478,7 @@ export const useSim = create<SimStore>((set, get) => ({
     // locked, and only for as long as it is still moving.
     cancelSequence();
     busyUntil = 0;
-    const locked = holdDevice(deviceId, duration);
+    const locked = physicallyTravels(device) && holdDevice(deviceId, duration);
 
     set((s) => ({
       states: { ...s.states, [deviceId]: next },

@@ -27,7 +27,13 @@ import type {
   ShadeState,
 } from "@/lib/sim/types";
 import { formatClock } from "@/lib/sim/clock";
-import { cctGradient, Segmented, Slider, Toggle } from "@/components/ui/Primitives";
+import {
+  cctGradient,
+  RampButtons,
+  Segmented,
+  Stepper,
+  Toggle,
+} from "@/components/ui/Primitives";
 import { usePredicted } from "@/components/ui/usePredicted";
 import { Icon, sceneIcon, type IconName } from "@/components/keypad/icons";
 
@@ -99,19 +105,13 @@ function curtainStatus(position: number): string {
 }
 
 /**
- * One slider with an icon beside it.
+ * One control line with an icon beside it.
  *
  * The phone has no room for "Brightness" and "Colour temperature" spelled out
- * next to every fixture, and two unlabelled tracks stacked on a card is a
+ * next to every fixture, and two unlabelled rows stacked on a card is a
  * guessing game. The icon says which is which in the width of a character.
- *
- * Nothing sits to the right of the track. The power toggle used to, which cost
- * the slider 52px of a 154px track — and a dimmer a client has to place
- * precisely with a fingertip needs every pixel of travel it can get. The toggle
- * moved up to the card header, where it reads as the fixture's power rather
- * than as part of the brightness control, which is what it always was.
  */
-function SliderRow({
+function ControlRow({
   icon,
   hint,
   children,
@@ -212,29 +212,32 @@ function LightRow({
         />
       }
     >
-      <SliderRow icon="sun" hint="Brightness">
-        <Slider
+      <ControlRow icon="sun" hint="Brightness">
+        <RampButtons
           label={`${device.name} brightness`}
           value={state.level}
           min={1}
           max={100}
+          tapStep={5}
+          rampPerSecond={55}
           disabled={roomBusy || !on}
           onChange={(level) => patch(device.id, { level })}
         />
-      </SliderRow>
+      </ControlRow>
       {device.tunable && (
-        <SliderRow icon="dim" hint="Colour temperature">
-          <Slider
+        <ControlRow icon="dim" hint="Colour temperature">
+          <RampButtons
             label={`${device.name} colour temperature`}
             value={state.cct}
             min={device.tunable.minK}
             max={device.tunable.maxK}
-            step={50}
-            disabled={roomBusy || !on}
+            tapStep={100}
+            rampPerSecond={1400}
             fill={cctGradient(device.tunable.minK, device.tunable.maxK)}
+            disabled={roomBusy || !on}
             onChange={(cct) => patch(device.id, { cct })}
           />
-        </SliderRow>
+        </ControlRow>
       )}
     </Row>
   );
@@ -309,16 +312,17 @@ function ClimateRow({
         />
       }
     >
-      <SliderRow icon="thermo" hint="Target temperature">
-        <Slider
+      <ControlRow icon="thermo" hint="Target temperature">
+        <Stepper
           label={`${device.name} setpoint`}
           value={state.setpointC}
           min={device.minC}
           max={device.maxC}
+          format={(v) => `${v.toFixed(0)}°C`}
           disabled={roomBusy || !state.on}
           onChange={(setpointC) => patch(device.id, { setpointC })}
         />
-      </SliderRow>
+      </ControlRow>
       <div className="text-[10px] text-shell-500">
         Room is {state.currentC.toFixed(1)}°C
       </div>
@@ -348,7 +352,7 @@ function FanRow({
               onClick={() => patch(device.id, { speed, on: true })}
               aria-pressed={state.on && state.speed === speed}
               disabled={roomBusy}
-              className={`flex-1 rounded-md py-1.5 text-[11px] font-medium transition-colors ${
+              className={`flex-1 rounded-md py-2 text-[11px] font-medium transition-colors ${
                 state.on && state.speed === speed
                   ? "bg-brass-600/25 text-brass-300"
                   : "bg-shell-800 text-shell-400 hover:text-shell-200"

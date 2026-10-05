@@ -200,6 +200,240 @@ export function Toggle({
 }
 
 /* ------------------------------------------------------------------ */
+/* Ramp buttons                                                        */
+/* ------------------------------------------------------------------ */
+
+/** How long a press is held before it stops being a tap and starts ramping. */
+const HOLD_DELAY_MS = 320;
+
+/**
+ * Minus and plus, with a dimmer's behaviour: tap to nudge, hold to sweep.
+ *
+ * This is what a wall dimmer does, and it is the right answer here for the
+ * reason a slider was the wrong one. A track asks someone to hold a steady hand
+ * on a small moving target — the one thing that does not work on a tablet, in
+ * front of a client, over a shared screen. Two fixed buttons ask only that you
+ * press and wait, and the room does the moving.
+ *
+ * The gradual sweep a drag used to give is still here, and is now the easy
+ * thing rather than the skilled one: hold `+` and the level climbs at
+ * `rampPerSecond` until you let go.
+ *
+ * Two details worth keeping:
+ *
+ *  - **The ramp owns its own value** while a button is held, rather than
+ *    reading it back from the store each frame. A round trip through the
+ *    simulation can miss a frame, and a ramp that re-reads a stale value stalls
+ *    and then jumps.
+ *  - **One commit per animation frame.** The loop is already frame-driven, so
+ *    this falls out for free — but it is the reason holding a button does not
+ *    bury the renderer the way dragging a slider did.
+ */
+export function RampButtons({
+  value,
+  min,
+  max,
+  onChange,
+  /** How far one tap moves it. */
+  tapStep,
+  /** Units per second once the press becomes a hold. */
+  rampPerSecond,
+  /** Full-range gradient for the read-out bar — colour temperature uses this. */
+  fill,
+  label,
+  disabled,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+  tapStep: number;
+  rampPerSecond: number;
+  fill?: string;
+  label: string;
+  disabled?: boolean;
+}) {
+  const [shown, setShown] = useState(value);
+  const held = useRef<number | null>(null);
+  const frame = useRef<number | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Follow the simulation whenever nobody is pressing — a scene, a rule, the
+  // other interface. Skipped mid-hold, or the store would fight the ramp.
+  useEffect(() => {
+    if (held.current === null) setShown(value);
+  }, [value]);
+
+  const stop = useCallback(() => {
+    held.current = null;
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    if (timer.current !== null) clearTimeout(timer.current);
+    frame.current = null;
+    timer.current = null;
+  }, []);
+
+  useEffect(() => stop, [stop]);
+
+  const press = useCallback(
+    (direction: 1 | -1) => {
+      if (disabled) return;
+      stop();
+
+      const clamp = (v: number) => Math.min(max, Math.max(min, Math.round(v)));
+      const start = clamp(value + direction * tapStep);
+      held.current = start;
+      setShown(start);
+      onChange(start);
+
+      timer.current = setTimeout(() => {
+        let last = performance.now();
+        const loop = (now: number) => {
+          const dt = (now - last) / 1000;
+          last = now;
+          const next = clamp((held.current ?? start) + direction * rampPerSecond * dt);
+          if (next !== held.current) {
+            held.current = next;
+            setShown(next);
+            onChange(next);
+          }
+          frame.current = requestAnimationFrame(loop);
+        };
+        frame.current = requestAnimationFrame(loop);
+      }, HOLD_DELAY_MS);
+    },
+    [disabled, max, min, onChange, rampPerSecond, stop, tapStep, value],
+  );
+
+  const pct = max > min ? ((shown - min) / (max - min)) * 100 : 0;
+
+  const button = (direction: 1 | -1, glyph: string, name: string) => {
+    const dead = disabled || (direction === 1 ? shown >= max : shown <= min);
+    return (
+      <button
+        type="button"
+        aria-label={`${label} ${name}`}
+        disabled={dead}
+        // Capture so the sweep keeps running if a finger drifts off the button,
+        // and still ends on release wherever the pointer happens to be.
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          press(direction);
+        }}
+        onPointerUp={stop}
+        onPointerCancel={stop}
+        onLostPointerCapture={stop}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") press(direction);
+        }}
+        onKeyUp={stop}
+        onBlur={stop}
+        className={`h-9 w-10 shrink-0 touch-none rounded-md text-base font-medium transition-colors ${
+          dead
+            ? "bg-shell-850 text-shell-600"
+            : "bg-shell-800 text-shell-100 hover:bg-shell-700 active:bg-shell-600"
+        }`}
+      >
+        {glyph}
+      </button>
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-2" role="group" aria-label={label}>
+      {button(-1, "−", "down")}
+      {/* Read-out, not a control. It gives back the one thing the track was
+          good for — seeing where the fixture sits at a glance — without asking
+          anyone to hit it. */}
+      <div className="relative h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-shell-700">
+        {fill ? (
+          <>
+            <div className="absolute inset-0" style={{ background: fill }} />
+            <div
+              className="absolute top-0 h-full w-1 -translate-x-1/2 rounded-full bg-shell-950 shadow"
+              style={{ left: `${pct}%` }}
+            />
+          </>
+        ) : (
+          <div
+            className="absolute inset-y-0 left-0 rounded-full bg-brass-500"
+            style={{ width: `${pct}%` }}
+          />
+        )}
+      </div>
+      {button(1, "+", "up")}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Stepper                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Minus / value / plus.
+ *
+ * The idiom for a thermostat everywhere in the world, and the right one here
+ * for the same reason it is right on a wall: the range is narrow, the useful
+ * move is one degree, and nobody wants to place 23°C precisely with a fingertip
+ * on a 250px track.
+ */
+export function Stepper({
+  value,
+  min,
+  max,
+  step = 1,
+  onChange,
+  format,
+  label,
+  disabled,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (value: number) => void;
+  /** How the value reads between the buttons, e.g. `24°C`. */
+  format: (value: number) => string;
+  label: string;
+  disabled?: boolean;
+}) {
+  const clamp = (v: number) => Math.min(max, Math.max(min, v));
+  const button = (delta: number, glyph: string, name: string) => {
+    const next = clamp(value + delta);
+    const dead = disabled || next === value;
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(next)}
+        disabled={dead}
+        aria-label={`${label} ${name}`}
+        className={`h-8 w-9 shrink-0 rounded-md text-sm font-medium transition-colors ${
+          dead
+            ? "bg-shell-850 text-shell-600"
+            : "bg-shell-800 text-shell-200 hover:bg-shell-700"
+        }`}
+      >
+        {glyph}
+      </button>
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-2" role="group" aria-label={label}>
+      {button(-step, "−", "down")}
+      <span
+        className={`min-w-0 flex-1 text-center font-mono text-[13px] ${
+          disabled ? "text-shell-600" : "text-shell-100"
+        }`}
+      >
+        {format(value)}
+      </span>
+      {button(step, "+", "up")}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Segmented control                                                   */
 /* ------------------------------------------------------------------ */
 
