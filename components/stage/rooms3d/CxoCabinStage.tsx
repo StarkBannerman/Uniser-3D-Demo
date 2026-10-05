@@ -95,9 +95,29 @@ export function CxoCabinStage() {
   const skyStep = Math.round(Math.min(Math.max(daylight, 0), 1) * 8) / 8;
   const view = useMemo(() => makeCityTexture(skyStep), [skyStep]);
 
-  const ambient = space
+  const base = space
     ? roomAmbience(space, states, clockMin)
     : { level: 0, color: [255, 245, 230] as [number, number, number], lux: 0 };
+
+  /**
+   * Exposure and ambient fill, both driven by the time of day.
+   *
+   * `roomAmbience` derives its fill from the room's own lux, which is right for
+   * inter-reflection and wrong as the only term: at 8 PM with the cove and the
+   * accent up it returned 0.65, so a hemisphere light flooded every surface
+   * evenly and the room read as a grey box with some strips in it.
+   *
+   * After dusk there is no sky to fill a room. The fill drops to a sixth and
+   * the exposure comes down with it, so what is left is the fixtures' own
+   * light — which is the whole point of a scene called Evening.
+   */
+  const ambient = {
+    ...base,
+    level: base.level * (0.16 + 0.84 * daylight),
+  };
+  // 0.42 at night put the whole frame at a mean of 9.5/255 — past dim and
+  // into unreadable. 0.55 keeps the shadows deep without losing the room.
+  const exposure = 0.55 + 0.45 * daylight;
 
   return (
     <Stage3D
@@ -107,14 +127,17 @@ export function CxoCabinStage() {
       // strips, a pendant blade, a lamp. Bloom carries most of the "premium"
       // instruction, so it runs a little hotter than the boardroom's, with a
       // threshold high enough that the plaster does not go milky.
-      bloomIntensity={0.72}
-      bloomThreshold={1.08}
+      // Only the strips and the lamp should bloom. At a 1.08 threshold the
+      // lit joinery, the stone and half the ceiling were over it too.
+      bloomIntensity={0.42}
+      bloomThreshold={1.9}
     >
       <CxoCabin3D curtains={curtains} view={view} />
       <CxoCabinLightRig
         fixtures={fixtures}
         daylight={daylight}
         transmission={shadeTransmission(curtains.sheer, curtains.blackout)}
+        exposure={exposure}
       />
     </Stage3D>
   );

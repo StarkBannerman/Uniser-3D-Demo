@@ -30,9 +30,17 @@ import { CX, CX_COVE_Y, CX_PLAN, CX_WINDOW } from "./CxoCabin3D";
 
 RectAreaLightUniformsLib.init();
 
-const GAIN = {
+const BASE = {
   cove: 26,
-  coveEmissive: 5.2,
+  /**
+   * Emissive values are chosen against the tone curve, not against taste.
+   *
+   * ACES maps roughly 2 to 0.8 and anything past about 4 to white. These all
+   * sat above 5, so every strip in the room was a flat white bar with no
+   * colour left in it — the 2700K the scene asked for never reached the
+   * screen. Around 2 is a bright warm line that still has its hue.
+   */
+  coveEmissive: 2.2,
   /**
    * The suspended linear.
    *
@@ -50,7 +58,7 @@ const GAIN = {
   // pendant was never the cause, and it is the one luminaire in the room
   // anybody looks at.
   pendant: 13,
-  pendantEmissive: 5.0,
+  pendantEmissive: 2.4,
   /**
    * A near-field source, and the number is small for a reason.
    *
@@ -61,7 +69,7 @@ const GAIN = {
    * that reads as a lamp rather than as a fault.
    */
   lamp: 1.6,
-  lampEmissive: 2.4,
+  lampEmissive: 1.5,
   /**
    * Working light, raised after measuring.
    *
@@ -71,10 +79,10 @@ const GAIN = {
    * ones were not, which is the right instinct taken one step too far.
    */
   general: 38,
-  generalEmissive: 5.2,
+  generalEmissive: 2.1,
   /** Narrow heads on the desk. */
   task: 42,
-  taskEmissive: 5.6,
+  taskEmissive: 2.3,
   /**
    * Shelf strips. Small, because of what they physically are.
    *
@@ -96,7 +104,7 @@ const GAIN = {
    */
   accentStrip: 4.5,
   accentGraze: 20,
-  accentEmissive: 3.4,
+  accentEmissive: 1.7,
   /**
    * Concealed colour: bright to look at, modest as a source.
    *
@@ -106,12 +114,32 @@ const GAIN = {
    * have to look for it.
    */
   rgb: 5,
-  rgbEmissive: 3.6,
+  rgbEmissive: 2.0,
   sun: 1.3,
   // Enough to read as a lit window, not enough to bleach the floor in front of
   // it — which is what a 2.9 x 2.8 m source does at anything higher.
   sky: 2.0,
 } as const;
+
+/**
+ * Exposure, applied to every emitter in the room.
+ *
+ * `ToneMappingEffect` has no exposure uniform for ACES, and the renderer's own
+ * `toneMappingExposure` does nothing here because tone mapping is the
+ * composer's job. But exposure *is* only a linear scale applied before the tone
+ * curve — ACES(colour x exposure) — so scaling the scene's radiance is exactly
+ * equivalent and costs nothing.
+ *
+ * It scales the emissive faces as well as the lights, which is the point: a
+ * strip is part of the image, not outside it. At night everything comes down
+ * together and the strips are the only things left standing, which is what
+ * makes a dark room read as dark rather than as a grey one.
+ */
+function gains(exposure: number) {
+  const g = { ...BASE } as Record<string, number>;
+  for (const k of Object.keys(g)) g[k] = (BASE as Record<string, number>)[k] * exposure;
+  return g as unknown as typeof BASE;
+}
 
 function colourOf(state: LightState): THREE.Color {
   if (state.sat > 0) {
@@ -138,7 +166,7 @@ function useFace(colour: THREE.Color, intensity: number) {
 
 /* ------------------------------------------------------------------ */
 
-function Cove({ state }: { state: LightState }) {
+function Cove({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
   const colour = colourOf(state);
   const out = output(state);
   const face = useFace(colour, GAIN.coveEmissive * aperture(state));
@@ -183,7 +211,7 @@ function Cove({ state }: { state: LightState }) {
  * room as well as glowing, or it goes flat and papery the moment anything else
  * is brighter than it is.
  */
-function Decorative({ state }: { state: LightState }) {
+function Decorative({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
@@ -319,9 +347,13 @@ function Heads({
             position={[h.x, CX.h - 0.05, h.z]}
             target={[h.x, targetY, h.z]}
             angle={angle}
-            penumbra={0.8}
-            distance={9}
-            decay={1.3}
+            penumbra={0.82}
+            // Inverse square, not a softened approximation of it. At 1.3 a
+            // ceiling head still had most of its output left at floor level,
+            // which is why every downlight lit the whole room instead of a
+            // patch of it.
+            distance={7}
+            decay={2}
             intensity={gain * out}
             color={colour}
             castShadow={castShadow}
@@ -342,7 +374,7 @@ function Heads({
  * local -Z, so without the half turn every one of these fires into the wall it
  * is mounted on. That exact bug has now cost time in two rooms.
  */
-function Accent({ state }: { state: LightState }) {
+function Accent({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
   const colour = colourOf(state);
   const out = output(state);
   const face = useFace(colour, GAIN.accentEmissive * aperture(state));
@@ -384,8 +416,8 @@ function Accent({ state }: { state: LightState }) {
           target={[p.art.x, p.art.cy, 0.14]}
           angle={0.4}
           penumbra={0.55}
-          distance={7}
-          decay={1.2}
+          distance={5}
+          decay={2}
           intensity={GAIN.accentGraze * out}
           color={colour}
         />
@@ -403,7 +435,7 @@ function Accent({ state }: { state: LightState }) {
  * strip is the one that earns its place: three metres of stone appearing to
  * float costs one emissive quad and a pool on the floor.
  */
-function FeatureColour({ state }: { state: LightState }) {
+function FeatureColour({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
   const colour = colourOf(state);
   const out = output(state);
   const face = useFace(colour, GAIN.rgbEmissive * aperture(state));
@@ -413,19 +445,44 @@ function FeatureColour({ state }: { state: LightState }) {
 
   return (
     <group>
-      <mesh position={[(m.x0 + m.x1) / 2, (m.y0 + m.y1) / 2, 0.095]}>
-        <planeGeometry args={[m.x1 - m.x0 + 0.12, m.y1 - m.y0 + 0.12]} />
-        <primitive object={face} attach="material" />
-      </mesh>
+      {/**
+       * No halo plane behind the slab.
+       *
+       * It was a rectangle 12 cm larger than the stone, so all you ever saw of
+       * it was a 6 cm bright border — a glowing wireframe outline rather than a
+       * backlight. The rect light below does the actual lifting, and a reveal
+       * that is lit rather than emitting is what a real slab detail is.
+       */}
+      {/**
+       * Two lights, pointing opposite ways, and only one of them existed.
+       *
+       * The slab's backlight faced *into the room* — so at Evening, when the
+       * brief calls it the hero and it is turned up to 70 per cent, it lit the
+       * carpet and left the stone itself a black rectangle. A backlight has to
+       * fall on the thing it is lifting.
+       *
+       * So the main one now faces the wall and grazes the stone, and a second,
+       * much weaker one throws the spill the room was getting before.
+       */}
       {out > 0.001 && (
-        <rectAreaLight
-          position={[(m.x0 + m.x1) / 2, (m.y0 + m.y1) / 2, 0.3]}
-          rotation={[0, Math.PI, 0]}
-          width={m.x1 - m.x0}
-          height={m.y1 - m.y0}
-          intensity={GAIN.rgb * out}
-          color={colour}
-        />
+        <>
+          <rectAreaLight
+            position={[(m.x0 + m.x1) / 2, (m.y0 + m.y1) / 2, 0.52]}
+            rotation={[0, 0, 0]}
+            width={m.x1 - m.x0 + 0.3}
+            height={m.y1 - m.y0 + 0.3}
+            intensity={GAIN.rgb * 1.5 * out}
+            color={colour}
+          />
+          <rectAreaLight
+            position={[(m.x0 + m.x1) / 2, (m.y0 + m.y1) / 2, 0.3]}
+            rotation={[0, Math.PI, 0]}
+            width={m.x1 - m.x0}
+            height={m.y1 - m.y0}
+            intensity={GAIN.rgb * 0.3 * out}
+            color={colour}
+          />
+        </>
       )}
 
       {/* The line under the desk, on its long side facing the room. */}
@@ -452,7 +509,7 @@ function FeatureColour({ state }: { state: LightState }) {
   );
 }
 
-function Daylight({ level, transmission }: { level: number; transmission: number }) {
+function Daylight({ level, transmission, GAIN }: { level: number; transmission: number; GAIN: typeof BASE }) {
   const through = level * transmission;
   if (through <= 0.004) return null;
   return (
@@ -502,12 +559,16 @@ export function CxoCabinLightRig({
   fixtures,
   daylight,
   transmission,
+  exposure,
 }: {
   fixtures: CxoFixtures;
   daylight: number;
   transmission: number;
+  /** 1 at midday, well under that after dusk. See `gains`. */
+  exposure: number;
 }) {
   const p = CX_PLAN;
+  const GAIN = gains(exposure);
   /** Four of the ten heads carry a spotlight; the rest are lenses only. */
   const generalLit = [p.generalHeads[1], p.generalHeads[3], p.generalHeads[6], p.generalHeads[8]];
   /** Two of the four desk heads, diagonally opposite. */
@@ -515,8 +576,8 @@ export function CxoCabinLightRig({
 
   return (
     <group>
-      <Cove state={fixtures.cove} />
-      <Decorative state={fixtures.decorative} />
+      <Cove state={fixtures.cove} GAIN={GAIN} />
+      <Decorative state={fixtures.decorative} GAIN={GAIN} />
       <Heads
         state={fixtures.general}
         heads={p.generalHeads}
@@ -538,9 +599,9 @@ export function CxoCabinLightRig({
         targetY={CX_PLAN.desk.h}
         castShadow
       />
-      <Accent state={fixtures.accent} />
-      <FeatureColour state={fixtures.rgb} />
-      <Daylight level={daylight} transmission={transmission} />
+      <Accent state={fixtures.accent} GAIN={GAIN} />
+      <FeatureColour state={fixtures.rgb} GAIN={GAIN} />
+      <Daylight level={daylight} transmission={transmission} GAIN={GAIN} />
     </group>
   );
 }

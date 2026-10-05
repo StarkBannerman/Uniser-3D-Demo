@@ -417,14 +417,24 @@ export const cxoCabin: Space = {
       clockMin: 20 * 60 + 15,
       targets: {
         "cx-general": { on: false },
-        // Lifted: with the drape drawn there is no daylight at all behind
-        // these, and the levels that read as "low" against a window read as
-        // "off" against nothing.
-        "cx-cove": { on: true, level: 54, cct: 2200 },
-        "cx-decorative": { on: true, level: 64, cct: 2200 },
+        /**
+         * Dim, warm and uneven, which is what Evening is for.
+         *
+         * These were lifted once when the room had no exposure model and the
+         * fill was coming from the fixtures themselves — at which point a dark
+         * scene genuinely did read as switched off. With exposure and ambient
+         * now following the clock, the opposite is true: the levels that read
+         * as "low" at those settings flooded the room.
+         *
+         * The stone backlight is the hero and is deliberately the brightest
+         * thing here. Everything else sits far below it, so the room is mostly
+         * shadow with the slab lifting out of it.
+         */
+        "cx-cove": { on: true, level: 18, cct: 2200 },
+        "cx-decorative": { on: true, level: 30, cct: 2300 },
         "cx-task": { on: false },
-        "cx-accent": { on: true, level: 72, cct: 2400 },
-        "cx-rgb": { on: true, level: 45, cct: 2200, sat: 0 },
+        "cx-accent": { on: true, level: 22, cct: 2400 },
+        "cx-rgb": { on: true, level: 70, cct: 2200, sat: 0 },
         "cx-curtain": { sheer: 100, blackout: 100 },
         "cx-audio": { on: true, source: "Radio", volume: 18 },
         "cx-ac": { on: true, setpointC: 24, fan: 1 },
