@@ -543,6 +543,19 @@ function ScreenWall({
   const picture = useMemo(() => makeScreenTexture(content), [content]);
   const deployed = Math.min(Math.max(screen / 100, 0), 1);
   const drop = plan.screen.drop * deployed;
+  /**
+   * There is only a picture when the screen is all the way down.
+   *
+   * A position guard, not a timing one. Ramping the lamp was not enough on its
+   * own: any path where the projector is lit while the fabric is moving put the
+   * image on a part-height screen, squashed to fit it. Retracting was the
+   * obvious one — leaving the scene kills the lamp in under a second while the
+   * motor takes six — but a slow frame during the descent would do it too.
+   *
+   * A projector throwing a picture at a half-unrolled screen is wrong in every
+   * direction, so the image simply does not exist until the screen is seated.
+   */
+  const seated = deployed > 0.985;
 
   /**
    * Each surface is two planes, not one material that switches.
@@ -603,7 +616,7 @@ function ScreenWall({
   }, [projected, panelImage, picture]);
 
   useFrame((_, dt) => {
-    approach(lamp, projectorOn, RAMP.lampUp, RAMP.lampDown, dt);
+    approach(lamp, projectorOn && seated, RAMP.lampUp, RAMP.lampDown, dt);
     approach(panelGlow, displayOn, RAMP.panelUp, RAMP.panelDown, dt);
     const gain = SCREEN_EMISSIVE[content];
     projected.emissiveIntensity = gain * lamp.current;
@@ -648,11 +661,17 @@ function ScreenWall({
             <planeGeometry args={[plan.screen.w, drop]} />
             <meshStandardMaterial color="#cfcec9" roughness={0.95} />
           </mesh>
-          {/* The projected image, arriving afterwards. */}
-          <mesh position={[plan.screen.x, plan.screen.y1 - drop / 2, 0.144]}>
-            <planeGeometry args={[plan.screen.w, drop]} />
-            <primitive object={projected} attach="material" />
-          </mesh>
+          {/* The projected image, arriving afterwards — and always at the
+              screen's full size, so it can never be squashed into a partly
+              unrolled one. */}
+          {seated && (
+            <mesh
+              position={[plan.screen.x, plan.screen.y1 - plan.screen.drop / 2, 0.144]}
+            >
+              <planeGeometry args={[plan.screen.w, plan.screen.drop]} />
+              <primitive object={projected} attach="material" />
+            </mesh>
+          )}
           {/* Bottom bar, so the fabric reads as having weight. */}
           <mesh position={[plan.screen.x, plan.screen.y1 - drop, 0.145]}>
             <boxGeometry args={[plan.screen.w, 0.05, 0.03]} />
