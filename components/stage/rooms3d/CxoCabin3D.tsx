@@ -22,17 +22,11 @@
  * Coordinates in metres.
  */
 
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
-import {
-  makeCityTexture,
-  makeCurtainGeometry,
-  makeMarbleTexture,
-  makeParquetTexture,
-  makeRugTexture,
-  makeWordsTexture,
-} from "./geometry";
+import { makeCityTexture, makeCurtainGeometry } from "./geometry";
+import { applySet, useTextureSet } from "./pbr";
 
 export const CX = {
   /** Across the room. Glazing at x = 0, the joinery wall at x = w. */
@@ -200,6 +194,34 @@ const M = {
   /** The inside of a niche: darker, so a lit bay reads as lit. */
   walnutDark: new THREE.MeshStandardMaterial({ color: "#2e2117", roughness: 0.7 }),
   /**
+   * Floor, stone and carpet are declared here rather than inline, so the
+   * texture pass can write scanned maps onto them without reconstructing
+   * anything. Their colours stay as a tint under the albedo.
+   */
+  floor: new THREE.MeshStandardMaterial({
+    color: "#8a7a67",
+    roughness: 0.52,
+    metalness: 0.02,
+    envMapIntensity: 0.5,
+  }),
+  stone: new THREE.MeshStandardMaterial({
+    color: "#a89d8c",
+    roughness: 0.3,
+    metalness: 0.04,
+    envMapIntensity: 1.1,
+  }),
+  deskTop: new THREE.MeshStandardMaterial({
+    color: "#6f685e",
+    roughness: 0.26,
+    metalness: 0.05,
+    envMapIntensity: 1.2,
+  }),
+  carpet: new THREE.MeshStandardMaterial({
+    color: "#c6bdb0",
+    roughness: 0.96,
+    envMapIntensity: 0.25,
+  }),
+  /**
    * Brushed stainless, used sparingly, with matte black for everything else.
    *
    * The brief asks for no excessive gold and it is right — warm metal
@@ -223,29 +245,37 @@ const M = {
   }),
   /** Black leather, on the executive chair only. */
   execLeather: new THREE.MeshPhysicalMaterial({
-    color: "#1d1c1b",
+    color: "#36332f",
     roughness: 0.42,
     sheen: 0.8,
     sheenRoughness: 0.4,
     sheenColor: new THREE.Color("#8a7a63"),
   }),
-  /** Neutral commercial upholstery on the guest and meeting chairs. */
+  /**
+   * Neutral commercial upholstery on the guest chairs.
+   *
+   * The colours from here down read lighter in source than they do on screen.
+   * The scanned albedos are deliberately desaturated to a mid grey at build
+   * time — ambientCG's carpet is red and its leather brown, and a tint cannot
+   * undo a hue — so the material colour is multiplied by roughly 0.5 before
+   * anything else touches it. Reading these as finished values is a mistake.
+   */
   leather: new THREE.MeshPhysicalMaterial({
-    color: "#4a4744",
+    color: "#7e7974",
     roughness: 0.58,
     sheen: 0.6,
     sheenRoughness: 0.5,
     sheenColor: new THREE.Color("#9c978f"),
   }),
   sofa: new THREE.MeshPhysicalMaterial({
-    color: "#8e867a",
+    color: "#d6cbb8",
     roughness: 0.82,
     sheen: 1,
     sheenRoughness: 0.6,
     sheenColor: new THREE.Color("#d4cab6"),
   }),
   cushion: new THREE.MeshPhysicalMaterial({
-    color: "#5d5b50",
+    color: "#9a9684",
     roughness: 0.84,
     sheen: 0.9,
     sheenRoughness: 0.6,
@@ -290,25 +320,12 @@ const M = {
 function Shell() {
   const { w, d, h, soffit } = CX;
   const win = CX_WINDOW;
-  const floor = useMemo(() => {
-    const t = makeParquetTexture();
-    t.repeat.set(3.2, 4.2);
-    t.rotation = Math.PI / 2;
-    t.center.set(0.5, 0.5);
-    return t;
-  }, []);
 
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[w / 2, 0, d / 2]} receiveShadow>
         <planeGeometry args={[w, d]} />
-        <meshPhysicalMaterial
-          map={floor}
-          roughness={0.44}
-          metalness={0.02}
-          clearcoat={0.3}
-          clearcoatRoughness={0.32}
-        />
+        <primitive object={M.floor} attach="material" />
       </mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[w / 2, h, d / 2]}>
         <planeGeometry args={[w, d]} />
@@ -395,8 +412,7 @@ function FeatureWall() {
   const p = CX_PLAN;
   /** Warm figured stone with strong veining, as the reference has. The cool
       grey slab read as a blank panel between two bookcases. */
-  const slab = useMemo(() => makeMarbleTexture("#6d6151", "#d3bf98", 5171), []);
-  const art = useMemo(() => makeMarbleTexture("#b6b0a4", "#6e6a62", 77), []);
+
 
   return (
     <group>
@@ -419,7 +435,7 @@ function FeatureWall() {
       </mesh>
       <mesh position={[(p.marble.x0 + p.marble.x1) / 2, (p.marble.y0 + p.marble.y1) / 2, 0.1]}>
         <planeGeometry args={[p.marble.x1 - p.marble.x0, p.marble.y1 - p.marble.y0]} />
-        <meshStandardMaterial map={slab} roughness={0.3} metalness={0.05} />
+        <primitive object={M.stone} attach="material" />
       </mesh>
       {/**
        * A small brushed logo plate, low on the slab.
@@ -560,7 +576,7 @@ function FeatureWall() {
         </mesh>
         <mesh position={[0, 0, 0.012]}>
           <planeGeometry args={[p.art.w, p.art.h]} />
-          <meshStandardMaterial map={art} roughness={0.8} />
+          <meshStandardMaterial color="#8d8579" roughness={0.85} />
         </mesh>
       </group>
     </group>
@@ -667,17 +683,17 @@ function Desk() {
   /** Dark stone, not the pale slab it was. The brief asks for walnut and stone
       with restraint, and a white marble desk is the single most hotel-like
       object you can put in an office. */
-  const top = useMemo(() => makeMarbleTexture("#2f3133", "#787c80", 991), []);
+
   return (
     <group position={[d.x, 0, d.z]}>
       <RoundedBox args={[d.w, 0.085, d.d]} radius={0.015} smoothness={3} position={[0, d.h, 0]} castShadow receiveShadow>
-        <meshStandardMaterial map={top} roughness={0.24} metalness={0.05} />
+        <primitive object={M.deskTop} attach="material" />
       </RoundedBox>
       {/* Marble waterfall ends, both sides. */}
       {([-1, 1] as const).map((sgn) => (
         <mesh key={sgn} position={[sgn * (d.w / 2 - 0.1), (d.h - 0.1) / 2 + 0.1, 0]} castShadow>
           <boxGeometry args={[0.2, d.h - 0.1, d.d - 0.08]} />
-          <meshStandardMaterial map={top} roughness={0.26} metalness={0.05} />
+          <primitive object={M.deskTop} attach="material" />
         </mesh>
       ))}
       {/* Timber body on a recessed plinth that the strip lights. */}
@@ -833,14 +849,14 @@ function Chair({
  */
 function Lounge() {
   const p = CX_PLAN;
-  const stone = useMemo(() => makeMarbleTexture("#51493f", "#a79b86", 404), []);
+
 
   return (
     <group>
       {/* Commercial carpet under the executive zone, plain. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[p.carpet.x, 0.004, p.carpet.z]} receiveShadow>
         <planeGeometry args={[p.carpet.w, p.carpet.d]} />
-        <meshStandardMaterial color="#4d4a46" roughness={1} />
+        <primitive object={M.carpet} attach="material" />
       </mesh>
 
       {/* Sectional along the glazing, facing into the room. */}
@@ -882,11 +898,11 @@ function Lounge() {
       <group position={[p.coffee.x, 0, p.coffee.z]}>
         <mesh position={[0, 0.15, 0]} castShadow>
           <cylinderGeometry args={[0.3, 0.34, 0.3, 24]} />
-          <meshStandardMaterial map={stone} roughness={0.3} metalness={0.04} />
+          <primitive object={M.stone} attach="material" />
         </mesh>
         <mesh position={[0, 0.32, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[0.44, 0.44, 0.045, 28]} />
-          <meshStandardMaterial map={stone} roughness={0.26} metalness={0.05} />
+          <primitive object={M.stone} attach="material" />
         </mesh>
         {[0, 1].map((i) => (
           <mesh key={i} position={[-0.05 + i * 0.02, 0.35 + i * 0.022, 0.02]} rotation={[-Math.PI / 2, 0, 0.3 + i * 0.4]}>
@@ -998,6 +1014,37 @@ function Housings() {
 /* The room                                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Writes the scanned maps onto the room's materials, once.
+ *
+ * A component rather than a hook in `CxoCabin3D`, so the Suspense the textures
+ * throw is caught below the room: the lights and the geometry keep rendering
+ * while the images arrive and the surfaces fill in, instead of the whole room
+ * unmounting and flashing.
+ */
+function Surfaces() {
+  const floor = useTextureSet("floor", [6.5, 9]);
+  const walnut = useTextureSet("walnut", [3, 2.2]);
+  const stone = useTextureSet("stone", [1, 1]);
+  const carpet = useTextureSet("carpet", [7, 6]);
+  const leather = useTextureSet("leather", [3, 3]);
+
+  useLayoutEffect(() => {
+    applySet(M.floor, floor, { normalScale: 0.75, envMapIntensity: 0.5 });
+    applySet(M.walnut, walnut, { normalScale: 0.6, envMapIntensity: 0.7 });
+    applySet(M.walnutDark, walnut, { normalScale: 0.5, envMapIntensity: 0.3 });
+    applySet(M.stone, stone, { normalScale: 0.4, envMapIntensity: 1.1 });
+    applySet(M.deskTop, stone, { normalScale: 0.35, envMapIntensity: 1.2 });
+    applySet(M.carpet, carpet, { normalScale: 1.2, envMapIntensity: 0.2 });
+    applySet(M.leather, leather, { normalScale: 0.8, envMapIntensity: 0.6 });
+    applySet(M.execLeather, leather, { normalScale: 0.8, envMapIntensity: 0.6 });
+    applySet(M.sofa, carpet, { normalScale: 1.1, envMapIntensity: 0.25 });
+    applySet(M.cushion, carpet, { normalScale: 1.1, envMapIntensity: 0.25 });
+  }, [floor, walnut, stone, carpet, leather]);
+
+  return null;
+}
+
 export function CxoCabin3D({
   curtains,
   view,
@@ -1007,6 +1054,7 @@ export function CxoCabin3D({
 }) {
   return (
     <group>
+      <Surfaces />
       <Shell />
       <FeatureWall />
       <Glazing sheer={curtains.sheer} blackout={curtains.blackout} view={view} />
