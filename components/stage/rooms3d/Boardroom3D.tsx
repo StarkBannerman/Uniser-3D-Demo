@@ -22,8 +22,9 @@
  * Coordinates in metres.
  */
 
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import { makeCityTexture, makeScreenTexture, type ScreenContent } from "./geometry";
 
@@ -502,6 +503,29 @@ const SCREEN_EMISSIVE: Record<ScreenContent, number> = {
   game: 0.8,
 };
 
+/**
+ * How fast a surface comes up and goes down, in milliseconds.
+ *
+ * A projector lamp strikes over a second or so and cools more slowly than it
+ * lights; a panel wakes almost at once. Both used to be booleans, so every
+ * change of scene snapped a large bright rectangle on or off in a single frame,
+ * which is most of what made switching modes feel abrupt.
+ */
+const RAMP = {
+  lampUp: 1300,
+  lampDown: 800,
+  panelUp: 450,
+  panelDown: 350,
+} as const;
+
+function approach(ref: { current: number }, on: boolean, upMs: number, downMs: number, dt: number) {
+  const target = on ? 1 : 0;
+  const delta = target - ref.current;
+  if (delta === 0) return;
+  const step = (dt * 1000) / (delta > 0 ? upMs : downMs);
+  ref.current += Math.sign(delta) * Math.min(step, Math.abs(delta));
+}
+
 function ScreenWall({
   screen,
   displayOn,
@@ -521,24 +545,72 @@ function ScreenWall({
   const drop = plan.screen.drop * deployed;
 
   /**
-   * Emissive only, with a black base colour.
+   * Each surface is two planes, not one material that switches.
    *
-   * Carrying both a `map` and an `emissiveMap` means room light adds to the
-   * projection, so the brighter the scene the more the image clips — which is
-   * precisely backwards, and was a real bug in the den.
+   * The backing is the physical object — white vinyl on the screen, black glass
+   * on the panel — lit by the room like anything else. The image sits a
+   * millimetre in front of it, emissive only and untouched by tone mapping, and
+   * its intensity ramps from nothing.
+   *
+   * That split is what lets the screen descend *empty* and the picture arrive
+   * afterwards when the projector strikes, which is the order it happens in.
+   * One material carrying both meant the fabric either had an image on it from
+   * the first frame of its travel or was a black rectangle.
    */
-  const lit = useMemo(
+  const projected = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
         color: new THREE.Color("#000000"),
-        emissiveMap: picture,
         emissive: new THREE.Color("#ffffff"),
-        emissiveIntensity: SCREEN_EMISSIVE[content],
-        roughness: 0.42,
+        emissiveIntensity: 0,
+        roughness: 0.5,
+        transparent: true,
         toneMapped: false,
       }),
-    [picture, content],
+    [],
   );
+  const panelImage = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color("#000000"),
+        emissive: new THREE.Color("#ffffff"),
+        emissiveIntensity: 0,
+        roughness: 0.4,
+        transparent: true,
+        toneMapped: false,
+      }),
+    [],
+  );
+
+  const lamp = useRef(projectorOn ? 1 : 0);
+  const panelGlow = useRef(displayOn ? 1 : 0);
+
+  useLayoutEffect(() => {
+    for (const m of [projected, panelImage]) {
+      m.emissiveMap = picture;
+      m.needsUpdate = true;
+    }
+    /**
+     * A change of source blanks the surface and brings it back, the way a real
+     * display does while it re-syncs.
+     *
+     * Without it the picture cut from a slide deck to a video call in a single
+     * frame while every other thing in the room faded around it — which is a
+     * good part of what made switching modes feel abrupt.
+     */
+    lamp.current = 0;
+    panelGlow.current = 0;
+  }, [projected, panelImage, picture]);
+
+  useFrame((_, dt) => {
+    approach(lamp, projectorOn, RAMP.lampUp, RAMP.lampDown, dt);
+    approach(panelGlow, displayOn, RAMP.panelUp, RAMP.panelDown, dt);
+    const gain = SCREEN_EMISSIVE[content];
+    projected.emissiveIntensity = gain * lamp.current;
+    projected.opacity = lamp.current;
+    panelImage.emissiveIntensity = gain * panelGlow.current;
+    panelImage.opacity = panelGlow.current;
+  });
 
   return (
     <group>
@@ -548,22 +620,19 @@ function ScreenWall({
         <meshStandardMaterial color="#17191c" roughness={0.78} />
       </mesh>
 
-      {/**
-       * The display itself. Dark glass when asleep, lit when the AV is up —
-       * but never while the projection screen is down in front of it.
-       *
-       * Both are real and both are on the sheet, but lighting both at once gave
-       * the room two overlapping screens showing the same thing. A covered
-       * display is a covered display.
-       */}
+      {/* The panel itself: black glass, always present. */}
       <mesh position={[plan.display.x, plan.display.cy, 0.03]}>
         <planeGeometry args={[plan.display.w, plan.display.h]} />
-        {displayOn && deployed < 0.04 ? (
-          <primitive object={lit} attach="material" />
-        ) : (
-          <meshStandardMaterial color="#0c0e11" roughness={0.14} metalness={0.2} />
-        )}
+        <meshStandardMaterial color="#0c0e11" roughness={0.14} metalness={0.2} />
       </mesh>
+      {/* What it is showing, fading up over it — and never while the fabric is
+          down in front, because a covered display is a covered display. */}
+      {deployed < 0.04 && (
+        <mesh position={[plan.display.x, plan.display.cy, 0.034]}>
+          <planeGeometry args={[plan.display.w, plan.display.h]} />
+          <primitive object={panelImage} attach="material" />
+        </mesh>
+      )}
 
       {/* Roller case for the projection screen, above the display. */}
       <mesh position={[plan.screen.x, plan.screen.y1 + 0.06, 0.12]}>
@@ -571,24 +640,25 @@ function ScreenWall({
         <primitive object={M.housing} attach="material" />
       </mesh>
 
-      {/* The fabric. Matte white until the projector fires and the projected
-          image after it — driven by the projector, not by the panel behind. */}
       {deployed > 0.01 && (
-        <mesh position={[plan.screen.x, plan.screen.y1 - drop / 2, 0.14]}>
-          <planeGeometry args={[plan.screen.w, drop]} />
-          {projectorOn ? (
-            <primitive object={lit} attach="material" />
-          ) : (
+        <>
+          {/* The fabric. White vinyl, lit by whatever is in the room — this is
+              what you watch come down, with nothing on it. */}
+          <mesh position={[plan.screen.x, plan.screen.y1 - drop / 2, 0.14]}>
+            <planeGeometry args={[plan.screen.w, drop]} />
             <meshStandardMaterial color="#cfcec9" roughness={0.95} />
-          )}
-        </mesh>
-      )}
-      {/* Bottom bar, so the fabric reads as having weight. */}
-      {deployed > 0.01 && (
-        <mesh position={[plan.screen.x, plan.screen.y1 - drop, 0.145]}>
-          <boxGeometry args={[plan.screen.w, 0.05, 0.03]} />
-          <primitive object={M.housing} attach="material" />
-        </mesh>
+          </mesh>
+          {/* The projected image, arriving afterwards. */}
+          <mesh position={[plan.screen.x, plan.screen.y1 - drop / 2, 0.144]}>
+            <planeGeometry args={[plan.screen.w, drop]} />
+            <primitive object={projected} attach="material" />
+          </mesh>
+          {/* Bottom bar, so the fabric reads as having weight. */}
+          <mesh position={[plan.screen.x, plan.screen.y1 - drop, 0.145]}>
+            <boxGeometry args={[plan.screen.w, 0.05, 0.03]} />
+            <primitive object={M.housing} attach="material" />
+          </mesh>
+        </>
       )}
 
       {/* Column speakers. */}

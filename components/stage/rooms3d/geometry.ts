@@ -177,7 +177,21 @@ export type ScreenContent =
  * Drawn rather than loaded so the demo stays offline, and deterministic so the
  * tiles do not reshuffle on a remount.
  */
+/**
+ * One texture per content type, for the life of the page.
+ *
+ * Each of these is a 1280x720 canvas with a few hundred draw operations on it,
+ * followed by an upload to the GPU — and it was being rebuilt every time a
+ * scene changed what was on a screen. That is a stall on the exact frame a
+ * person is watching the room change, which is the worst possible frame to
+ * spend it on. There are five of them and they never vary, so they are built
+ * once and handed out.
+ */
+const SCREEN_CACHE = new Map<ScreenContent, THREE.CanvasTexture>();
+
 export function makeScreenTexture(kind: ScreenContent = "streaming"): THREE.CanvasTexture {
+  const cached = SCREEN_CACHE.get(kind);
+  if (cached) return cached;
   const w = 1280;
   const h = 720;
   const canvas = document.createElement("canvas");
@@ -273,6 +287,7 @@ export function makeScreenTexture(kind: ScreenContent = "streaming"): THREE.Canv
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
+    SCREEN_CACHE.set(kind, tex);
     return tex;
   }
 
@@ -445,6 +460,7 @@ export function makeScreenTexture(kind: ScreenContent = "streaming"): THREE.Canv
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
+  SCREEN_CACHE.set(kind, tex);
   return tex;
 }
 

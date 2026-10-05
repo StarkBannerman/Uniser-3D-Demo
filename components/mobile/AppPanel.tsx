@@ -444,12 +444,26 @@ export function AppPanel({ view }: { view: AppView }) {
                     type="button"
                     onClick={() => applyScene(scene.id)}
                     aria-pressed={active}
-                    disabled={busy && !active}
+                    /**
+                     * Live even while another scene is running.
+                     *
+                     * The lock exists so a half-pressed control cannot leave
+                     * the room in a state no scene describes — and a scene
+                     * press cannot do that, because it sets every device.
+                     * `applyScene` already cancels whatever sequence is in
+                     * flight before it starts.
+                     *
+                     * Presentation takes twenty seconds end to end. Making a
+                     * presenter watch all of it before they can move on is the
+                     * lock protecting the demo from the person giving it. The
+                     * Controls tab stays locked, which is where the original
+                     * concern actually lives.
+                     */
                     className={`relative overflow-hidden rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
                       active
                         ? "border-brass-600/70 bg-brass-600/15 text-brass-300"
                         : "border-shell-800 bg-shell-850/60 text-shell-300 hover:border-shell-700"
-                    } ${busy && !active ? "pointer-events-none opacity-40" : ""}`}
+                    }`}
                   >
                     {/* Progress sits on the button that was pressed, rather
                         than on a separate bar further down the panel. A staged

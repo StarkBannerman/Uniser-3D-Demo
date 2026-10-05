@@ -373,6 +373,15 @@ export const boardroom: Space = {
         "br-cove": { on: true, level: 44, cct: 3500 },
         "br-feature": { on: true, level: 34, cct: 3400 },
         "br-vc": { on: false },
+        // The projector goes off here, before anything moves.
+        //
+        // Without it, pressing Presentation a second time — or from any state
+        // where the lamp was already running — brought the screen down with
+        // the slide already on it. The screen should descend empty and the
+        // picture should arrive when the projector strikes, which is stage
+        // five. The screen's own position is left alone, so a screen already
+        // down simply stays down instead of retracting to come back.
+        "br-av": { on: false },
       },
       steps: [
         {
@@ -403,12 +412,23 @@ export const boardroom: Space = {
           // the image early throws away the best part of the demonstration.
           // The display goes dark here because the fabric is about to cover it.
           label: "Screen comes down",
-          holdMs: 6800,
+          holdMs: 1800,
           targets: { "br-av": { screen: 100 }, "br-display": { on: false } },
         },
         {
+          /**
+           * The long hold belongs here, not on the stage above.
+           *
+           * `holdMs` is the pause *before* a stage fires, measured from the
+           * previous one — so putting the screen's six seconds of travel on the
+           * screen stage waited six seconds and *then* started the motor, and
+           * fired the projector 1.6 seconds into a journey that had barely
+           * begun. The image arrived on a screen that was still coming down.
+           *
+           * The wait for a motor goes on whatever has to happen after it.
+           */
           label: "Projector on",
-          holdMs: 1600,
+          holdMs: 6600,
           targets: { "br-av": { on: true, source: "Laptop", volume: 34 } },
         },
         {
