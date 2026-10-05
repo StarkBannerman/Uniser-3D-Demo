@@ -64,8 +64,15 @@ const GAIN = {
   /** Forward wash onto faces, from above the display. */
   vc: 13,
   vcEmissive: 4.0,
-  /** What the screen throws back into a darkened room. */
-  screenBounce: 4,
+  /**
+   * What the screen throws back into the room.
+   *
+   * Was 4, which put a blown white pool across the far end of the table while
+   * the screen itself sat at a quiet grey — the relationship inverted. A
+   * projection screen is a dim, diffuse source: it should tint the first couple
+   * of metres of table, not light them.
+   */
+  screenBounce: 1.5,
   /** Daylight through the glazing. */
   sun: 1.35,
   sky: 3.0,

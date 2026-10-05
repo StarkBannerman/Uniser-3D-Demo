@@ -53,7 +53,7 @@ export const BR_PLAN = {
    * `screen` value at the motor's own speed.
    */
   display: { x: 3.7, w: 3.4, h: 1.91, cy: 1.62 },
-  screen: { x: 3.7, w: 3.84, y1: 2.82, drop: 2.0 },
+  screen: { x: 3.7, w: 3.84, y1: 2.82, drop: 2.25 },
   /** Column speakers either side of the display. */
   speakers: [{ x: 1.2 }, { x: 6.2 }],
   /** Low credenza under the display. */
@@ -485,10 +485,13 @@ function Glazing({ sheer, blackout, view }: BoardroomBlinds & { view: THREE.Text
  * sits between the two.
  */
 const SCREEN_EMISSIVE: Record<ScreenContent, number> = {
-  presentation: 0.34,
+  // Brighter than the den's 0.34. That figure is right for a projector in a
+  // charcoal room; here it left the screen reading as a grey panel while the
+  // light it supposedly threw blew out the end of the table.
+  presentation: 0.62,
   // A video call is a lit room on a screen — brighter than a slide deck, well
   // short of a film.
-  conference: 0.62,
+  conference: 0.7,
   desktop: 0.6,
   streaming: 0.9,
   game: 0.8,
@@ -532,14 +535,21 @@ function ScreenWall({
     <group>
       {/* Recessed niche, so the display sits in the wall rather than on it. */}
       <mesh position={[plan.display.x, plan.display.cy, 0.012]}>
-        <planeGeometry args={[plan.display.w + 0.26, plan.display.h + 0.24]} />
+        <planeGeometry args={[plan.display.w + 0.14, plan.display.h + 0.12]} />
         <meshStandardMaterial color="#17191c" roughness={0.78} />
       </mesh>
 
-      {/* The display itself. Dark glass when asleep, lit when the AV is up. */}
+      {/**
+       * The display itself. Dark glass when asleep, lit when the AV is up —
+       * but never while the projection screen is down in front of it.
+       *
+       * Both are real and both are on the sheet, but lighting both at once gave
+       * the room two overlapping screens showing the same thing. A covered
+       * display is a covered display.
+       */}
       <mesh position={[plan.display.x, plan.display.cy, 0.03]}>
         <planeGeometry args={[plan.display.w, plan.display.h]} />
-        {displayOn ? (
+        {displayOn && deployed < 0.04 ? (
           <primitive object={lit} attach="material" />
         ) : (
           <meshStandardMaterial color="#0c0e11" roughness={0.14} metalness={0.2} />
@@ -758,7 +768,17 @@ function Seating() {
   const n = BR_PLAN.seatsPerSide;
   const length = t.z1 - t.z0;
   const step = length / n;
-  const offset = t.w / 2 + 0.42;
+  /**
+   * How far a chair sits from the table's centre line.
+   *
+   * 0.20 beyond the table edge, not 0.42. At 0.42 every seat stopped 17 cm
+   * clear of the table and the whole room read as chairs parked near a table
+   * rather than drawn up to one — measured, after it was pointed out. A tucked
+   * chair overlaps the top by a hand's width, which this does by 7 cm.
+   */
+  const offset = t.w / 2 + 0.20;
+  /** Same tuck at the two ends. */
+  const endTuck = 0.18;
 
   return (
     <group>
@@ -771,9 +791,17 @@ function Seating() {
           </group>
         );
       })}
-      {/* Head of the table, nearest the screen. */}
-      <Chair position={[t.x, 0, t.z0 - 0.62]} rotation={Math.PI} />
-      <Chair position={[t.x, 0, t.z1 + 0.62]} rotation={0} />
+      {/**
+       * The two ends.
+       *
+       * The rotations are the opposite way round from how they first read. A
+       * chair's back sits at its own local -z, so the chair beyond the far end
+       * of the table needs rotation 0 to put that back further away — at
+       * `Math.PI` it swings round to face the wall, which is exactly what both
+       * of these were doing.
+       */}
+      <Chair position={[t.x, 0, t.z0 - endTuck]} rotation={0} />
+      <Chair position={[t.x, 0, t.z1 + endTuck]} rotation={Math.PI} />
     </group>
   );
 }

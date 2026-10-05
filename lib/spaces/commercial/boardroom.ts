@@ -311,28 +311,36 @@ export const boardroom: Space = {
         "Five stages: the blinds come down against glare, the front of the room dims, the table stays lit, the screen descends with the projector, and the AV system wakes.",
       fadeMs: 1600,
       targets: {
-        "br-cove": { on: true, level: 30, cct: 3000 },
-        "br-feature": { on: true, level: 25, cct: 2900 },
+        // Lifted once the blinds went to full blackout. With the window
+        // contributing nothing, the levels that read as "dimmed" against
+        // daylight read as "switched off" against nothing, and the room beyond
+        // the table went to black.
+        "br-cove": { on: true, level: 44, cct: 3000 },
+        "br-feature": { on: true, level: 34, cct: 2900 },
         "br-vc": { on: false },
       },
       steps: [
         {
           label: "Blinds adjust to reduce glare",
           holdMs: 4400,
-          targets: { "br-blinds": { sheer: 100, blackout: 70 } },
+          // Fully down, both layers. A partial blackout left a bright band
+          // along the bottom of every bay, which reads as a blind that has
+          // jammed rather than one that has been set — and a projector in a
+          // glazed room wants the whole window anyway.
+          targets: { "br-blinds": { sheer: 100, blackout: 100 } },
         },
         {
           label: "Front lights dim",
           holdMs: 2000,
           targets: {
-            "br-front": { on: true, level: 6, cct: 2900, fadeMs: 2200 },
-            "br-general": { on: true, level: 30, cct: 3200, fadeMs: 2200 },
+            "br-front": { on: true, level: 8, cct: 2900, fadeMs: 2200 },
+            "br-general": { on: true, level: 40, cct: 3200, fadeMs: 2200 },
           },
         },
         {
           label: "Table lighting stays up",
           holdMs: 1600,
-          targets: { "br-table": { on: true, level: 78, cct: 4000 } },
+          targets: { "br-table": { on: true, level: 88, cct: 4000 } },
         },
         {
           label: "Screen down, projector on",
