@@ -316,6 +316,7 @@ function FeatureColour({ state }: { state: LightState }) {
   const face = useFace(colour, GAIN.rgbEmissive * aperture(state));
   const stone = CX_PLAN.stone;
   const cred = CX_PLAN.credenza;
+  const desk = CX_PLAN.desk;
 
   return (
     <group>
@@ -331,6 +332,32 @@ function FeatureColour({ state }: { state: LightState }) {
         <planeGeometry args={[cred.w - 0.2, cred.d]} />
         <primitive object={face} attach="material" />
       </mesh>
+
+      {/**
+       * And the line of light under the desk.
+       *
+       * The signature detail of the reference and the cheapest thing in the
+       * room: a strip in the shadow gap above the plinth, so three metres of
+       * black stone appears to float. It costs one emissive quad and a pool on
+       * the parquet, and it is the first thing anybody notices.
+       */}
+      <mesh
+        position={[desk.x, 0.14, desk.z + desk.d / 2 - 0.05]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <planeGeometry args={[desk.w - 0.3, 0.12]} />
+        <primitive object={face} attach="material" />
+      </mesh>
+      {out > 0.001 && (
+        <rectAreaLight
+          position={[desk.x, 0.12, desk.z + desk.d / 2 - 0.02]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          width={desk.w - 0.3}
+          height={0.5}
+          intensity={GAIN.rgb * 1.6 * out}
+          color={colour}
+        />
+      )}
       {out > 0.001 && (
         <rectAreaLight
           position={[(stone.x0 + stone.x1) / 2, 1.5, 0.12]}

@@ -20,20 +20,17 @@
  * Coordinates in metres.
  */
 
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import * as THREE from "three";
-import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import {
-  makeArtTexture,
   makeCityTexture,
   makeCurtainGeometry,
   makeMarbleTexture,
+  makeParquetTexture,
+  makeRugTexture,
   makeWordsTexture,
 } from "./geometry";
-
-/** Radians a blade may turn in one frame before it starts to alias. */
-const MAX_BLADE_STEP = 0.9;
 
 export const CX = {
   /** Across the room. The glazing is at x = 0, the joinery wall at x = w. */
@@ -119,14 +116,14 @@ export const CX_PLAN = {
   deskRug: { x: 5.4, z: 4.0, w: 5.2, d: 3.4 },
 
   /**
-   * Ceiling fan over the lounge, well left of the desk.
+   * Linear AC diffuser, where the ceiling fan used to be.
    *
-   * It was at the room's centre and two metres across, directly over the lens,
-   * and the sheet has no fan in shot at all. The document asks for fan control
-   * so it stays — but out at the edge of the picture where a fan over a sofa
-   * actually belongs, rather than hanging in front of the subject.
+   * A cabin finished to this standard is on ducted air, not on a fan — a fan
+   * over a CXO's desk is the detail that tells a client the room was drawn by
+   * somebody who had not been in one. The slot runs parallel to the glazing,
+   * which is where a diffuser goes when the solar load is all on one wall.
    */
-  fan: { x: 1.9, z: 4.4, y: 2.78 },
+  diffuser: { x: 3.0, z: 4.6, len: 2.4 },
 
   /** General downlights: a loose grid, not a ceiling of them. */
   generalHeads: [
@@ -169,79 +166,73 @@ export const CX_PLAN = {
  * honest version of "premium" — there is nowhere for a lazy fixture to hide.
  */
 const M = {
-  ceiling: new THREE.MeshStandardMaterial({ color: "#cfc7bb", roughness: 0.96 }),
-  soffit: new THREE.MeshStandardMaterial({ color: "#c2b9ac", roughness: 0.92 }),
-  wall: new THREE.MeshStandardMaterial({ color: "#a89c8d", roughness: 0.93 }),
-  /** The near wall and the reveals: a shade down from the rest. */
-  wallDeep: new THREE.MeshStandardMaterial({ color: "#6d6256", roughness: 0.94 }),
-  /** Large-format stone, honed. Dark, but not so dark it eats the room. */
-  floor: new THREE.MeshPhysicalMaterial({
-    color: "#4f4740",
-    roughness: 0.3,
-    metalness: 0.02,
-    clearcoat: 0.55,
-    clearcoatRoughness: 0.22,
+  /** The ceiling stays pale. It is the one surface carrying the cove. */
+  ceiling: new THREE.MeshStandardMaterial({ color: "#cdc7bc", roughness: 0.96 }),
+  soffit: new THREE.MeshStandardMaterial({ color: "#bdb6aa", roughness: 0.92 }),
+  wall: new THREE.MeshStandardMaterial({ color: "#2e2f31", roughness: 0.92 }),
+  wallDeep: new THREE.MeshStandardMaterial({ color: "#232426", roughness: 0.94 }),
+  /** Near-black lacquered joinery: the shelving, the desk body, the credenza. */
+  walnut: new THREE.MeshPhysicalMaterial({
+    color: "#1b1c1e",
+    roughness: 0.34,
+    metalness: 0.05,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.28,
   }),
-  walnut: new THREE.MeshStandardMaterial({ color: "#6b4f37", roughness: 0.44 }),
-  walnutDark: new THREE.MeshStandardMaterial({ color: "#3a2a1d", roughness: 0.62 }),
-  /** Bronze, not brass — warmer and less shiny, which ages better on screen. */
+  /** The inside of a niche. Darker still, so a lit bay reads as a lit bay. */
+  walnutDark: new THREE.MeshStandardMaterial({ color: "#121314", roughness: 0.68 }),
   bronze: new THREE.MeshStandardMaterial({
-    color: "#9a7647",
-    roughness: 0.3,
-    metalness: 0.88,
+    color: "#b08b52",
+    roughness: 0.26,
+    metalness: 0.9,
   }),
   metal: new THREE.MeshStandardMaterial({
-    color: "#2b2d31",
-    roughness: 0.36,
-    metalness: 0.8,
+    color: "#16181a",
+    roughness: 0.35,
+    metalness: 0.7,
   }),
   /**
-   * Upholstery. Sheen rather than plain diffuse, because woven cloth has a pale
-   * retroreflective rim at grazing angles and without it linen shades exactly
-   * like painted board.
+   * Black leather, on everything that is sat on.
+   *
+   * Sheen still, and still worth it: it is the pale retroreflective rim at a
+   * grazing angle that separates leather from a black box, and in a room this
+   * dark that rim is most of what you can see of the furniture at all.
    */
+  leather: new THREE.MeshPhysicalMaterial({
+    color: "#1c1b1a",
+    roughness: 0.42,
+    sheen: 0.8,
+    sheenRoughness: 0.4,
+    sheenColor: new THREE.Color("#8a7a63"),
+  }),
   sofa: new THREE.MeshPhysicalMaterial({
-    color: "#9c9183",
-    roughness: 0.78,
-    sheen: 1,
-    sheenRoughness: 0.6,
-    sheenColor: new THREE.Color("#ddd2bf"),
+    color: "#201f1e",
+    roughness: 0.46,
+    sheen: 0.85,
+    sheenRoughness: 0.42,
+    sheenColor: new THREE.Color("#94836b"),
   }),
   cushion: new THREE.MeshPhysicalMaterial({
-    color: "#4a5348",
-    roughness: 0.8,
-    sheen: 0.8,
-    sheenRoughness: 0.6,
-    sheenColor: new THREE.Color("#9aa893"),
+    color: "#3a352c",
+    roughness: 0.72,
+    sheen: 0.9,
+    sheenRoughness: 0.55,
+    sheenColor: new THREE.Color("#b8a888"),
   }),
-  /** Dark leather on the chairs, as on the sheet. */
-  leather: new THREE.MeshPhysicalMaterial({
-    color: "#2e2823",
-    roughness: 0.48,
-    sheen: 0.5,
-    sheenRoughness: 0.45,
-    sheenColor: new THREE.Color("#8d7a63"),
-  }),
-  rug: new THREE.MeshStandardMaterial({ color: "#5a4f43", roughness: 1 }),
-  /** A shade darker and cooler, so the two rugs read as two rugs. */
-  rugDesk: new THREE.MeshStandardMaterial({ color: "#453d36", roughness: 1 }),
   shade: new THREE.MeshStandardMaterial({
-    color: "#d9cdb8",
+    color: "#cfc3ad",
     roughness: 0.9,
     side: THREE.DoubleSide,
   }),
-  /** Sheer voile — transmission, so the city diffuses through rather than
-      merely showing through. */
   sheer: new THREE.MeshPhysicalMaterial({
     color: "#ded6c7",
     roughness: 0.6,
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.58,
     side: THREE.DoubleSide,
   }),
-  /** Heavy drape. */
   drape: new THREE.MeshPhysicalMaterial({
-    color: "#7d6e5c",
+    color: "#6a5c4a",
     roughness: 0.9,
     sheen: 0.7,
     sheenRoughness: 0.65,
@@ -255,10 +246,10 @@ const M = {
     opacity: 0.07,
     side: THREE.DoubleSide,
   }),
-  foliage: new THREE.MeshStandardMaterial({ color: "#39502f", roughness: 0.9 }),
-  planter: new THREE.MeshStandardMaterial({ color: "#2a2724", roughness: 0.62 }),
-  paper: new THREE.MeshStandardMaterial({ color: "#d8d2c4", roughness: 0.9 }),
-  housing: new THREE.MeshStandardMaterial({ color: "#20221f", roughness: 0.5 }),
+  foliage: new THREE.MeshStandardMaterial({ color: "#2f4427", roughness: 0.9 }),
+  planter: new THREE.MeshStandardMaterial({ color: "#17181a", roughness: 0.5 }),
+  paper: new THREE.MeshStandardMaterial({ color: "#c9c2b2", roughness: 0.9 }),
+  housing: new THREE.MeshStandardMaterial({ color: "#141517", roughness: 0.5 }),
 };
 
 /* ------------------------------------------------------------------ */
@@ -268,12 +259,33 @@ const M = {
 function Shell({ stone }: { stone: THREE.Texture }) {
   const { w, d, h, soffit } = CX;
   const win = CX_WINDOW;
+  /**
+   * Herringbone parquet, and the only warm surface left in the room.
+   *
+   * Everything else went to near-black. Without a warm floor under it the
+   * reference's palette is a cave; with one it is a room with the lights down.
+   */
+  const parquet = useMemo(() => {
+    const t = makeParquetTexture();
+    // One repeat spans about 2.6 m, which puts a board at roughly 190 mm wide
+    // and 700 mm long — a plausible engineered plank rather than a pattern.
+    t.repeat.set(3.5, 4);
+    t.rotation = Math.PI / 2;
+    t.center.set(0.5, 0.5);
+    return t;
+  }, []);
 
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[w / 2, 0, d / 2]} receiveShadow>
         <planeGeometry args={[w, d]} />
-        <primitive object={M.floor} attach="material" />
+        <meshPhysicalMaterial
+          map={parquet}
+          roughness={0.42}
+          metalness={0.02}
+          clearcoat={0.35}
+          clearcoatRoughness={0.3}
+        />
       </mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[w / 2, h, d / 2]}>
         <planeGeometry args={[w, d]} />
@@ -404,7 +416,9 @@ function Joinery({ stone }: { stone: THREE.Texture }) {
       ),
     [],
   );
-  const art = useMemo(() => makeArtTexture(23), []);
+  /** The reference's artwork is a slab of figured marble in a lit frame, which
+      is both more in character and a better use of a texture we already make. */
+  const art = useMemo(() => makeMarbleTexture("#b9b2a6", "#8a6a33", 5171), []);
 
   return (
     <group>
@@ -671,8 +685,12 @@ function Desk({ stone }: { stone: THREE.Texture }) {
         <boxGeometry args={[d.w - 0.55, d.h - 0.09, d.d - 0.42]} />
         <primitive object={M.walnut} attach="material" />
       </mesh>
-      <mesh position={[0, 0.045, -0.06]}>
-        <boxGeometry args={[d.w - 0.75, 0.09, d.d - 0.32]} />
+      {/* Recessed plinth, so the mass of the desk floats on a shadow gap. The
+          strip that lights it lives in the rig, driven by the feature-colour
+          device — it is the detail that makes the reference's desk read as a
+          specified piece of furniture rather than a box on the floor. */}
+      <mesh position={[0, 0.065, -0.06]}>
+        <boxGeometry args={[d.w - 0.95, 0.13, d.d - 0.4]} />
         <primitive object={M.walnutDark} attach="material" />
       </mesh>
 
@@ -809,11 +827,12 @@ function VisitorChair({ x, z }: { x: number; z: number }) {
 
 function Lounge() {
   const p = CX_PLAN;
+  const rug = useMemo(() => makeRugTexture(), []);
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[p.rug.x, 0.004, p.rug.z]} receiveShadow>
         <planeGeometry args={[p.rug.w, p.rug.d]} />
-        <primitive object={M.rug} attach="material" />
+        <meshStandardMaterial map={rug} roughness={1} />
       </mesh>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
@@ -821,7 +840,7 @@ function Lounge() {
         receiveShadow
       >
         <planeGeometry args={[p.deskRug.w, p.deskRug.d]} />
-        <primitive object={M.rugDesk} attach="material" />
+        <meshStandardMaterial map={rug} roughness={1} />
       </mesh>
 
       {/* Sofa, facing into the room. */}
@@ -925,52 +944,38 @@ function Plants() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Ceiling fan                                                         */
+/* Air conditioning                                                    */
 /* ------------------------------------------------------------------ */
 
 /**
- * The fan spins inside the render loop, not through React state.
+ * A linear slot diffuser, recessed in the ceiling.
  *
- * It used to take an angle computed in the stage component and pushed in with
- * `setState` — from the render phase, which schedules another render, which
- * schedules another. An infinite loop that pegged the main thread and made
- * every interaction on the page time out.
- *
- * A `useFrame` writing straight to the group's rotation is both correct and
- * cheaper: the blades turn without React re-rendering anything at all.
+ * Deliberately quiet geometry: a bronze-lipped slot with dark blades in it. It
+ * is the only piece of services anybody should be able to find in this room,
+ * and finding it should take two seconds.
  */
-function Fan({ rate }: { rate: number }) {
-  const f = CX_PLAN.fan;
-  const blades = useRef<THREE.Group>(null);
-  useFrame((_, dt) => {
-    if (!blades.current || rate <= 0) return;
-    // Capped per frame: past about sixty degrees a frame a three-blade fan
-    // aliases and appears to run backwards, which a slow frame would cause.
-    blades.current.rotation.y += Math.min(rate * dt, MAX_BLADE_STEP);
-  });
+function AirDiffuser() {
+  const d = CX_PLAN.diffuser;
   return (
-    <group position={[f.x, f.y, f.z]}>
-      <mesh position={[0, 0.3, 0]}>
-        <cylinderGeometry args={[0.028, 0.028, 0.6, 10]} />
-        <primitive object={M.metal} attach="material" />
+    <group position={[d.x, CX.h - 0.012, d.z]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[d.len, 0.16]} />
+        <primitive object={M.bronze} attach="material" />
       </mesh>
-      <mesh>
-        <cylinderGeometry args={[0.1, 0.12, 0.085, 18]} />
-        <primitive object={M.walnutDark} attach="material" />
+      <mesh position={[0, -0.014, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[d.len - 0.05, 0.1]} />
+        <meshStandardMaterial color="#0a0b0c" roughness={0.9} />
       </mesh>
-      <group ref={blades}>
-        {[0, 1, 2].map((i) => (
-          <mesh
-            key={i}
-            position={[Math.cos((i / 3) * Math.PI * 2) * 0.5, -0.02, Math.sin((i / 3) * Math.PI * 2) * 0.5]}
-            rotation={[0.1, -(i / 3) * Math.PI * 2, 0]}
-            castShadow
-          >
-            <boxGeometry args={[0.95, 0.014, 0.16]} />
-            <primitive object={M.walnutDark} attach="material" />
-          </mesh>
-        ))}
-      </group>
+      {Array.from({ length: 14 }, (_, i) => (
+        <mesh
+          key={i}
+          position={[-d.len / 2 + 0.08 + i * ((d.len - 0.16) / 13), -0.022, 0]}
+          rotation={[0.5, 0, 0]}
+        >
+          <boxGeometry args={[0.012, 0.06, 0.09]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -1023,12 +1028,9 @@ function Housings() {
 export function CxoCabin3D({
   curtains,
   view,
-  fanRate,
 }: {
   curtains: CxoCurtains;
   view: THREE.Texture;
-  /** Blade speed in radians per second, straight from the device state. */
-  fanRate: number;
 }) {
   /**
    * Cooler and far more contrasted than the first pass.
@@ -1054,7 +1056,7 @@ export function CxoCabin3D({
       ))}
       <Lounge />
       <Plants />
-      <Fan rate={fanRate} />
+      <AirDiffuser />
       <Housings />
     </group>
   );

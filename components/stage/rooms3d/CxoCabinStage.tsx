@@ -8,10 +8,9 @@
  */
 
 import { useMemo } from "react";
-import type { AvState, FanDevice, FanState, LightState, ShadeState } from "@/lib/sim/types";
+import type { LightState, ShadeState } from "@/lib/sim/types";
 import { useSim } from "@/lib/sim/store";
 import { roomAmbience } from "@/lib/sim/ambience";
-import { bladeRadPerSec } from "@/lib/sim/fan";
 import {
   clamp01,
   daylightLux,
@@ -82,18 +81,6 @@ export function CxoCabinStage() {
     blackout: 0,
   };
 
-  /**
-   * Blade speed, handed to the geometry as a rate rather than an angle.
-   *
-   * The angle is advanced inside the render loop. Computing it here and pushing
-   * it in with `setState` meant a state update from the render phase, which
-   * schedules another render, which schedules another — an infinite loop that
-   * pegged the thread and timed out every click on the page.
-   */
-  const fanDevice = space?.devices.find((d): d is FanDevice => d.kind === "fan");
-  const fanState = fanDevice ? (states[fanDevice.id] as FanState | undefined) : undefined;
-  const fanRate = bladeRadPerSec(fanState, fanDevice?.speeds ?? 5);
-
   const env = space?.environment;
   const daylight = env
     ? clamp01(
@@ -122,7 +109,7 @@ export function CxoCabinStage() {
       bloomIntensity={0.72}
       bloomThreshold={1.08}
     >
-      <CxoCabin3D curtains={curtains} view={view} fanRate={fanRate} />
+      <CxoCabin3D curtains={curtains} view={view} />
       <CxoCabinLightRig
         fixtures={fixtures}
         daylight={daylight}

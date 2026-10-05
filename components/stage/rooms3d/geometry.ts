@@ -580,6 +580,112 @@ export function makeMarbleTexture(
   return t;
 }
 
+/**
+ * A straight-laid plank floor.
+ *
+ * The one warm surface in a dark room, and the thing that stops near-black
+ * joinery reading as a cave.
+ *
+ * It was a herringbone, and the loop drawing it swapped the plank's *position*
+ * where it meant to swap its *dimensions* — so every other stave landed
+ * somewhere unrelated and the floor came out as a chequerboard. Straight planks
+ * are what an executive floor usually is anyway, and there is nothing in them
+ * to get wrong.
+ */
+export function makeParquetTexture(seed = 3307): THREE.CanvasTexture {
+  const n = 1024;
+  const c = document.createElement("canvas");
+  c.width = n;
+  c.height = n;
+  const g = c.getContext("2d")!;
+  let s = seed;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+
+  const boardH = 74;
+  const rows = Math.ceil(n / boardH);
+  const tones = ["#7c5835", "#6c4b2d", "#875f39", "#5d4125", "#745030", "#8a6540"];
+
+  g.fillStyle = "#2a1f17";
+  g.fillRect(0, 0, n, n);
+
+  for (let r = 0; r < rows; r++) {
+    const y = r * boardH;
+    // Stagger the end joints, as a laid floor does.
+    let x = -rnd() * 300;
+    while (x < n) {
+      const len = 220 + rnd() * 320;
+      g.fillStyle = tones[Math.floor(rnd() * tones.length)];
+      g.fillRect(x + 2, y + 2, len - 4, boardH - 4);
+      // Grain along the board.
+      for (let k = 0; k < 5; k++) {
+        g.strokeStyle = `rgba(0,0,0,${0.04 + rnd() * 0.08})`;
+        g.lineWidth = 1 + rnd();
+        const gy = y + 6 + rnd() * (boardH - 12);
+        g.beginPath();
+        g.moveTo(x + 4, gy);
+        g.bezierCurveTo(x + len * 0.3, gy + (rnd() - 0.5) * 6, x + len * 0.7, gy + (rnd() - 0.5) * 6, x + len - 4, gy);
+        g.stroke();
+      }
+      x += len;
+    }
+  }
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  return t;
+}
+
+/**
+ * A distressed abstract rug, as the reference has.
+ *
+ * Soft blotches over a pale ground with the edges eaten away — a flat colour
+ * under furniture is the fastest way to make a room look untextured, and this
+ * costs one canvas.
+ */
+export function makeRugTexture(seed = 8821): THREE.CanvasTexture {
+  const n = 512;
+  const c = document.createElement("canvas");
+  c.width = n;
+  c.height = n;
+  const g = c.getContext("2d")!;
+  let s = seed;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+
+  g.fillStyle = "#8d8679";
+  g.fillRect(0, 0, n, n);
+  for (let i = 0; i < 260; i++) {
+    const r = 10 + rnd() * 70;
+    const x = rnd() * n;
+    const y = rnd() * n;
+    const dark = rnd() < 0.55;
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, dark ? `rgba(30,26,22,${0.14 + rnd() * 0.36})` : `rgba(208,199,182,${0.1 + rnd() * 0.3})`);
+    grd.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = grd;
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+  }
+  // A worn border, so it reads as a rug and not as a painted rectangle.
+  g.strokeStyle = "rgba(42,36,30,0.3)";
+  g.lineWidth = 16;
+  g.strokeRect(22, 22, n - 44, n - 44);
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
 export function makeArtTexture(seed = 11): THREE.CanvasTexture {
   const w = 1024;
   const h = 640;
