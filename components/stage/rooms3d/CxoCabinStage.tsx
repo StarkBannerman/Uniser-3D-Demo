@@ -35,16 +35,27 @@ import { makeCityTexture } from "./geometry";
  * The glazing then runs away down the left edge with the drapes on it, which is
  * what puts the city in shot without the window becoming the subject.
  *
- * Solved rather than eyeballed. Aiming at the desk put the lens 28 degrees off
- * the room's axis and threw the whole glazed wall outside the frustum — the
- * first render had no window in it at all. Aiming at x = 3.4 instead holds the
- * glazing between 0.16 and 0.27 of the frame width and still leaves the desk at
- * 0.65, which is where the sheet has it.
+ * Solved against the sheet, by reading where each element sits as a fraction of
+ * its frame width and aiming for the same:
+ *
+ *   glazing  0.14 - 0.48      stone wall  0.58 - 0.70
+ *   desk     0.28 - 0.72      shelving    0.71 - 0.84
+ *   sofa     0.00 - 0.22      framed art  0.86 - 0.97
+ *
+ * Two numbers did most of the work, and both were wrong before. The height:
+ * the sheet's vanishing point sits at 0.42 of frame height, which puts the lens
+ * at about 1.4 m — near enough seated, not the 2.0 m standing view it had. And
+ * the distance: 2.8 m from the desk rather than 6.6, because at six metres a
+ * 3.4 m desk takes a fifth of the picture and the sheet gives it nearly half.
+ *
+ * Standing back and up is the safe instinct and it is what makes a room read as
+ * a floor plan with furniture on it. The sheet is close and low, which is why
+ * its desk looks like somebody's desk.
  */
 const CAMERA: CameraSpec = {
-  position: [2.3, 2.0, 9.7],
-  target: [3.7, 1.1, 2.0],
-  fov: 58,
+  position: [3.8, 1.45, 8.6],
+  target: [4.9, 1.0, 1.6],
+  fov: 60,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };

@@ -26,7 +26,7 @@ import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { emissive } from "./materials";
 import { Spot } from "./Spot";
-import { CX, CX_COVE_Y, CX_PLAN, CX_WINDOW } from "./CxoCabin3D";
+import { CX, CX_BACK_WINDOW, CX_COVE_Y, CX_PLAN } from "./CxoCabin3D";
 
 RectAreaLightUniformsLib.init();
 
@@ -66,7 +66,9 @@ const GAIN = {
   rgb: 5,
   rgbEmissive: 3.6,
   sun: 1.3,
-  sky: 2.8,
+  // Enough to read as a lit window, not enough to bleach the floor in front of
+  // it — which is what a 2.9 x 2.8 m source does at anything higher.
+  sky: 2.0,
 } as const;
 
 function colourOf(state: LightState): THREE.Color {
@@ -348,11 +350,14 @@ function Daylight({ level, transmission }: { level: number; transmission: number
   if (through <= 0.004) return null;
   return (
     <group>
+      {/* The back run, which is the one in shot and the one the desk sits
+          against. `rotation={[0, Math.PI, 0]}` because a RectAreaLight emits
+          along its own -Z and would otherwise fire out of the building. */}
       <rectAreaLight
-        position={[0.08, (CX_WINDOW.y0 + CX_WINDOW.y1) / 2, (CX_WINDOW.z0 + CX_WINDOW.z1) / 2]}
-        rotation={[0, -Math.PI / 2, 0]}
-        width={CX_WINDOW.z1 - CX_WINDOW.z0}
-        height={CX_WINDOW.y1 - CX_WINDOW.y0}
+        position={[(CX_BACK_WINDOW.x0 + CX_BACK_WINDOW.x1) / 2, (CX_BACK_WINDOW.y0 + CX_BACK_WINDOW.y1) / 2, 0.1]}
+        rotation={[0, Math.PI, 0]}
+        width={CX_BACK_WINDOW.x1 - CX_BACK_WINDOW.x0}
+        height={CX_BACK_WINDOW.y1 - CX_BACK_WINDOW.y0}
         intensity={GAIN.sky * through}
         color={new THREE.Color("#d2e1ff")}
       />

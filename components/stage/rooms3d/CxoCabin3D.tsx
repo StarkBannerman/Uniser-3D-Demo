@@ -47,33 +47,54 @@ export const CX = {
 
 export const CX_COVE_Y = CX.h - CX.soffit.drop + 0.03;
 
-/** Glazed opening in the x = 0 wall, behind the curtains. */
-export const CX_WINDOW = { z0: 0.9, z1: 9.2, y0: 0.1, y1: CX.h - 0.46 };
+/**
+ * The cabin is glazed on a corner, which is the thing the first build got
+ * structurally wrong.
+ *
+ * On the sheet the window sits on the *back* wall, to the left of the stone,
+ * with the desk in front of the junction between them — and it wraps round the
+ * left-hand wall as well. Putting all the glass on the side wall alone meant no
+ * camera that framed the desk could also see a window, which is why the view
+ * kept having to be traded against the subject.
+ */
+export const CX_WINDOW = { z0: 0.9, z1: 6.4, y0: 0.1, y1: CX.h - 0.46 };
+/** And the return, on the z = 0 wall, left of the stone. */
+export const CX_BACK_WINDOW = { x0: 0.35, x1: 3.25, y0: 0.1, y1: CX.h - 0.46 };
 
 export const CX_PLAN = {
   /** Stone feature wall behind the desk, carrying the wordmark. */
-  stone: { x0: 3.0, x1: 7.0, words: { x: 5.0, cy: 2.0, h: 1.5 } },
-  /** Backlit joinery either side of the stone. */
-  shelves: [
-    { x0: 7.1, x1: 8.8, bays: 4 },
-    { x0: 1.5, x1: 2.9, bays: 4 },
-  ],
+  stone: { x0: 3.45, x1: 6.85, words: { x: 5.15, cy: 2.0, h: 1.5 } },
+  /**
+   * Backlit joinery, right of the stone only.
+   *
+   * There were two units, one either side. The sheet has one: to the left of
+   * the stone is the window, and a second unit there was both wrong and in the
+   * way of the thing the room is meant to be looking at.
+   */
+  shelves: [{ x0: 6.95, x1: 8.75, bays: 4 }],
   /** Credenza running under the stone wall. */
-  credenza: { x: 5.0, w: 4.1, d: 0.52, h: 0.52 },
+  credenza: { x: 5.15, w: 3.3, d: 0.52, h: 0.52 },
   /** Framed artwork on the joinery wall. */
   art: { z: 3.4, cy: 1.78, w: 1.15, h: 1.5 },
 
-  /** The desk: 2.9 m of stone on a timber plinth, facing the room. */
-  desk: { x: 5.3, z: 3.1, w: 2.9, d: 1.12, h: 0.75 },
-  /** Executive chair behind it, two visitors in front. */
-  execChair: { x: 5.3, z: 2.15 },
+  /**
+   * The desk: 3.4 m of stone on a timber plinth, facing the room.
+   *
+   * Sized off the sheet rather than guessed. There the desk's front edge runs
+   * from 0.28 to 0.72 of the frame — it is 44 per cent of the picture and the
+   * unmistakable subject. At 2.9 m seen from six metres it was taking 22 per
+   * cent and reading as a table in a large room.
+   */
+  desk: { x: 5.4, z: 3.2, w: 3.4, d: 1.25, h: 0.75 },
+  /** Executive chair behind it, two visitors in front with their backs to us. */
+  execChair: { x: 5.4, z: 2.05 },
   visitors: [
-    { x: 4.42, z: 4.26 },
-    { x: 6.18, z: 4.26 },
+    { x: 4.55, z: 4.62 },
+    { x: 6.35, z: 4.62 },
   ],
 
   /** Suspended linear over the desk, on the desk's own axis. */
-  pendant: { x: 5.3, z: 3.1, w: 2.4, y: 2.32 },
+  pendant: { x: 5.4, z: 3.2, w: 2.7, y: 2.3 },
 
   /**
    * Lounge, in front of the glazing.
@@ -83,14 +104,29 @@ export const CX_PLAN = {
    * the glazing it is supposed to sit in front of was pushed out of shot
    * entirely — the room read as an office with a sofa in the way.
    */
-  sofa: { x: 1.75, z: 6.3, len: 2.9 },
-  coffee: { x: 3.45, z: 6.3 },
-  sideTable: { x: 1.95, z: 4.5 },
-  floorLamp: { x: 1.45, z: 8.3 },
-  rug: { x: 2.85, z: 6.3, w: 4.4, d: 3.6 },
+  sofa: { x: 1.7, z: 5.5, len: 3.1 },
+  coffee: { x: 3.2, z: 5.5 },
+  sideTable: { x: 1.7, z: 3.7 },
+  floorLamp: { x: 1.4, z: 7.4 },
+  rug: { x: 2.7, z: 5.5, w: 4.2, d: 3.8 },
+  /**
+   * A second rug, under the desk and the visitor chairs.
+   *
+   * The sheet has one and the room needs it: without it the whole lower right
+   * of the frame is four square metres of bare floor, which is the emptiest
+   * thing in an otherwise furnished picture.
+   */
+  deskRug: { x: 5.4, z: 4.0, w: 5.2, d: 3.4 },
 
-  /** Ceiling fan over the lounge, never over the desk. */
-  fan: { x: 2.8, z: 6.3, y: 2.74 },
+  /**
+   * Ceiling fan over the lounge, well left of the desk.
+   *
+   * It was at the room's centre and two metres across, directly over the lens,
+   * and the sheet has no fan in shot at all. The document asks for fan control
+   * so it stays — but out at the edge of the picture where a fan over a sofa
+   * actually belongs, rather than hanging in front of the subject.
+   */
+  fan: { x: 1.9, z: 4.4, y: 2.78 },
 
   /** General downlights: a loose grid, not a ceiling of them. */
   generalHeads: [
@@ -187,6 +223,8 @@ const M = {
     sheenColor: new THREE.Color("#8d7a63"),
   }),
   rug: new THREE.MeshStandardMaterial({ color: "#5a4f43", roughness: 1 }),
+  /** A shade darker and cooler, so the two rugs read as two rugs. */
+  rugDesk: new THREE.MeshStandardMaterial({ color: "#453d36", roughness: 1 }),
   shade: new THREE.MeshStandardMaterial({
     color: "#d9cdb8",
     roughness: 0.9,
@@ -267,11 +305,29 @@ function Shell({ stone }: { stone: THREE.Texture }) {
         </mesh>
       ))}
 
-      {/* Feature wall, z = 0. Stone in the middle, plaster either side. */}
-      <mesh position={[w / 2, h / 2, 0]} receiveShadow>
-        <planeGeometry args={[w, h]} />
-        <primitive object={M.wall} attach="material" />
-      </mesh>
+      {/* Feature wall, z = 0 — but only where there is no glass in it. */}
+      {([
+        [(CX_BACK_WINDOW.x1 + w) / 2, w - CX_BACK_WINDOW.x1],
+        [CX_BACK_WINDOW.x0 / 2, CX_BACK_WINDOW.x0],
+      ] as const).map(([cx, width], i) => (
+        <mesh key={i} position={[cx, h / 2, 0]} receiveShadow>
+          <planeGeometry args={[width, h]} />
+          <primitive object={M.wall} attach="material" />
+        </mesh>
+      ))}
+      {([
+        [CX_BACK_WINDOW.y0 / 2, CX_BACK_WINDOW.y0],
+        [(CX_BACK_WINDOW.y1 + h) / 2, h - CX_BACK_WINDOW.y1],
+      ] as const).map(([cy, height], i) => (
+        <mesh
+          key={`b${i}`}
+          position={[(CX_BACK_WINDOW.x0 + CX_BACK_WINDOW.x1) / 2, cy, 0]}
+          receiveShadow
+        >
+          <planeGeometry args={[CX_BACK_WINDOW.x1 - CX_BACK_WINDOW.x0, height]} />
+          <primitive object={M.wall} attach="material" />
+        </mesh>
+      ))}
       <mesh position={[(CX_PLAN.stone.x0 + CX_PLAN.stone.x1) / 2, h / 2, 0.015]} receiveShadow>
         <planeGeometry args={[CX_PLAN.stone.x1 - CX_PLAN.stone.x0, h]} />
         <meshStandardMaterial map={stone} roughness={0.34} metalness={0.04} />
@@ -309,7 +365,7 @@ function Shell({ stone }: { stone: THREE.Texture }) {
 
       {/* Skirting. */}
       {([
-        [w / 2, 0.05, w, 0.04],
+        [(CX_BACK_WINDOW.x1 + w) / 2, 0.05, w - CX_BACK_WINDOW.x1, 0.04],
         [w - 0.05, d / 2, 0.04, d],
         [w / 2, d - 0.05, w, 0.04],
       ] as const).map(([cx, cz, sx, sz], i) => (
@@ -491,46 +547,36 @@ const PANELS = 5;
 const PANEL_OVERLAP = 0.06;
 
 function Glazing({ sheer, blackout, view }: CxoCurtains & { view: THREE.Texture }) {
-  const win = CX_WINDOW;
-  const span = win.z1 - win.z0;
-  const height = win.y1 - win.y0;
-
-  const seg = span / PANELS;
+  const side = CX_WINDOW;
+  const back = CX_BACK_WINDOW;
+  const height = back.y1 - back.y0;
+  const backSpan = back.x1 - back.x0;
+  const sideSpan = side.z1 - side.z0;
+  const seg = backSpan / PANELS;
 
   /**
-   * Panels draw from both ends, as a pair of tracks does.
+   * Curtain panels on the back-wall glazing, drawing from both ends.
    *
-   * `gather` is the curtain's own bunching — 0 is a flat drawn panel, 1 is one
-   * pushed back against its stop with deep tight folds. The geometry helper
-   * owns that; all this has to do is place each panel at its slot and mirror
-   * the near half so the two sides meet in the middle.
+   * `gather` is the fabric's own bunching — 0 a flat drawn panel, 1 one pushed
+   * against its stop with deep tight folds — and the geometry helper owns that.
+   * All this does is slide the anchor from parked, hard against its own end, to
+   * drawn at its slot. Both are needed: gather without travel leaves five
+   * bunches spread across the glass they just uncovered.
    *
-   * The panels overlap slightly. Butt-jointing them leaves a seam of daylight
-   * down the centre of a drawn curtain — a detail nobody can name and everybody
-   * notices.
+   * The helper lays its length along Z, so the panels are turned a quarter turn
+   * to run along X on this wall.
    */
-  const curtain = (position: number, mat: THREE.Material, xOff: number, key: string) =>
+  const curtain = (position: number, mat: THREE.Material, zOff: number, key: string) =>
     Array.from({ length: PANELS }, (_, i) => {
       const closed = Math.min(Math.max(position / 100, 0), 1);
-      const gather = 1 - closed;
       const toStart = i < PANELS / 2;
-      /**
-       * Where the panel's leading edge sits, and it has to travel.
-       *
-       * Leaving each panel anchored at its own slot meant an open curtain was
-       * five thin bunches spread evenly across the glass, which hides the view
-       * it is supposed to have uncovered. A real pair of tracks stacks to the
-       * two ends: so the anchor interpolates from parked, hard against its own
-       * end, to drawn, at its slot. `gather` handles the fold shape; this
-       * handles where the fabric actually is.
-       */
       const drawn = toStart
-        ? win.z0 + i * seg - PANEL_OVERLAP / 2
-        : win.z0 + (i + 1) * seg + PANEL_OVERLAP / 2;
+        ? back.x0 + i * seg - PANEL_OVERLAP / 2
+        : back.x0 + (i + 1) * seg + PANEL_OVERLAP / 2;
       const parked = toStart
-        ? win.z0 + i * seg * 0.1
-        : win.z1 - (PANELS - 1 - i) * seg * 0.1;
-      const z = parked + (drawn - parked) * closed;
+        ? back.x0 + i * seg * 0.1
+        : back.x1 - (PANELS - 1 - i) * seg * 0.1;
+      const x = parked + (drawn - parked) * closed;
       return (
         <mesh
           key={`${key}-${i}`}
@@ -539,10 +585,11 @@ function Glazing({ sheer, blackout, view }: CxoCurtains & { view: THREE.Texture 
             height,
             folds: 9,
             foldDepth: 0.1,
-            gather,
+            gather: 1 - closed,
           })}
           material={mat}
-          position={[xOff, win.y0, z]}
+          position={[x, back.y0, zOff]}
+          rotation={[0, Math.PI / 2, 0]}
           scale={[1, 1, toStart ? 1 : -1]}
           castShadow={key === "drape"}
         />
@@ -551,31 +598,58 @@ function Glazing({ sheer, blackout, view }: CxoCurtains & { view: THREE.Texture 
 
   return (
     <group>
-      <mesh position={[-0.5, (win.y0 + win.y1) / 2, (win.z0 + win.z1) / 2]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[span * 1.5, height * 1.6]} />
+      {/* The city, well outside both runs of glass. */}
+      <mesh position={[(back.x0 + back.x1) / 2, (back.y0 + back.y1) / 2, -0.6]}>
+        <planeGeometry args={[backSpan * 2.4, height * 1.8]} />
         <meshBasicMaterial map={view} toneMapped={false} />
       </mesh>
-      <mesh position={[0.02, (win.y0 + win.y1) / 2, (win.z0 + win.z1) / 2]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[span, height]} />
+      <mesh position={[-0.6, (side.y0 + side.y1) / 2, (side.z0 + side.z1) / 2]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[sideSpan * 1.6, height * 1.8]} />
+        <meshBasicMaterial map={view} toneMapped={false} />
+      </mesh>
+
+      {/* Glass. */}
+      <mesh position={[(back.x0 + back.x1) / 2, (back.y0 + back.y1) / 2, 0.02]}>
+        <planeGeometry args={[backSpan, height]} />
         <primitive object={M.glass} attach="material" />
       </mesh>
-      {Array.from({ length: 4 }, (_, i) => (
-        <mesh key={i} position={[0.03, (win.y0 + win.y1) / 2, win.z0 + (span / 3) * i]}>
-          <boxGeometry args={[0.07, height, 0.055]} />
+      <mesh position={[0.02, (side.y0 + side.y1) / 2, (side.z0 + side.z1) / 2]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[sideSpan, height]} />
+        <primitive object={M.glass} attach="material" />
+      </mesh>
+
+      {/* Mullions, and the corner post where the two runs meet. */}
+      {Array.from({ length: 3 }, (_, i) => (
+        <mesh key={`bm${i}`} position={[back.x0 + (backSpan / 2) * i, (back.y0 + back.y1) / 2, 0.03]}>
+          <boxGeometry args={[0.06, height, 0.07]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
       ))}
-      {/* Track, above the opening. */}
-      <mesh position={[0.2, win.y1 + 0.05, (win.z0 + win.z1) / 2]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.028, 0.028, span, 8]} />
+      {Array.from({ length: 3 }, (_, i) => (
+        <mesh key={`sm${i}`} position={[0.03, (side.y0 + side.y1) / 2, side.z0 + (sideSpan / 2) * i]}>
+          <boxGeometry args={[0.07, height, 0.06]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
+      ))}
+      {/* Head and sill on the back run. */}
+      {([back.y0, back.y1] as const).map((y, i) => (
+        <mesh key={`bt${i}`} position={[(back.x0 + back.x1) / 2, y, 0.03]}>
+          <boxGeometry args={[backSpan, 0.07, 0.07]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
+      ))}
+
+      {/* Track above the back glazing. */}
+      <mesh position={[(back.x0 + back.x1) / 2, back.y1 + 0.06, 0.26]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.026, 0.026, backSpan + 0.3, 8]} />
         <primitive object={M.metal} attach="material" />
       </mesh>
-      {/* Drawn *and* open. An open curtain is not an absent one: it stacks at
-          the ends of its track, which is where most of a drape's bulk lives
-          and most of what makes a glazed wall look dressed. Gating these on
-          position left the window bare in every scene that opens them. */}
-      {curtain(sheer, M.sheer, 0.15, "sheer")}
-      {curtain(blackout, M.drape, 0.3, "drape")}
+
+      {/* Drawn and open alike. An open curtain is not an absent one — it stacks
+          at the ends of its track, which is where most of a drape's bulk lives
+          and most of what makes a glazed wall look dressed. */}
+      {curtain(sheer, M.sheer, 0.17, "sheer")}
+      {curtain(blackout, M.drape, 0.32, "drape")}
     </group>
   );
 }
@@ -740,6 +814,14 @@ function Lounge() {
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[p.rug.x, 0.004, p.rug.z]} receiveShadow>
         <planeGeometry args={[p.rug.w, p.rug.d]} />
         <primitive object={M.rug} attach="material" />
+      </mesh>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[p.deskRug.x, 0.003, p.deskRug.z]}
+        receiveShadow
+      >
+        <planeGeometry args={[p.deskRug.w, p.deskRug.d]} />
+        <primitive object={M.rugDesk} attach="material" />
       </mesh>
 
       {/* Sofa, facing into the room. */}
