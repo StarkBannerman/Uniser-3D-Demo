@@ -212,9 +212,21 @@ const M = {
   }),
   deskTop: new THREE.MeshStandardMaterial({
     color: "#6f685e",
-    roughness: 0.26,
-    metalness: 0.05,
-    envMapIntensity: 1.2,
+    /**
+     * Matt-honed, and the number went up twice before it was right.
+     *
+     * The blown band across this top was never the task lamp — it was the
+     * suspended pendant, 2.2 m of bright emissive strip hanging directly above
+     * a stone surface, reflecting in it. That is physically correct and it was
+     * still clipping seven per cent of the top.
+     *
+     * Raising roughness spreads that reflection instead of dimming the fitting
+     * that causes it, which is the right lever: the pendant has to stay bright,
+     * because it is the one luminaire in the room anybody looks at.
+     */
+    roughness: 0.5,
+    metalness: 0.04,
+    envMapIntensity: 0.7,
   }),
   carpet: new THREE.MeshStandardMaterial({
     color: "#c6bdb0",
@@ -891,37 +903,10 @@ function Desk() {
         <primitive object={M.walnutDark} attach="material" />
       </mesh>
 
-      {/**
-       * A professional widescreen display on an arm, and a grommet for the
-       * cables to disappear into.
-       *
-       * Most of what separates an executive workstation from a writing desk is
-       * a monitor somebody actually works at and no visible cabling.
-       */}
-      <group position={[0.42, d.h, -0.26]}>
-        <mesh position={[0, 0.012, 0]}>
-          <boxGeometry args={[0.24, 0.024, 0.16]} />
-          <primitive object={M.matteBlack} attach="material" />
-        </mesh>
-        <mesh position={[0, 0.2, 0]}>
-          <cylinderGeometry args={[0.022, 0.022, 0.38, 12]} />
-          <primitive object={M.matteBlack} attach="material" />
-        </mesh>
-        <mesh position={[0, 0.54, 0.02]} rotation={[-0.06, 0, 0]}>
-          <boxGeometry args={[0.95, 0.4, 0.022]} />
-          <primitive object={M.matteBlack} attach="material" />
-        </mesh>
-        <mesh position={[0, 0.54, 0.034]} rotation={[-0.06, 0, 0]}>
-          <planeGeometry args={[0.91, 0.365]} />
-          <meshStandardMaterial
-            color="#000000"
-            emissive={new THREE.Color("#4e6d96")}
-            emissiveIntensity={1.15}
-            toneMapped={false}
-          />
-        </mesh>
-      </group>
-
+      {/* No monitor. It was specified, then asked for again as removed — and
+          it was standing directly in front of the executive chair from this
+          viewpoint, which is the better argument of the two. The laptop and
+          the grommet carry the workstation on their own. */}
       {/* Laptop, open, beside it. */}
       <group position={[-0.32, d.h + 0.045, -0.12]}>
         <mesh>
@@ -934,10 +919,22 @@ function Desk() {
         </mesh>
         <mesh position={[0, 0.11, -0.119]} rotation={[-0.32, 0, 0]}>
           <planeGeometry args={[0.335, 0.21]} />
+          {/**
+           * Under the bloom threshold, deliberately.
+           *
+           * The composer blooms anything over 1.08, and this screen was at 1.2
+           * with tone mapping off — so it went into the bloom pass at full
+           * value and threw a halo across the desk behind it. That halo was
+           * the "messed up lighting on the table": not a light at all, and
+           * which is why changing the lamp and then the desk material moved
+           * the measurement by nothing both times.
+           *
+           * A laptop screen is a small dim object. It has no business blooming.
+           */}
           <meshStandardMaterial
             color="#000000"
             emissive={new THREE.Color("#5b7ba8")}
-            emissiveIntensity={1.2}
+            emissiveIntensity={0.9}
             toneMapped={false}
           />
         </mesh>

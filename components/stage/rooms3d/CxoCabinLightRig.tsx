@@ -33,10 +33,34 @@ RectAreaLightUniformsLib.init();
 const GAIN = {
   cove: 26,
   coveEmissive: 5.2,
-  /** The suspended linear and the table lamp. */
-  pendant: 16,
+  /**
+   * The suspended linear.
+   *
+   * 16 put a blown band straight down the desk top — a 2.2 m area light 1.55 m
+   * above a surface is a lot of flux over not much distance. It took four
+   * wrong guesses to find: the task lamp, the desk's gloss, the laptop's bloom
+   * and the desk's roughness again, none of which moved the measurement by
+   * more than a tenth of a per cent.
+   *
+   * The tell was that roughness changed nothing. A specular highlight spreads
+   * when you roughen a surface; a diffuse pool does not care. Once it was
+   * clearly diffuse there was only one source directly above it.
+   */
+  // Back up from the 7 it was cut to while hunting the blown desk. The
+  // pendant was never the cause, and it is the one luminaire in the room
+  // anybody looks at.
+  pendant: 13,
   pendantEmissive: 5.0,
-  lamp: 9,
+  /**
+   * A near-field source, and the number is small for a reason.
+   *
+   * three.js spotlights are candela: illuminance is intensity / distance
+   * squared. This one sits 0.46 m above what it lights, so whatever is written
+   * here arrives on the desk multiplied by about four. At 9 it put a blown
+   * white band across the whole top; at 3 it still did. 0.9 is the first value
+   * that reads as a lamp rather than as a fault.
+   */
+  lamp: 1.6,
   lampEmissive: 2.4,
   /**
    * Working light, raised after measuring.
@@ -51,8 +75,26 @@ const GAIN = {
   /** Narrow heads on the desk. */
   task: 42,
   taskEmissive: 5.6,
-  /** Shelf strips, and the head grazing the artwork. */
-  accentStrip: 15,
+  /**
+   * Shelf strips. Small, because of what they physically are.
+   *
+   * This was the blown band on the desk, and it took five wrong guesses to
+   * find — the task lamp, the desk's gloss, the laptop's bloom, the desk's
+   * roughness again, and the pendant — none of which moved the measurement by
+   * more than a tenth of a per cent.
+   *
+   * What settled it was comparing scenes rather than changing things: Leave
+   * clipped 0 per cent, Reading 0 per cent, Welcome 7.6. The only layer much
+   * brighter in Welcome than Reading is the accent, at 92 against 55.
+   *
+   * And then the error is obvious. Each unit's strips were one area light the
+   * full size of the unit, facing out into the room — 1.85 by 2.24 metres of
+   * emitter pointed straight at a desk two and a half metres away. A strip
+   * tucked under a shelf lights the books 20 cm in front of it. It does not
+   * light the far side of the room, and it certainly does not do it harder
+   * than the ceiling does.
+   */
+  accentStrip: 4.5,
   accentGraze: 20,
   accentEmissive: 3.4,
   /**
@@ -195,14 +237,24 @@ function Decorative({ state }: { state: LightState }) {
           <planeGeometry args={[0.36, 0.04]} />
           <primitive object={shade} attach="material" />
         </mesh>
+        {/**
+         * Wide, soft and weak, because it is 40 cm from what it is lighting.
+         *
+         * A task lamp is a near-field source and the inverse square law is
+         * merciless at that range: at the gain a ceiling fitting wants, this
+         * put a blown white streak across the desk — 3.4 per cent of the
+         * surface clipped at a peak of 253. The gain comes down by two thirds,
+         * the cone opens up and the decay steepens, which is what a shade on a
+         * desk actually does to the light leaving it.
+         */}
         {out > 0.001 && (
           <Spot
-            position={[d.x - 0.85, d.h + 0.4, d.z - 0.2]}
-            target={[d.x - 0.6, d.h, d.z + 0.05]}
-            angle={0.62}
-            penumbra={0.7}
-            distance={3}
-            decay={1.5}
+            position={[d.x - 0.85, d.h + 0.46, d.z - 0.2]}
+            target={[d.x - 0.5, d.h, d.z + 0.12]}
+            angle={0.95}
+            penumbra={0.9}
+            distance={2.2}
+            decay={2}
             intensity={GAIN.lamp * out}
             color={colour}
           />
