@@ -26,7 +26,7 @@ import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { emissive } from "./materials";
 import { Spot } from "./Spot";
-import { CX, CX_BACK_WINDOW, CX_COVE_Y, CX_PLAN } from "./CxoCabin3D";
+import { CX, CX_COVE_Y, CX_PLAN, CX_WINDOW } from "./CxoCabin3D";
 
 RectAreaLightUniformsLib.init();
 
@@ -155,19 +155,19 @@ function Decorative({ state }: { state: LightState }) {
       {out > 0.001 && (
         <rectAreaLight
           position={[p.x, p.y - 0.055, p.z]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          width={p.w}
+          rotation={[-Math.PI / 2, 0, Math.PI / 2]}
+          width={p.len}
           height={0.11}
           intensity={GAIN.pendant * out}
           color={colour}
         />
       )}
       <mesh position={[p.x, p.y - 0.052, p.z]} rotation={[Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[p.w, 0.11]} />
+        <planeGeometry args={[0.11, p.len]} />
         <primitive object={blade} attach="material" />
       </mesh>
       <mesh position={[p.x, p.y + 0.052, p.z]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[p.w, 0.11]} />
+        <planeGeometry args={[0.11, p.len]} />
         <primitive object={blade} attach="material" />
       </mesh>
 
@@ -243,39 +243,43 @@ function Heads({
 }
 
 /**
- * Accent: strips in every shelf bay, and a head grazing the artwork.
+ * Accent: strips in every shelf bay, and a graze on the artwork.
  *
- * One area light for the two shelving units rather than one per bay. Eight bays
- * stacked in the same plane wash the same piece of joinery, and the eight
- * lights that used to do it were seven more than the picture needed.
+ * One area light per joinery unit rather than one per bay — four bays stacked
+ * in the same plane wash the same piece of timber, and four lights were three
+ * more than the picture needed.
+ *
+ * `rotation={[0, Math.PI, 0]}` throughout: a RectAreaLight emits along its own
+ * local -Z, so without the half turn every one of these fires into the wall it
+ * is mounted on. That exact bug has now cost time in two rooms.
  */
 function Accent({ state }: { state: LightState }) {
   const colour = colourOf(state);
   const out = output(state);
   const face = useFace(colour, GAIN.accentEmissive * aperture(state));
-  const art = CX_PLAN.art;
+  const p = CX_PLAN;
 
   return (
     <group>
-      {CX_PLAN.shelves.map((unit, u) => {
-        const width = unit.x1 - unit.x0;
+      {p.shelves.map((unit, u) => {
+        const span = unit.x1 - unit.x0;
         const cx = (unit.x0 + unit.x1) / 2;
-        const top = 2.62;
+        const top = 2.86;
         const bottom = 0.62;
         const pitch = (top - bottom) / unit.bays;
         return (
           <group key={u}>
             {Array.from({ length: unit.bays }, (_, b) => (
-              <mesh key={b} position={[cx, bottom + pitch * (b + 1) - 0.028, 0.3]} rotation={[Math.PI / 2, 0, 0]}>
-                <planeGeometry args={[width - 0.06, 0.035]} />
+              <mesh key={b} position={[cx, bottom + pitch * (b + 1) - 0.03, 0.36]}>
+                <planeGeometry args={[span - 0.08, 0.035]} />
                 <primitive object={face} attach="material" />
               </mesh>
             ))}
             {out > 0.001 && (
               <rectAreaLight
-                position={[cx, (bottom + top) / 2, 0.28]}
-                rotation={[0, 0, 0]}
-                width={width}
+                position={[cx, (bottom + top) / 2, 0.34]}
+                rotation={[0, Math.PI, 0]}
+                width={span}
                 height={top - bottom}
                 intensity={GAIN.accentStrip * out}
                 color={colour}
@@ -285,11 +289,10 @@ function Accent({ state }: { state: LightState }) {
         );
       })}
 
-      {/* Graze down the artwork. */}
       {out > 0.001 && (
         <Spot
-          position={[CX_PLAN.artHead.x, CX.h - 0.06, CX_PLAN.artHead.z]}
-          target={[CX.w - 0.12, art.cy, art.z]}
+          position={[p.artHead.x, CX.h - 0.06, p.artHead.z]}
+          target={[p.art.x, p.art.cy, 0.14]}
           angle={0.4}
           penumbra={0.55}
           distance={7}
@@ -303,71 +306,59 @@ function Accent({ state }: { state: LightState }) {
 }
 
 /**
- * Feature colour: a concealed wash behind the stone and under the credenza.
+ * Feature colour: the reveal behind the marble, the line under the desk, and
+ * the wash beneath the credenza.
  *
- * "Where appropriate" in a CXO cabin means almost invisible. These are two
- * glowing slots rather than a colour-changing ceiling, and the brightest thing
- * about them is the emissive face — the actual output is kept low on purpose so
- * a saturated colour tints the joinery without staining the whole room.
+ * All three are concealed — bright to look at, deliberately modest as emitters,
+ * so a saturated colour tints the joinery without staining the room. The desk
+ * strip is the one that earns its place: three metres of stone appearing to
+ * float costs one emissive quad and a pool on the floor.
  */
 function FeatureColour({ state }: { state: LightState }) {
   const colour = colourOf(state);
   const out = output(state);
   const face = useFace(colour, GAIN.rgbEmissive * aperture(state));
-  const stone = CX_PLAN.stone;
-  const cred = CX_PLAN.credenza;
-  const desk = CX_PLAN.desk;
+  const p = CX_PLAN;
+  const m = p.marble;
+  const desk = p.desk;
 
   return (
     <group>
-      {/* Reveal around the stone panel. */}
-      {([stone.x0 - 0.04, stone.x1 + 0.04] as const).map((x) => (
-        <mesh key={x} position={[x, CX.h / 2, 0.05]}>
-          <planeGeometry args={[0.05, CX.h - 0.5]} />
-          <primitive object={face} attach="material" />
-        </mesh>
-      ))}
-      {/* Wash under the floating credenza. */}
-      <mesh position={[cred.x, 0.055, cred.d / 2 + 0.03]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[cred.w - 0.2, cred.d]} />
-        <primitive object={face} attach="material" />
-      </mesh>
-
-      {/**
-       * And the line of light under the desk.
-       *
-       * The signature detail of the reference and the cheapest thing in the
-       * room: a strip in the shadow gap above the plinth, so three metres of
-       * black stone appears to float. It costs one emissive quad and a pool on
-       * the parquet, and it is the first thing anybody notices.
-       */}
-      <mesh
-        position={[desk.x, 0.14, desk.z + desk.d / 2 - 0.05]}
-        rotation={[-Math.PI / 2, 0, 0]}
-      >
-        <planeGeometry args={[desk.w - 0.3, 0.12]} />
+      <mesh position={[(m.x0 + m.x1) / 2, (m.y0 + m.y1) / 2, 0.095]}>
+        <planeGeometry args={[m.x1 - m.x0 + 0.12, m.y1 - m.y0 + 0.12]} />
         <primitive object={face} attach="material" />
       </mesh>
       {out > 0.001 && (
         <rectAreaLight
-          position={[desk.x, 0.12, desk.z + desk.d / 2 - 0.02]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          width={desk.w - 0.3}
-          height={0.5}
-          intensity={GAIN.rgb * 1.6 * out}
-          color={colour}
-        />
-      )}
-      {out > 0.001 && (
-        <rectAreaLight
-          position={[(stone.x0 + stone.x1) / 2, 1.5, 0.12]}
-          rotation={[0, 0, 0]}
-          width={stone.x1 - stone.x0}
-          height={2.4}
+          position={[(m.x0 + m.x1) / 2, (m.y0 + m.y1) / 2, 0.3]}
+          rotation={[0, Math.PI, 0]}
+          width={m.x1 - m.x0}
+          height={m.y1 - m.y0}
           intensity={GAIN.rgb * out}
           color={colour}
         />
       )}
+
+      {/* The line under the desk, on its long side facing the room. */}
+      <mesh position={[desk.x + desk.w / 2 - 0.08, 0.115, desk.z - 0.35]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.12, desk.d - 1.3]} />
+        <primitive object={face} attach="material" />
+      </mesh>
+      {out > 0.001 && (
+        <rectAreaLight
+          position={[desk.x + desk.w / 2 - 0.04, 0.1, desk.z - 0.35]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          width={0.5}
+          height={desk.d - 1.3}
+          intensity={GAIN.rgb * 1.6 * out}
+          color={colour}
+        />
+      )}
+
+      <mesh position={[p.credenza.x, 0.095, 0.3]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[p.credenza.len - 0.2, p.credenza.d]} />
+        <primitive object={face} attach="material" />
+      </mesh>
     </group>
   );
 }
@@ -377,14 +368,13 @@ function Daylight({ level, transmission }: { level: number; transmission: number
   if (through <= 0.004) return null;
   return (
     <group>
-      {/* The back run, which is the one in shot and the one the desk sits
-          against. `rotation={[0, Math.PI, 0]}` because a RectAreaLight emits
-          along its own -Z and would otherwise fire out of the building. */}
+      {/* The glazed wall, x = 0. `rotation={[0, -Math.PI / 2, 0]}` so it
+          emits into the room rather than out of the building. */}
       <rectAreaLight
-        position={[(CX_BACK_WINDOW.x0 + CX_BACK_WINDOW.x1) / 2, (CX_BACK_WINDOW.y0 + CX_BACK_WINDOW.y1) / 2, 0.1]}
-        rotation={[0, Math.PI, 0]}
-        width={CX_BACK_WINDOW.x1 - CX_BACK_WINDOW.x0}
-        height={CX_BACK_WINDOW.y1 - CX_BACK_WINDOW.y0}
+        position={[0.1, (CX_WINDOW.y0 + CX_WINDOW.y1) / 2, (CX_WINDOW.z0 + CX_WINDOW.z1) / 2]}
+        rotation={[0, -Math.PI / 2, 0]}
+        width={CX_WINDOW.z1 - CX_WINDOW.z0}
+        height={CX_WINDOW.y1 - CX_WINDOW.y0}
         intensity={GAIN.sky * through}
         color={new THREE.Color("#d2e1ff")}
       />

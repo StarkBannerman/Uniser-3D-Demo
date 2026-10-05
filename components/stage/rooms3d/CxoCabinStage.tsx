@@ -23,37 +23,21 @@ import { CxoCabinLightRig, type CxoFixtures } from "./CxoCabinLightRig";
 import { makeCityTexture } from "./geometry";
 
 /**
- * Across the room from the lounge corner, looking at the desk.
+ * Down the diagonal, into the corner.
  *
- * The sheet's viewpoint, and it is a diagonal for a reason. This room is two
- * rooms — a desk against a stone wall, and a lounge in front of the glazing —
- * and the only camera that holds both is one standing in the corner of the
- * second looking at the first. Square on to the desk, the lounge is behind the
- * lens and the room reads as an office with a good wall.
+ * Taken from the client's own scene sheet, which prints all seven scenes from
+ * one viewpoint and settles what two earlier guesses got wrong. Both long walls
+ * recede: the glass down the left, the lit joinery down the right, the desk
+ * across the middle with its chairs in front of it. Standing left of centre is
+ * what opens the glazing out into the left third instead of flattening it into
+ * the frame edge.
  *
- * The glazing then runs away down the left edge with the drapes on it, which is
- * what puts the city in shot without the window becoming the subject.
- *
- * Solved against the sheet, by reading where each element sits as a fraction of
- * its frame width and aiming for the same:
- *
- *   glazing  0.14 - 0.48      stone wall  0.58 - 0.70
- *   desk     0.28 - 0.72      shelving    0.71 - 0.84
- *   sofa     0.00 - 0.22      framed art  0.86 - 0.97
- *
- * Two numbers did most of the work, and both were wrong before. The height:
- * the sheet's vanishing point sits at 0.42 of frame height, which puts the lens
- * at about 1.4 m — near enough seated, not the 2.0 m standing view it had. And
- * the distance: 2.8 m from the desk rather than 6.6, because at six metres a
- * 3.4 m desk takes a fifth of the picture and the sheet gives it nearly half.
- *
- * Standing back and up is the safe instinct and it is what makes a room read as
- * a floor plan with furniture on it. The sheet is close and low, which is why
- * its desk looks like somebody's desk.
+ * A little above standing height and tilted down, so the rug and the desk top
+ * are both in shot and the verticals stay near enough parallel.
  */
 const CAMERA: CameraSpec = {
-  position: [3.8, 1.45, 8.6],
-  target: [4.9, 1.0, 1.6],
+  position: [6.6, 1.95, 9.8],
+  target: [1.25, 1.0, 1.7],
   fov: 60,
 };
 
