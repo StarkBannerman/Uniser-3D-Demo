@@ -64,19 +64,37 @@ export const CX_PLAN = {
    * mid-frame — so the two walls have to be adjacent, not opposite, and the
    * camera has to look down the diagonal between them.
    */
-  marble: { x0: 2.55, x1: 5.15, y0: 0.82, y1: 2.92 },
   /**
-   * One run of joinery, to the left of the marble. The right-hand bay is the
-   * display wall.
+   * 1.85 m of marble, not 2.6.
    *
-   * There were two, and the professional display was specified straight on top
-   * of the second one — so the panel, the video bar and the control plate were
-   * all buried inside a bookcase. The brief wants the technology to be
-   * architectural and visible; it cannot be either while it is behind shelves.
+   * Measured against the reference: there the slab takes about 15 per cent of
+   * the frame with a run of joinery each side at 10 to 12. Mine was taking 30
+   * and pushing the right-hand shelving off the edge of the picture entirely,
+   * which is most of why the wall looked bare.
    */
-  shelves: [{ x0: 0.5, x1: 2.4, bays: 4 }],
-  credenza: { x: 6.25, len: 2.5, d: 0.5, h: 0.62 },
-  art: { x: 7.62, cy: 1.8, w: 1.2, h: 1.55 },
+  /**
+   * Centred on the desk, not beside it.
+   *
+   * In the reference the slab sits directly behind the executive chair and is
+   * the backdrop to the whole composition. Mine was off to the right, which
+   * left the main subject backed by a dark gap between two bookcases — the
+   * "background behind the table" problem exactly.
+   */
+  marble: { x0: 2.0, x1: 3.9, y0: 0.82, y1: 2.92 },
+  /**
+   * Joinery both sides of the marble, as the reference has it.
+   *
+   * The right-hand run became a display wall for a pass, and the room went
+   * noticeably emptier for it — a lit bay full of books is a dense, warm,
+   * detailed thing, and a black panel is a hole. The right unit starts higher
+   * because the credenza runs under it.
+   */
+  shelves: [
+    { x0: 0.3, x1: 1.85, bays: 4, bottom: 0.62 },
+    { x0: 4.05, x1: 5.9, bays: 3, bottom: 1.0 },
+  ],
+  credenza: { x: 4.98, len: 2.1, d: 0.5, h: 0.62 },
+  art: { x: 6.9, cy: 1.78, w: 1.2, h: 1.55 },
 
   /** The desk, parallel to the glazing with the chair backing onto it. */
   /**
@@ -87,7 +105,7 @@ export const CX_PLAN = {
    * reading as a table, which is the exact failure this room had. It stays
    * dominant through mass and through the line of light under it, not length.
    */
-  desk: { x: 2.95, z: 2.8, w: 2.6, d: 1.12, h: 0.75 },
+  desk: { x: 2.95, z: 2.9, w: 2.6, d: 1.12, h: 0.75 },
   /**
    * Behind the desk, backing onto the feature wall and facing the room.
    *
@@ -124,15 +142,15 @@ export const CX_PLAN = {
    * what made the earlier version read as residential was its scale and its
    * position in the frame, not its existence.
    */
-  sofa: { x: 1.3, z: 7.15, len: 3.0 },
-  coffee: { x: 3.0, z: 7.15 },
+  sofa: { x: 1.3, z: 6.65, len: 3.0 },
+  coffee: { x: 2.95, z: 6.65 },
 
   diffuser: { x: 5.6, z: 7.6, len: 2.2 },
 
   /** Professional display, video bar and soundbar on the feature wall. */
   display: { x: 6.25, cy: 1.8, w: 1.85, h: 1.04 },
   /** Smart control panel, at the door end of the joinery. */
-  panel: { x: 7.72, cy: 1.35 },
+  panel: { x: 7.6, cy: 1.35 },
 
   generalHeads: [
     { x: 1.3, z: 1.4 }, { x: 3.9, z: 1.3 }, { x: 6.5, z: 1.4 },
@@ -144,13 +162,13 @@ export const CX_PLAN = {
     { x: 2.1, z: 2.45 }, { x: 3.8, z: 2.45 },
     { x: 2.1, z: 3.15 }, { x: 3.8, z: 3.15 },
   ],
-  artHead: { x: 7.62, z: 0.95 },
+  artHead: { x: 6.9, z: 0.95 },
   motto: { z: 10.7, cy: 1.85, h: 1.8 },
 
   /** Two large architectural planters, not a scatter of houseplants. */
   plants: [
-    { x: 1.12, z: 4.5, s: 1 },
-    { x: 6.95, z: 6.0, s: 0.92 },
+    { x: 1.05, z: 4.3, s: 1 },
+    { x: 7.3, z: 4.6, s: 0.92 },
   ],
 } as const;
 
@@ -375,7 +393,9 @@ function Shell() {
 
 function FeatureWall() {
   const p = CX_PLAN;
-  const slab = useMemo(() => makeMarbleTexture("#8c857a", "#d2c9b6", 5171), []);
+  /** Warm figured stone with strong veining, as the reference has. The cool
+      grey slab read as a blank panel between two bookcases. */
+  const slab = useMemo(() => makeMarbleTexture("#6d6151", "#d3bf98", 5171), []);
   const art = useMemo(() => makeMarbleTexture("#b6b0a4", "#6e6a62", 77), []);
 
   return (
@@ -420,7 +440,7 @@ function FeatureWall() {
         const span = unit.x1 - unit.x0;
         const cx = (unit.x0 + unit.x1) / 2;
         const top = 2.86;
-        const bottom = 0.62;
+        const bottom = unit.bottom;
         const pitch = (top - bottom) / unit.bays;
         return (
           <group key={u}>
@@ -445,11 +465,11 @@ function FeatureWall() {
               const k = u * 5 + bi * 3;
               return (
                 <group key={`o${bi}`}>
-                  {/* One open bay in four — the brief's 70 per cent closed,
-                      and the difference between custom millwork and a
-                      bookcase. Four books and one object in it, no more. */}
-                  {bi === 3 &&
-                    Array.from({ length: 4 }, (_, i) => {
+                  {/* Books in the upper bays of both units. The room read as
+                      empty with one open bay in the whole wall — a lit shelf of
+                      spines is most of what gives joinery its density. */}
+                  {bi >= 1 &&
+                    Array.from({ length: 7 + (k % 3) }, (_, i) => {
                     const bh = 0.2 + ((k + i) % 5) * 0.032;
                     return (
                       <mesh
@@ -466,7 +486,7 @@ function FeatureWall() {
                     );
                     })}
                   {/* Closed document storage in the two lower bays. */}
-                  {bi < 3 && (
+                  {bi === 0 && (
                     <group>
                       <mesh position={[cx, y + pitch / 2 - 0.03, 0.33]}>
                         <boxGeometry args={[span - 0.06, pitch - 0.07, 0.035]} />
@@ -480,9 +500,15 @@ function FeatureWall() {
                   )}
                   {/* One sculptural object per unit, and no more. The brief
                       asks for curated niches, not a souvenir shelf. */}
-                  {bi === 3 && (
+                  {bi === unit.bays - 1 && (
                     <mesh position={[unit.x1 - 0.3, y + 0.13, 0.26]}>
                       <boxGeometry args={[0.16, 0.26, 0.16]} />
+                      <primitive object={M.brushed} attach="material" />
+                    </mesh>
+                  )}
+                  {bi === 1 && (
+                    <mesh position={[unit.x1 - 0.34, y + 0.17, 0.26]}>
+                      <cylinderGeometry args={[0.06, 0.09, 0.34, 16]} />
                       <primitive object={M.brushed} attach="material" />
                     </mesh>
                   )}
@@ -505,77 +531,6 @@ function FeatureWall() {
             <primitive object={M.brushed} attach="material" />
           </mesh>
         ))}
-      </group>
-
-      {/**
-       * The technology, integrated into the millwork rather than hung on it.
-       *
-       * A professional display recessed flush into the joinery, a video bar
-       * under it and a soundbar under that — which is what makes a room read as
-       * a corporate office rather than as a study with a television in it. The
-       * brief is specific that this should look architectural, so the display
-       * sits in its own dark reveal exactly as the marble slab does.
-       */}
-      <group position={[p.display.x, p.display.cy, 0]}>
-        <mesh position={[0, 0, 0.085]}>
-          <planeGeometry args={[p.display.w + 0.12, p.display.h + 0.12]} />
-          <primitive object={M.walnutDark} attach="material" />
-        </mesh>
-        <mesh position={[0, 0, 0.095]}>
-          <planeGeometry args={[p.display.w, p.display.h]} />
-          <meshStandardMaterial color="#0b0c0e" roughness={0.12} metalness={0.25} />
-        </mesh>
-        {/**
-         * The screen awake, dimly.
-         *
-         * The brief wants the technology unmistakable, and a dark rectangle on
-         * a lit wall is just a hole. An executive information screen sits at a
-         * low level most of the day — bright enough to read as a working
-         * display, far too dim to compete with the marble beside it.
-         */}
-        <mesh position={[0, 0, 0.0955]}>
-          <planeGeometry args={[p.display.w - 0.03, p.display.h - 0.03]} />
-          <meshStandardMaterial
-            color="#000000"
-            emissive={new THREE.Color("#16243a")}
-            emissiveIntensity={1}
-            toneMapped={false}
-          />
-        </mesh>
-        {[0.3, 0.1, -0.1].map((fy, i) => (
-          <mesh key={fy} position={[-p.display.w / 4, fy, 0.096]}>
-            <planeGeometry args={[p.display.w * 0.34, 0.03]} />
-            <meshStandardMaterial
-              color="#000000"
-              emissive={new THREE.Color(i === 0 ? "#6f8fb8" : "#3c5a7c")}
-              emissiveIntensity={1.3}
-              toneMapped={false}
-            />
-          </mesh>
-        ))}
-        <mesh position={[p.display.w / 4, 0.05, 0.096]}>
-          <planeGeometry args={[p.display.w * 0.36, p.display.h * 0.42]} />
-          <meshStandardMaterial
-            color="#000000"
-            emissive={new THREE.Color("#24405f")}
-            emissiveIntensity={1.1}
-            toneMapped={false}
-          />
-        </mesh>
-        {/* Video bar and soundbar, in matte black under the panel. */}
-        <mesh position={[0, -p.display.h / 2 - 0.09, 0.12]}>
-          <boxGeometry args={[0.4, 0.055, 0.06]} />
-          <primitive object={M.matteBlack} attach="material" />
-        </mesh>
-        {/* The camera lens. Rotation belongs on the mesh, not the geometry. */}
-        <mesh position={[0, -p.display.h / 2 - 0.09, 0.148]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.014, 0.014, 0.02, 12]} />
-          <meshStandardMaterial color="#05060a" roughness={0.3} />
-        </mesh>
-        <mesh position={[0, -p.display.h / 2 - 0.22, 0.11]}>
-          <boxGeometry args={[p.display.w * 0.8, 0.07, 0.07]} />
-          <primitive object={M.matteBlack} attach="material" />
-        </mesh>
       </group>
 
       {/* Smart control panel, flush in the joinery by the door end. */}

@@ -32,13 +32,21 @@ import { makeCityTexture } from "./geometry";
  * what opens the glazing out into the left third instead of flattening it into
  * the frame edge.
  *
- * A little above standing height and tilted down, so the rug and the desk top
- * are both in shot and the verticals stay near enough parallel.
+ * Close to the desk, which is the whole composition.
+ *
+ * Measured against the reference rather than judged: there the desk's near
+ * edge takes 46 per cent of the frame width and the lens sits about 4.2 m from
+ * it. Mine was giving the desk 19 per cent from 6.7 m, with the bottom 40 per
+ * cent of the picture bare floor — which is exactly the "zoomed out" of it.
+ *
+ * Moving in to 4.3 m on a 52 degree lens buys the desk back without touching
+ * the architecture, and pushes the empty carpet out of frame rather than
+ * trying to fill it.
  */
 const CAMERA: CameraSpec = {
-  position: [6.6, 1.95, 9.8],
-  target: [1.25, 1.0, 1.7],
-  fov: 60,
+  position: [5.25, 1.74, 6.75],
+  target: [2.5, 1.12, 2.1],
+  fov: 52,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };

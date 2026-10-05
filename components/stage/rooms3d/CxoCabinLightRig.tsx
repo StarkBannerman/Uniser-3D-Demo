@@ -288,7 +288,7 @@ function Accent({ state }: { state: LightState }) {
         const span = unit.x1 - unit.x0;
         const cx = (unit.x0 + unit.x1) / 2;
         const top = 2.86;
-        const bottom = 0.62;
+        const bottom = unit.bottom;
         const pitch = (top - bottom) / unit.bays;
         return (
           <group key={u}>

@@ -259,12 +259,24 @@ export const cxoCabin: Space = {
         // Deliberately not the brightest scene. A first impression is made by
         // contrast and by the accent layers, not by lux — this is the one place
         // the hospitality instruction in the brief is most literal.
-        "cx-general": { on: true, level: 48, cct: 3500 },
-        "cx-cove": { on: true, level: 88, cct: 2700 },
-        "cx-decorative": { on: true, level: 85, cct: 2700 },
-        "cx-task": { on: true, level: 35, cct: 3500 },
-        "cx-accent": { on: true, level: 92, cct: 2700 },
-        "cx-rgb": { on: true, level: 22, cct: 2400, sat: 0 },
+        /**
+         * Neutral white, not amber.
+         *
+         * The working layers were already at 3500 K, but they are not what you
+         * see: the cove at 88 per cent, the decorative at 85 and the accent at
+         * 92 were all sitting at 2700 K, and between them they carry the room.
+         * Three bright warm layers make an orange office however cool the
+         * downlights are.
+         *
+         * The accent stays a little warmer than the rest because it is washing
+         * timber and stone, where 4000 K reads green. Everything else is white.
+         */
+        "cx-general": { on: true, level: 48, cct: 4000 },
+        "cx-cove": { on: true, level: 88, cct: 4000 },
+        "cx-decorative": { on: true, level: 85, cct: 4000 },
+        "cx-task": { on: true, level: 35, cct: 4000 },
+        "cx-accent": { on: true, level: 92, cct: 3400 },
+        "cx-rgb": { on: true, level: 22, cct: 3000, sat: 0 },
         "cx-curtain": { sheer: 0, blackout: 0 },
         "cx-audio": { on: true, source: "Streaming", volume: 22 },
         "cx-ac": { on: true, setpointC: 24, mode: "cool", fan: 1 },
@@ -309,16 +321,16 @@ export const cxoCabin: Space = {
         "Six stages: welcome lighting comes up, the curtains take their preset, the ambient layers settle, the desk lifts for the table, the air conditioning drops and the music stops.",
       fadeMs: 1800,
       targets: {
-        "cx-rgb": { on: true, level: 22, cct: 2600, sat: 0 },
+        "cx-rgb": { on: true, level: 22, cct: 3000, sat: 0 },
       },
       steps: [
         {
           label: "Welcome lighting activates",
           holdMs: 1400,
           targets: {
-            "cx-cove": { on: true, level: 80, cct: 2800, fadeMs: 1800 },
-            "cx-decorative": { on: true, level: 80, cct: 2800, fadeMs: 1800 },
-            "cx-accent": { on: true, level: 85, cct: 2700, fadeMs: 1800 },
+            "cx-cove": { on: true, level: 80, cct: 3900, fadeMs: 1800 },
+            "cx-decorative": { on: true, level: 80, cct: 3900, fadeMs: 1800 },
+            "cx-accent": { on: true, level: 85, cct: 3400, fadeMs: 1800 },
           },
         },
         {
@@ -331,8 +343,8 @@ export const cxoCabin: Space = {
           holdMs: 7400,
           targets: {
             "cx-general": { on: true, level: 64, cct: 3800, fadeMs: 2200 },
-            "cx-cove": { on: true, level: 58, cct: 3400, fadeMs: 2200 },
-            "cx-decorative": { on: true, level: 55, cct: 3200, fadeMs: 2200 },
+            "cx-cove": { on: true, level: 58, cct: 3900, fadeMs: 2200 },
+            "cx-decorative": { on: true, level: 55, cct: 3800, fadeMs: 2200 },
           },
         },
         {
@@ -383,11 +395,11 @@ export const cxoCabin: Space = {
         "Focused and comfortable: the desk lit for paper at a warm neutral, the room behind it kept low so the page is the brightest thing in it.",
       fadeMs: 2000,
       targets: {
-        "cx-general": { on: true, level: 32, cct: 3400 },
-        "cx-cove": { on: true, level: 45, cct: 2700 },
-        "cx-decorative": { on: true, level: 55, cct: 2700 },
-        "cx-task": { on: true, level: 88, cct: 3800 },
-        "cx-accent": { on: true, level: 55, cct: 2700 },
+        "cx-general": { on: true, level: 32, cct: 3800 },
+        "cx-cove": { on: true, level: 45, cct: 3600 },
+        "cx-decorative": { on: true, level: 55, cct: 3600 },
+        "cx-task": { on: true, level: 88, cct: 4000 },
+        "cx-accent": { on: true, level: 55, cct: 3300 },
         "cx-rgb": { on: false },
         "cx-curtain": { sheer: 100, blackout: 0 },
         "cx-audio": { on: false },
