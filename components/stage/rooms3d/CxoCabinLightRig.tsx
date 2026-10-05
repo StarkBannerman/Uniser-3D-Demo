@@ -148,7 +148,7 @@ function Decorative({ state }: { state: LightState }) {
   const blade = useFace(colour, GAIN.pendantEmissive * glow);
   const shade = useFace(colour, GAIN.lampEmissive * glow);
   const p = CX_PLAN.pendant;
-  const t = CX_PLAN.sideTable;
+  const d = CX_PLAN.desk;
 
   return (
     <group>
@@ -171,18 +171,41 @@ function Decorative({ state }: { state: LightState }) {
         <primitive object={blade} attach="material" />
       </mesh>
 
-      {/* Table lamp: body, shade and a point inside it. */}
-      <group position={[t.x, 0, t.z]}>
-        <mesh position={[0, 0.66, 0]}>
-          <cylinderGeometry args={[0.035, 0.07, 0.22, 14]} />
-          <primitive object={blade} attach="material" />
+      {/**
+       * Desk task lamp, where a table lamp used to stand on a side table.
+       *
+       * A shaded lamp on an occasional table is a living room; a slim matte
+       * black task light on the desk is an office, and it is the fitting the
+       * brief actually asks for. Same device, same control, different room.
+       */}
+      <group position={[d.x - 0.3, d.h, d.z - 1.25]}>
+        <mesh position={[0, 0.01, 0]}>
+          <cylinderGeometry args={[0.075, 0.085, 0.022, 18]} />
+          <meshStandardMaterial color="#1a1b1d" roughness={0.6} metalness={0.2} />
         </mesh>
-        <mesh position={[0, 0.92, 0]}>
-          <cylinderGeometry args={[0.17, 0.23, 0.26, 20, 1, true]} />
+        <mesh position={[0, 0.2, 0]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.4, 10]} />
+          <meshStandardMaterial color="#1a1b1d" roughness={0.5} metalness={0.3} />
+        </mesh>
+        <mesh position={[0.17, 0.4, 0]} rotation={[0, 0, -0.35]}>
+          <boxGeometry args={[0.42, 0.028, 0.055]} />
+          <meshStandardMaterial color="#1a1b1d" roughness={0.5} metalness={0.3} />
+        </mesh>
+        <mesh position={[0.17, 0.383, 0]} rotation={[0, 0, -0.35]}>
+          <planeGeometry args={[0.36, 0.04]} />
           <primitive object={shade} attach="material" />
         </mesh>
         {out > 0.001 && (
-          <pointLight position={[0, 0.9, 0]} intensity={GAIN.lamp * out} distance={5.5} decay={1.6} color={colour} />
+          <Spot
+            position={[d.x - 0.12, d.h + 0.4, d.z - 1.25]}
+            target={[d.x + 0.1, d.h, d.z - 1.0]}
+            angle={0.62}
+            penumbra={0.7}
+            distance={3}
+            decay={1.5}
+            intensity={GAIN.lamp * out}
+            color={colour}
+          />
         )}
       </group>
     </group>

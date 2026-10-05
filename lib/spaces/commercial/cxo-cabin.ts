@@ -259,10 +259,10 @@ export const cxoCabin: Space = {
         // Deliberately not the brightest scene. A first impression is made by
         // contrast and by the accent layers, not by lux — this is the one place
         // the hospitality instruction in the brief is most literal.
-        "cx-general": { on: true, level: 42, cct: 3000 },
+        "cx-general": { on: true, level: 48, cct: 3500 },
         "cx-cove": { on: true, level: 88, cct: 2700 },
         "cx-decorative": { on: true, level: 85, cct: 2700 },
-        "cx-task": { on: true, level: 30, cct: 3000 },
+        "cx-task": { on: true, level: 35, cct: 3500 },
         "cx-accent": { on: true, level: 92, cct: 2700 },
         "cx-rgb": { on: true, level: 22, cct: 2400, sat: 0 },
         "cx-curtain": { sheer: 0, blackout: 0 },
@@ -330,7 +330,7 @@ export const cxoCabin: Space = {
           label: "Ambient lighting adjusts",
           holdMs: 7400,
           targets: {
-            "cx-general": { on: true, level: 60, cct: 3600, fadeMs: 2200 },
+            "cx-general": { on: true, level: 64, cct: 3800, fadeMs: 2200 },
             "cx-cove": { on: true, level: 58, cct: 3400, fadeMs: 2200 },
             "cx-decorative": { on: true, level: 55, cct: 3200, fadeMs: 2200 },
           },
@@ -338,7 +338,7 @@ export const cxoCabin: Space = {
         {
           label: "Table lighting increases",
           holdMs: 2400,
-          targets: { "cx-task": { on: true, level: 92, cct: 4000, fadeMs: 2000 } },
+          targets: { "cx-task": { on: true, level: 94, cct: 4000, fadeMs: 2000 } },
         },
         {
           label: "Air conditioning to preset",
@@ -383,7 +383,7 @@ export const cxoCabin: Space = {
         "Focused and comfortable: the desk lit for paper at a warm neutral, the room behind it kept low so the page is the brightest thing in it.",
       fadeMs: 2000,
       targets: {
-        "cx-general": { on: true, level: 28, cct: 3000 },
+        "cx-general": { on: true, level: 32, cct: 3400 },
         "cx-cove": { on: true, level: 45, cct: 2700 },
         "cx-decorative": { on: true, level: 55, cct: 2700 },
         "cx-task": { on: true, level: 88, cct: 3800 },
@@ -482,17 +482,17 @@ export const cxoCabin: Space = {
       kind: "circadian",
       name: "Circadian Tuning",
       explain:
-        "Colour follows the day on the working layers only. Press Focus at ten and again at six: the same button, a cooler room in the morning and a warmer one at the end.",
+        "Colour follows the day on the working layers only, and stays inside the 3500-4000K band an executive office is specified to. The cove and the accent layers hold their warmth regardless, which is what keeps the room from going amber end to end.",
       enabledByDefault: true,
       deviceIds: ["cx-general", "cx-task"],
       curve: [
-        { min: 0, cct: 2700 },
-        { min: 420, cct: 3200 },
-        { min: 540, cct: 4600 },
-        { min: 780, cct: 5000 },
-        { min: 960, cct: 4200 },
-        { min: 1140, cct: 3200 },
-        { min: 1380, cct: 2700 },
+        { min: 0, cct: 3000 },
+        { min: 420, cct: 3400 },
+        { min: 540, cct: 4000 },
+        { min: 780, cct: 4200 },
+        { min: 960, cct: 3900 },
+        { min: 1140, cct: 3500 },
+        { min: 1380, cct: 3000 },
       ],
     },
   ],
