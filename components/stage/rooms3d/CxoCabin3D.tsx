@@ -598,7 +598,7 @@ function BayContents({
   return <group>{items}</group>;
 }
 
-function FeatureWall() {
+function FeatureWall({ screens }: { screens: number }) {
   const p = CX_PLAN;
   /** Warm figured stone with strong veining, as the reference has. The cool
       grey slab read as a blank panel between two bookcases. */
@@ -706,7 +706,7 @@ function FeatureWall() {
           <meshStandardMaterial
             color="#000000"
             emissive={new THREE.Color("#2f5b86")}
-            emissiveIntensity={1.1}
+            emissiveIntensity={1.1 * screens}
             toneMapped={false}
           />
         </mesh>
@@ -875,7 +875,7 @@ function Glazing({ sheer, blackout, view }: CxoCurtains & { view: THREE.Texture 
 /* Desk and seating                                                    */
 /* ------------------------------------------------------------------ */
 
-function Desk() {
+function Desk({ screens }: { screens: number }) {
   const d = CX_PLAN.desk;
   /** Dark stone, not the pale slab it was. The brief asks for walnut and stone
       with restraint, and a white marble desk is the single most hotel-like
@@ -931,10 +931,18 @@ function Desk() {
            *
            * A laptop screen is a small dim object. It has no business blooming.
            */}
+          {/**
+           * The laptop follows the room, like every other emitter in it.
+           *
+           * It was a fixed value on static geometry, so in Leave — everything
+           * off, the room near black — a bright blue rectangle sat on the desk
+           * at a mean of 71/255. An emissive that no channel can reach is a
+           * light nobody can switch off.
+           */}
           <meshStandardMaterial
             color="#000000"
             emissive={new THREE.Color("#5b7ba8")}
-            emissiveIntensity={0.9}
+            emissiveIntensity={0.9 * screens}
             toneMapped={false}
           />
         </mesh>
@@ -1230,17 +1238,26 @@ function Surfaces() {
 export function CxoCabin3D({
   curtains,
   view,
+  screens,
 }: {
   curtains: CxoCurtains;
   view: THREE.Texture;
+  /**
+   * How awake the room's screens are, 0..1.
+   *
+   * Derived in the stage from the desk-zone channels, because a laptop and a
+   * wall control plate are on when somebody is working and off when the room
+   * stands down — and there is no AV channel in this space to hang them on.
+   */
+  screens: number;
 }) {
   return (
     <group>
       <Surfaces />
       <Shell />
-      <FeatureWall />
+      <FeatureWall screens={screens} />
       <Glazing sheer={curtains.sheer} blackout={curtains.blackout} view={view} />
-      <Desk />
+      <Desk screens={screens} />
       {/* The executive backs onto the glazing and faces the room; the
           visitors face back at the desk. A chair's back sits at its own local
           -z, so facing +x is a quarter turn one way and -x the other. */}

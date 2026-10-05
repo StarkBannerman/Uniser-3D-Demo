@@ -271,12 +271,23 @@ export const cxoCabin: Space = {
          * The accent stays a little warmer than the rest because it is washing
          * timber and stone, where 4000 K reads green. Everything else is white.
          */
-        "cx-general": { on: true, level: 48, cct: 4000 },
-        "cx-cove": { on: true, level: 88, cct: 4000 },
-        "cx-decorative": { on: true, level: 85, cct: 4000 },
-        "cx-task": { on: true, level: 35, cct: 4000 },
-        "cx-accent": { on: true, level: 92, cct: 3400 },
-        "cx-rgb": { on: true, level: 22, cct: 3000, sat: 0 },
+        /**
+         * Soft and accent-led, which is what makes it not Meeting.
+         *
+         * The two measured 5.7 apart at thumbnail size — the closest pair in
+         * the room, and both are bright daylight scenes with the blinds open,
+         * so nothing else separated them. Welcome now runs its working layers
+         * low and its accent and cove high: a room you are received in.
+         * Meeting runs the opposite way.
+         *
+         * Still white rather than amber. 3700 K is warm-neutral, not warm.
+         */
+        "cx-general": { on: true, level: 38, cct: 3700 },
+        "cx-cove": { on: true, level: 90, cct: 3700 },
+        "cx-decorative": { on: true, level: 88, cct: 3700 },
+        "cx-task": { on: true, level: 26, cct: 3700 },
+        "cx-accent": { on: true, level: 96, cct: 3200 },
+        "cx-rgb": { on: true, level: 32, cct: 3000, sat: 0 },
         "cx-curtain": { sheer: 0, blackout: 0 },
         "cx-audio": { on: true, source: "Streaming", volume: 22 },
         "cx-ac": { on: true, setpointC: 24, mode: "cool", fan: 1 },
@@ -291,13 +302,33 @@ export const cxoCabin: Space = {
         "Bright and balanced for deep work: task to full, general up and cool, decoration back, sheer across the glare.",
       fadeMs: 1600,
       targets: {
-        "cx-general": { on: true, level: 85, cct: 4600 },
-        "cx-cove": { on: true, level: 55, cct: 4000 },
-        "cx-decorative": { on: true, level: 40, cct: 3500 },
+        /**
+         * Blinds open, not closed.
+         *
+         * Focus, Meeting and Relax all drew the shades, which meant four of the
+         * seven scenes looked out at the same filtered grey — the single
+         * biggest reason they were hard to tell apart at a glance. A bright
+         * working scene in the middle of the afternoon has the glass clear; if
+         * glare were the problem, the daylight rule is already trimming the
+         * downlights for it.
+         */
+        /**
+         * Downlight-led and cool. The pendant is off.
+         *
+         * Focus and Meeting are both bright working scenes and measured 4.7
+         * apart — the pendant was the only thing between them, and one fitting
+         * is not enough at thumbnail size. The brief separates them on exactly
+         * that axis, so this takes it further: Focus is downlights and task
+         * light at 4800 K with nothing decorative, Meeting is the pendant at
+         * full over a warmer room.
+         */
+        "cx-general": { on: true, level: 96, cct: 4800 },
+        "cx-cove": { on: true, level: 55, cct: 4800 },
+        "cx-decorative": { on: false },
         "cx-task": { on: true, level: 100, cct: 5000 },
-        "cx-accent": { on: true, level: 45, cct: 3000 },
+        "cx-accent": { on: true, level: 22, cct: 4000 },
         "cx-rgb": { on: false },
-        "cx-curtain": { sheer: 100, blackout: 0 },
+        "cx-curtain": { sheer: 0, blackout: 0 },
         "cx-audio": { on: false },
         "cx-ac": { on: true, setpointC: 23, mode: "cool", fan: 2 },
       },
@@ -313,6 +344,12 @@ export const cxoCabin: Space = {
        * Six stages, in that order, ending with the music. A room that stops
        * playing when the meeting starts is a better argument for automation
        * than any lighting change in the sequence, and it costs one line.
+       *
+       * It runs in about 2.8 seconds now rather than 17. It was paced for a
+       * demonstration somebody narrates, and watched without a narrator it was
+       * ten seconds of almost nothing: the holds were longer than the fades
+       * inside them, so most of the sequence was a still frame. Each stage now
+       * changes something visible while it is changing it.
        */
       id: "meeting",
       name: "Meeting",
@@ -326,42 +363,46 @@ export const cxoCabin: Space = {
       steps: [
         {
           label: "Welcome lighting activates",
-          holdMs: 1400,
+          holdMs: 450,
           targets: {
-            "cx-cove": { on: true, level: 80, cct: 3900, fadeMs: 1800 },
-            "cx-decorative": { on: true, level: 80, cct: 3900, fadeMs: 1800 },
-            "cx-accent": { on: true, level: 85, cct: 3400, fadeMs: 1800 },
+            "cx-cove": { on: true, level: 80, cct: 3900, fadeMs: 800 },
+            "cx-decorative": { on: true, level: 80, cct: 3900, fadeMs: 800 },
+            "cx-accent": { on: true, level: 72, cct: 3500, fadeMs: 800 },
           },
         },
         {
           label: "Curtains take their preset",
-          holdMs: 2000,
-          targets: { "cx-curtain": { sheer: 100, blackout: 0 } },
+          holdMs: 500,
+          targets: { "cx-curtain": { sheer: 0, blackout: 0 } },
         },
         {
           label: "Ambient lighting adjusts",
-          holdMs: 7400,
+          holdMs: 500,
           targets: {
-            "cx-general": { on: true, level: 64, cct: 3800, fadeMs: 2200 },
-            "cx-cove": { on: true, level: 58, cct: 3900, fadeMs: 2200 },
-            "cx-decorative": { on: true, level: 55, cct: 3800, fadeMs: 2200 },
+            // Bright, cool and working. Against Welcome's soft accent-led
+            // room this should read as somebody switching the lights on.
+            "cx-general": { on: true, level: 68, cct: 3800, fadeMs: 900 },
+            "cx-cove": { on: true, level: 28, cct: 3800, fadeMs: 900 },
+            // The pendant is the point of Meeting: it hangs over the table
+            // everyone is sitting at, and it should be the brightest fitting.
+            "cx-decorative": { on: true, level: 100, cct: 3800, fadeMs: 900 },
           },
         },
         {
           label: "Table lighting increases",
-          holdMs: 2400,
-          targets: { "cx-task": { on: true, level: 94, cct: 4000, fadeMs: 2000 } },
+          holdMs: 500,
+          targets: { "cx-task": { on: true, level: 82, cct: 3900, fadeMs: 800 } },
         },
         {
           label: "Air conditioning to preset",
-          holdMs: 2200,
+          holdMs: 450,
           targets: {
             "cx-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
           },
         },
         {
           label: "Music off",
-          holdMs: 1600,
+          holdMs: 400,
           targets: { "cx-audio": { on: false } },
         },
       ],
@@ -376,12 +417,16 @@ export const cxoCabin: Space = {
       fadeMs: 2600,
       targets: {
         "cx-general": { on: false },
-        "cx-cove": { on: true, level: 62, cct: 2400 },
-        "cx-decorative": { on: true, level: 70, cct: 2400 },
+        // Low, so the stone and the lamp carry it. At 62 the cove was the
+        // brightest thing in a scene that is about neither.
+        "cx-cove": { on: true, level: 28, cct: 2700 },
+        "cx-decorative": { on: true, level: 72, cct: 2700 },
         "cx-task": { on: false },
-        "cx-accent": { on: true, level: 70, cct: 2500 },
-        "cx-rgb": { on: true, level: 30, cct: 2300, sat: 0 },
-        "cx-curtain": { sheer: 100, blackout: 0 },
+        "cx-accent": { on: true, level: 45, cct: 2700 },
+        "cx-rgb": { on: true, level: 62, cct: 2700, sat: 0 },
+        // Half down: the one scene where the blind position is itself the
+        // visible difference.
+        "cx-curtain": { sheer: 50, blackout: 0 },
         "cx-audio": { on: true, source: "Streaming", volume: 26 },
         "cx-ac": { on: true, setpointC: 24, fan: 1 },
       },
@@ -395,13 +440,15 @@ export const cxoCabin: Space = {
         "Focused and comfortable: the desk lit for paper at a warm neutral, the room behind it kept low so the page is the brightest thing in it.",
       fadeMs: 2000,
       targets: {
-        "cx-general": { on: true, level: 32, cct: 3800 },
-        "cx-cove": { on: true, level: 45, cct: 3600 },
-        "cx-decorative": { on: true, level: 55, cct: 3600 },
-        "cx-task": { on: true, level: 88, cct: 4000 },
-        "cx-accent": { on: true, level: 55, cct: 3300 },
-        "cx-rgb": { on: false },
-        "cx-curtain": { sheer: 100, blackout: 0 },
+        "cx-general": { on: true, level: 18, cct: 3600 },
+        // Deliberately the dimmest layer here. A reading scene whose brightest
+        // element is the ceiling cove is lighting the wrong surface.
+        "cx-cove": { on: true, level: 16, cct: 3000 },
+        "cx-decorative": { on: true, level: 82, cct: 3400 },
+        "cx-task": { on: true, level: 100, cct: 4000 },
+        "cx-accent": { on: true, level: 30, cct: 3000 },
+        "cx-rgb": { on: true, level: 18, cct: 2600, sat: 0 },
+        "cx-curtain": { sheer: 85, blackout: 0 },
         "cx-audio": { on: false },
         "cx-ac": { on: true, setpointC: 24, fan: 1 },
       },

@@ -119,6 +119,14 @@ export function CxoCabinStage() {
   // into unreadable. 0.55 keeps the shadows deep without losing the room.
   const exposure = 0.55 + 0.45 * daylight;
 
+  /**
+   * Screens follow the desk zone: off when the room stands down, dim when it
+   * is only decorative. Task alone would leave them dark through Evening,
+   * which has no task light but is plainly still occupied.
+   */
+  const deskLevel = (st: LightState) => (st.on ? st.level / 100 : 0);
+  const screens = Math.max(deskLevel(fixtures.task), deskLevel(fixtures.decorative));
+
   return (
     <Stage3D
       camera={CAMERA}
@@ -132,7 +140,7 @@ export function CxoCabinStage() {
       bloomIntensity={0.42}
       bloomThreshold={1.9}
     >
-      <CxoCabin3D curtains={curtains} view={view} />
+      <CxoCabin3D curtains={curtains} view={view} screens={screens} />
       <CxoCabinLightRig
         fixtures={fixtures}
         daylight={daylight}
