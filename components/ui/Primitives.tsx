@@ -1,12 +1,36 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { cctToRgb, rgbToCss } from "@/lib/sim/photometry";
 
 /* ------------------------------------------------------------------ */
 /* Slider                                                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * A dimmer slider.
+ *
+ * Wired to the store like everything else, with one piece of machinery in
+ * between, for a reason worth spelling out.
+ *
+ * A pointer drag fires an input event per mouse move — around sixty a second.
+ * Passing each one straight to `patch` meant sixty store writes a second, and
+ * every one of those re-renders every component subscribed to device state.
+ * On a thread already spending most of its time rendering the room, that work
+ * competes with the very frames that would have drawn the thumb moving, so the
+ * slider got *less* responsive the harder it was pushed.
+ *
+ * So two things happen here:
+ *
+ *  - **The thumb is local while a hand is on it.** `shown` drives the input, so
+ *    the control follows the pointer without waiting for a round trip through
+ *    the simulation. It syncs back from `value` the moment the hand comes off,
+ *    which is what lets a scene press still move every slider.
+ *  - **Writes are coalesced to one per animation frame.** You cannot see more
+ *    positions than the browser paints, so the ones in between were never worth
+ *    anything. The final value is always flushed on release, so what the person
+ *    let go of is exactly what the room gets.
+ */
 export function Slider({
   value,
   min,
@@ -27,7 +51,60 @@ export function Slider({
   disabled?: boolean;
   label: string;
 }) {
-  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  const [shown, setShown] = useState(value);
+  /** True between pointer-down and pointer-up, or while a key is held. */
+  const interacting = useRef(false);
+  const pending = useRef<number | null>(null);
+  const frame = useRef<number | null>(null);
+
+  // Follow the simulation whenever nobody is driving — a scene press, a rule,
+  // another interface. Skipped mid-drag, or the store would fight the pointer.
+  useEffect(() => {
+    if (!interacting.current) setShown(value);
+  }, [value]);
+
+  const flush = useCallback(() => {
+    frame.current = null;
+    if (pending.current === null) return;
+    const next = pending.current;
+    pending.current = null;
+    onChange(next);
+  }, [onChange]);
+
+  const queue = useCallback(
+    (next: number) => {
+      pending.current = next;
+      if (frame.current === null) frame.current = requestAnimationFrame(flush);
+    },
+    [flush],
+  );
+
+  /**
+   * Hand back control.
+   *
+   * The flush is synchronous rather than queued: `patch` writes the store
+   * immediately, so `value` arrives on the very next render and the sync effect
+   * above — now unblocked — pulls the thumb onto whatever the simulation
+   * actually settled on. Any clamp a rule applied shows up straight away
+   * instead of a frame later.
+   */
+  const release = useCallback(() => {
+    interacting.current = false;
+    if (frame.current !== null) {
+      cancelAnimationFrame(frame.current);
+      frame.current = null;
+    }
+    flush();
+  }, [flush]);
+
+  useEffect(
+    () => () => {
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+    },
+    [],
+  );
+
+  const pct = max > min ? ((shown - min) / (max - min)) * 100 : 0;
   const filled = fill ?? "var(--color-brass-500)";
   const track = fill?.startsWith("linear-gradient")
     ? // A full-width gradient (colour temperature, hue) shows the whole range,
@@ -42,10 +119,26 @@ export function Slider({
       min={min}
       max={max}
       step={step}
-      value={value}
+      value={shown}
       disabled={disabled}
       aria-label={label}
-      onChange={(e) => onChange(Number(e.target.value))}
+      onPointerDown={() => {
+        interacting.current = true;
+      }}
+      onPointerUp={release}
+      onPointerCancel={release}
+      // Arrow keys move the thumb without a pointer ever going down, so the
+      // keyboard needs the same ownership window the pointer gets.
+      onKeyDown={() => {
+        interacting.current = true;
+      }}
+      onKeyUp={release}
+      onBlur={release}
+      onChange={(e) => {
+        const next = Number(e.target.value);
+        setShown(next);
+        queue(next);
+      }}
       style={{ ["--u-track" as string]: track }}
     />
   );

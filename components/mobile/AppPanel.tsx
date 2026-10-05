@@ -57,7 +57,7 @@ function Phone({ children, title }: { children: React.ReactNode; title: string }
   const clockMin = useSim((s) => s.clockMin);
 
   return (
-    <div className="mx-auto flex h-[560px] w-full max-w-[560px] flex-col rounded-[30px] border border-shell-700 bg-shell-950 p-2 shadow-2xl sm:h-[640px] lg:h-full lg:min-h-[420px] lg:max-w-[300px]">
+    <div className="mx-auto flex h-[560px] w-full max-w-[560px] flex-col rounded-[30px] border border-shell-700 bg-shell-950 p-2 shadow-2xl sm:h-[640px] lg:h-full lg:min-h-[420px] lg:max-w-[344px]">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] bg-shell-900">
         {/* Status bar. The time is the simulated clock, so scrubbing the day
             moves it — a static 9:41 would be the one obviously fake thing on
@@ -105,18 +105,19 @@ function curtainStatus(position: number): string {
  * next to every fixture, and two unlabelled tracks stacked on a card is a
  * guessing game. The icon says which is which in the width of a character.
  *
- * `trailing` keeps the tracks aligned: the brightness row ends in a toggle, so
- * without a matching gap the colour row would run wider than the one above it.
+ * Nothing sits to the right of the track. The power toggle used to, which cost
+ * the slider 52px of a 154px track — and a dimmer a client has to place
+ * precisely with a fingertip needs every pixel of travel it can get. The toggle
+ * moved up to the card header, where it reads as the fixture's power rather
+ * than as part of the brightness control, which is what it always was.
  */
 function SliderRow({
   icon,
   hint,
-  trailing,
   children,
 }: {
   icon: IconName;
   hint: string;
-  trailing?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -125,7 +126,6 @@ function SliderRow({
         <Icon name={icon} />
       </span>
       <div className="min-w-0 flex-1">{children}</div>
-      {trailing ?? <span className="h-6 w-11 shrink-0" />}
     </div>
   );
 }
@@ -133,19 +133,25 @@ function SliderRow({
 function Row({
   label,
   value,
+  action,
   children,
 }: {
   label: string;
   value?: string;
+  /** The fixture's power toggle, sat on the header rather than on a track. */
+  action?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   return (
     <div className="rounded-xl border border-shell-800 bg-shell-850/60 px-3 py-2.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-[12px] text-shell-200">{label}</span>
-        {value && (
-          <span className="shrink-0 font-mono text-[11px] text-shell-400">{value}</span>
-        )}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-baseline justify-between gap-2">
+          <span className="truncate text-[12px] text-shell-200">{label}</span>
+          {value && (
+            <span className="shrink-0 font-mono text-[11px] text-shell-400">{value}</span>
+          )}
+        </div>
+        {action}
       </div>
       {children && <div className="mt-2 space-y-2">{children}</div>}
     </div>
@@ -194,22 +200,19 @@ function LightRow({
     <Row
       label={device.name}
       value={on ? `${Math.round(state.level)}%` : "Off"}
+      action={
+        <Toggle
+          on={on}
+          disabled={roomBusy || moving}
+          label={`${device.name} power`}
+          onChange={(next) => {
+            predictOn(next);
+            patch(device.id, { on: next }, TOGGLE_FADE_MS);
+          }}
+        />
+      }
     >
-      <SliderRow
-        icon="sun"
-        hint="Brightness"
-        trailing={
-          <Toggle
-            on={on}
-            disabled={roomBusy || moving}
-            label={`${device.name} power`}
-            onChange={(next) => {
-              predictOn(next);
-              patch(device.id, { on: next }, TOGGLE_FADE_MS);
-            }}
-          />
-        }
-      >
+      <SliderRow icon="sun" hint="Brightness">
         <Slider
           label={`${device.name} brightness`}
           value={state.level}
@@ -294,19 +297,19 @@ function ClimateRow({
   const patch = useSim((s) => s.patch);
 
   return (
-    <Row label={device.name} value={`${state.setpointC.toFixed(0)}°C`}>
-      <SliderRow
-        icon="thermo"
-        hint="Target temperature"
-        trailing={
-          <Toggle
-            on={state.on}
-            disabled={roomBusy}
-            label={`${device.name} power`}
-            onChange={(on) => patch(device.id, { on })}
-          />
-        }
-      >
+    <Row
+      label={device.name}
+      value={`${state.setpointC.toFixed(0)}°C`}
+      action={
+        <Toggle
+          on={state.on}
+          disabled={roomBusy}
+          label={`${device.name} power`}
+          onChange={(on) => patch(device.id, { on })}
+        />
+      }
+    >
+      <SliderRow icon="thermo" hint="Target temperature">
         <Slider
           label={`${device.name} setpoint`}
           value={state.setpointC}
@@ -529,7 +532,7 @@ export function AppPanel({ view }: { view: AppView }) {
         )}
       </Phone>
 
-      <p className="mx-auto mt-3 max-w-[560px] shrink-0 text-[10px] leading-snug text-shell-500 lg:max-w-[300px]">
+      <p className="mx-auto mt-3 max-w-[560px] shrink-0 text-[10px] leading-snug text-shell-500 lg:max-w-[344px]">
         Scenes, Controls and the room are one state, not three copies of it. Press
         a scene and every control moves; move one control and the scene lets go.
       </p>
