@@ -606,6 +606,7 @@ const SCREEN_EMISSIVE: Record<ScreenContent, number> = {
   streaming: 1.0,
   game: 0.85,
   presentation: 0.34,
+  conference: 0.7,
   desktop: 0.8,
 };
 

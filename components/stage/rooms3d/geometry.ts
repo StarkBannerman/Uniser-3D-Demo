@@ -158,7 +158,12 @@ export function makeCityTexture(night: boolean, seed = 7): THREE.CanvasTexture {
 }
 
 /** What a screen is showing. Each scene wants a different one. */
-export type ScreenContent = "streaming" | "presentation" | "game" | "desktop";
+export type ScreenContent =
+  | "streaming"
+  | "presentation"
+  | "game"
+  | "desktop"
+  | "conference";
 
 /**
  * What is on the screen.
@@ -194,6 +199,82 @@ export function makeScreenTexture(kind: ScreenContent = "streaming"): THREE.Canv
     ctx.arcTo(x, y, x + ww, y, r);
     ctx.closePath();
   };
+
+  if (kind === "conference") {
+    /**
+     * A video call: a speaker tile and a strip of participants.
+     *
+     * Needed because the boardroom's Video Conference scene is one of six, and
+     * on a slide deck it was indistinguishable from Presentation — which made
+     * the one scene whose entire argument is *how the room is lit for a camera*
+     * look like a lighting change and nothing else.
+     */
+    ctx.fillStyle = "#14171d";
+    ctx.fillRect(0, 0, w, h);
+
+    const tileH = 150;
+    const speakerH = h - tileH - 54;
+    ctx.fillStyle = "#273246";
+    round(28, 26, w - 56, speakerH, 14);
+    ctx.fill();
+
+    // A head and shoulders, abstracted. Enough to read as a person at distance.
+    const cx = w / 2;
+    const base = 26 + speakerH;
+    ctx.fillStyle = "#53647f";
+    ctx.beginPath();
+    ctx.ellipse(cx, base - 118, 128, 104, 0, Math.PI, 0);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, base - 232, 68, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(10,14,20,0.72)";
+    round(52, base - 56, 240, 38, 8);
+    ctx.fill();
+    ctx.fillStyle = "#e7edf6";
+    ctx.font = "600 21px system-ui, sans-serif";
+    ctx.fillText("Mumbai — Board", 70, base - 30);
+
+    // Live pip, top right.
+    ctx.fillStyle = "#e2584b";
+    ctx.beginPath();
+    ctx.arc(w - 74, 62, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#e7edf6";
+    ctx.font = "600 18px system-ui, sans-serif";
+    ctx.fillText("LIVE", w - 58, 69);
+
+    // Participant strip.
+    const cols = 6;
+    const gap = 16;
+    const tw = (w - 56 - gap * (cols - 1)) / cols;
+    for (let i = 0; i < cols; i++) {
+      const x = 28 + i * (tw + gap);
+      const y = h - tileH - 14;
+      ctx.fillStyle = i === 2 ? "#33415c" : "#1d2430";
+      round(x, y, tw, tileH, 10);
+      ctx.fill();
+      ctx.fillStyle = `hsl(${205 + rnd() * 40}, 22%, ${34 + rnd() * 16}%)`;
+      ctx.beginPath();
+      ctx.arc(x + tw / 2, y + tileH * 0.44, tileH * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x + tw / 2, y + tileH * 0.98, tileH * 0.32, tileH * 0.26, 0, Math.PI, 0);
+      ctx.fill();
+      if (i === 2) {
+        ctx.strokeStyle = "#5e9bd8";
+        ctx.lineWidth = 3;
+        round(x, y, tw, tileH, 10);
+        ctx.stroke();
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    return tex;
+  }
 
   if (kind === "presentation") {
     // Not paper-white. A projected slide in a dim room is a light grey at best
