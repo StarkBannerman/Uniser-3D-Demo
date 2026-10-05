@@ -313,6 +313,34 @@ const M = {
   foliage: new THREE.MeshStandardMaterial({ color: "#35512c", roughness: 0.9 }),
   planter: new THREE.MeshStandardMaterial({ color: "#1d1e20", roughness: 0.55 }),
   paper: new THREE.MeshStandardMaterial({ color: "#cfc8b8", roughness: 0.9 }),
+  /**
+   * Book spines, as six shared materials rather than one per book.
+   *
+   * There are about sixty books on this wall. Six materials means six shader
+   * programs; sixty inline `meshStandardMaterial` elements would mean sixty.
+   *
+   * Muted on purpose — a shelf of saturated spines is the fastest way to make
+   * expensive joinery look like a charity shop.
+   */
+  books: [
+    new THREE.MeshStandardMaterial({ color: "#2f3a33", roughness: 0.84 }),
+    new THREE.MeshStandardMaterial({ color: "#4a2f2a", roughness: 0.84 }),
+    new THREE.MeshStandardMaterial({ color: "#2b3242", roughness: 0.84 }),
+    new THREE.MeshStandardMaterial({ color: "#6b5c44", roughness: 0.86 }),
+    new THREE.MeshStandardMaterial({ color: "#30302e", roughness: 0.82 }),
+    new THREE.MeshStandardMaterial({ color: "#8d8372", roughness: 0.88 }),
+  ],
+  /** Matte ceramic, for the vases. */
+  ceramic: new THREE.MeshStandardMaterial({
+    color: "#b4ab9c",
+    roughness: 0.62,
+    metalness: 0.02,
+  }),
+  ceramicDark: new THREE.MeshStandardMaterial({
+    color: "#4a463f",
+    roughness: 0.48,
+    metalness: 0.04,
+  }),
   housing: new THREE.MeshStandardMaterial({ color: "#1a1b1d", roughness: 0.5 }),
 };
 
@@ -411,6 +439,153 @@ function Shell() {
 /* Feature wall                                                        */
 /* ------------------------------------------------------------------ */
 
+/**
+ * What stands in one shelf bay.
+ *
+ * The bays were a row of identical thin boxes, which is what made the wall
+ * read as empty even with the lights on. A bookcase is not books — it is books
+ * *and* the gaps between them, one leaning, a stack laid flat, and two or three
+ * objects with a different silhouette.
+ *
+ * Deterministic from `seed`, so nothing reshuffles on a remount, and every bay
+ * gets a different arrangement without any of it being placed by hand.
+ */
+function BayContents({
+  x0,
+  x1,
+  y,
+  height,
+  seed,
+  closed,
+}: {
+  x0: number;
+  x1: number;
+  y: number;
+  height: number;
+  seed: number;
+  closed: boolean;
+}) {
+  const span = x1 - x0;
+  const cx = (x0 + x1) / 2;
+
+  // Closed document storage in the bottom bay, with a pull.
+  if (closed) {
+    return (
+      <group>
+        <mesh position={[cx, y + height / 2 - 0.03, 0.33]}>
+          <boxGeometry args={[span - 0.06, height - 0.07, 0.035]} />
+          <primitive object={M.walnut} attach="material" />
+        </mesh>
+        <mesh position={[cx, y + height / 2 - 0.03, 0.352]}>
+          <boxGeometry args={[span * 0.42, 0.012, 0.012]} />
+          <primitive object={M.brushed} attach="material" />
+        </mesh>
+      </group>
+    );
+  }
+
+  let st = seed * 2654435761;
+  const rnd = () => {
+    st = (st * 1103515245 + 12345) & 0x7fffffff;
+    return (st % 10000) / 10000;
+  };
+
+  const items: React.ReactNode[] = [];
+  let x = x0 + 0.12;
+  const limit = x1 - 0.14;
+  let n = 0;
+
+  while (x < limit && n < 14) {
+    const roll = rnd();
+
+    if (roll < 0.56) {
+      // A run of upright books, varied in height and thickness.
+      const count = 3 + Math.floor(rnd() * 5);
+      for (let i = 0; i < count && x < limit; i++) {
+        const t = 0.028 + rnd() * 0.034;
+        const bh = Math.min(height - 0.09, 0.19 + rnd() * 0.12);
+        const lean = i === count - 1 && rnd() < 0.3 ? 0.22 : 0;
+        items.push(
+          <mesh
+            key={`b${n}-${i}`}
+            position={[x + t / 2, y + bh / 2, 0.26]}
+            rotation={[0, 0, lean]}
+            castShadow
+          >
+            <boxGeometry args={[t, bh, 0.18]} />
+            <primitive object={M.books[Math.floor(rnd() * 6)]} attach="material" />
+          </mesh>,
+        );
+        x += t + 0.004 + (lean ? 0.03 : 0);
+      }
+      x += 0.05;
+    } else if (roll < 0.71) {
+      // A short stack laid flat — what stops a shelf looking ruled.
+      const layers = 2 + Math.floor(rnd() * 3);
+      const w = 0.14 + rnd() * 0.05;
+      for (let i = 0; i < layers; i++) {
+        items.push(
+          <mesh key={`s${n}-${i}`} position={[x + w / 2, y + 0.018 + i * 0.032, 0.26]} castShadow>
+            <boxGeometry args={[w, 0.03, 0.19]} />
+            <primitive object={M.books[Math.floor(rnd() * 6)]} attach="material" />
+          </mesh>,
+        );
+      }
+      x += w + 0.07;
+    } else if (roll < 0.84) {
+      // A ceramic vase.
+      const tall = rnd() < 0.5;
+      const r = tall ? 0.055 : 0.085;
+      const vh = Math.min(height - 0.08, tall ? 0.3 : 0.17);
+      items.push(
+        <mesh key={`v${n}`} position={[x + r + 0.02, y + vh / 2, 0.26]} castShadow>
+          <cylinderGeometry args={[r * 0.72, r, vh, 18]} />
+          <primitive object={rnd() < 0.5 ? M.ceramic : M.ceramicDark} attach="material" />
+        </mesh>,
+      );
+      x += r * 2 + 0.08;
+    } else if (roll < 0.93) {
+      // A globe on a ring stand, as the reference has.
+      const r = Math.min(0.1, (height - 0.1) / 2.4);
+      items.push(
+        <group key={`g${n}`} position={[x + r + 0.03, y, 0.26]}>
+          <mesh position={[0, 0.02, 0]}>
+            <cylinderGeometry args={[r * 0.5, r * 0.62, 0.035, 16]} />
+            <primitive object={M.brushed} attach="material" />
+          </mesh>
+          <mesh position={[0, r + 0.06, 0]} rotation={[0, 0, 0.3]} castShadow>
+            <torusGeometry args={[r * 1.12, 0.008, 8, 28]} />
+            <primitive object={M.brushed} attach="material" />
+          </mesh>
+          <mesh position={[0, r + 0.06, 0]} castShadow>
+            <sphereGeometry args={[r, 20, 16]} />
+            <primitive object={M.ceramicDark} attach="material" />
+          </mesh>
+        </group>,
+      );
+      x += r * 2 + 0.1;
+    } else {
+      // An abstract object, for silhouette.
+      const h2 = Math.min(height - 0.08, 0.2 + rnd() * 0.08);
+      items.push(
+        <mesh
+          key={`o${n}`}
+          position={[x + 0.07, y + h2 / 2, 0.26]}
+          rotation={[0, rnd() * 0.8, 0]}
+          castShadow
+        >
+          <boxGeometry args={[0.1, h2, 0.1]} />
+          <primitive object={M.brushed} attach="material" />
+        </mesh>,
+      );
+      x += 0.17;
+    }
+    n += 1;
+  }
+
+  return <group>{items}</group>;
+}
+
 function FeatureWall() {
   const p = CX_PLAN;
   /** Warm figured stone with strong veining, as the reference has. The cool
@@ -479,61 +654,17 @@ function FeatureWall() {
                 <primitive object={M.walnut} attach="material" />
               </mesh>
             ))}
-            {Array.from({ length: unit.bays }, (_, bi) => {
-              const y = bottom + pitch * bi + 0.022;
-              const k = u * 5 + bi * 3;
-              return (
-                <group key={`o${bi}`}>
-                  {/* Books in the upper bays of both units. The room read as
-                      empty with one open bay in the whole wall — a lit shelf of
-                      spines is most of what gives joinery its density. */}
-                  {bi >= 1 &&
-                    Array.from({ length: 7 + (k % 3) }, (_, i) => {
-                    const bh = 0.2 + ((k + i) % 5) * 0.032;
-                    return (
-                      <mesh
-                        key={i}
-                        position={[unit.x0 + 0.16 + i * 0.062, y + bh / 2, 0.26]}
-                        rotation={[0, 0, i === 5 ? 0.22 : 0]}
-                      >
-                        <boxGeometry args={[0.045, bh, 0.2]} />
-                        <meshStandardMaterial
-                          color={["#3a3330", "#2a2724", "#443c36", "#232120"][(k + i) % 4]}
-                          roughness={0.85}
-                        />
-                      </mesh>
-                    );
-                    })}
-                  {/* Closed document storage in the two lower bays. */}
-                  {bi === 0 && (
-                    <group>
-                      <mesh position={[cx, y + pitch / 2 - 0.03, 0.33]}>
-                        <boxGeometry args={[span - 0.06, pitch - 0.07, 0.035]} />
-                        <primitive object={M.walnut} attach="material" />
-                      </mesh>
-                      <mesh position={[cx, y + pitch / 2 - 0.03, 0.352]}>
-                        <boxGeometry args={[span * 0.42, 0.012, 0.012]} />
-                        <primitive object={M.brushed} attach="material" />
-                      </mesh>
-                    </group>
-                  )}
-                  {/* One sculptural object per unit, and no more. The brief
-                      asks for curated niches, not a souvenir shelf. */}
-                  {bi === unit.bays - 1 && (
-                    <mesh position={[unit.x1 - 0.3, y + 0.13, 0.26]}>
-                      <boxGeometry args={[0.16, 0.26, 0.16]} />
-                      <primitive object={M.brushed} attach="material" />
-                    </mesh>
-                  )}
-                  {bi === 1 && (
-                    <mesh position={[unit.x1 - 0.34, y + 0.17, 0.26]}>
-                      <cylinderGeometry args={[0.06, 0.09, 0.34, 16]} />
-                      <primitive object={M.brushed} attach="material" />
-                    </mesh>
-                  )}
-                </group>
-              );
-            })}
+            {Array.from({ length: unit.bays }, (_, bi) => (
+              <BayContents
+                key={`bay${bi}`}
+                x0={unit.x0}
+                x1={unit.x1}
+                y={bottom + pitch * bi + 0.022}
+                height={pitch}
+                seed={u * 11 + bi * 7}
+                closed={bi === 0}
+              />
+            ))}
           </group>
         );
       })}
