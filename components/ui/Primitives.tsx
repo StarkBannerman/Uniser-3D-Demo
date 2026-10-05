@@ -339,7 +339,11 @@ export function RampButtons({
   };
 
   return (
-    <div className="flex items-center gap-2" role="group" aria-label={label}>
+    <div
+      className={`flex items-center gap-2 ${disabled ? "opacity-50" : ""}`}
+      role="group"
+      aria-label={label}
+    >
       {button(-1, "−", "down")}
       {/* Read-out, not a control. It gives back the one thing the track was
           good for — seeing where the fixture sits at a glance — without asking

@@ -59,7 +59,16 @@ export type AppView = "scenes" | "controls";
  * scrolls. From `lg` the phone takes the rail's full height instead of a fixed
  * one, because there the rail has a height to give it.
  */
-function Phone({ children, title }: { children: React.ReactNode; title: string }) {
+function Phone({
+  children,
+  title,
+  status,
+}: {
+  children: React.ReactNode;
+  title: string;
+  /** What the room is doing, or null when it is sitting still. */
+  status: string | null;
+}) {
   const clockMin = useSim((s) => s.clockMin);
 
   return (
@@ -79,6 +88,13 @@ function Phone({ children, title }: { children: React.ReactNode; title: string }
           </div>
           <div className="text-base font-medium leading-tight text-shell-100">
             {title}
+          </div>
+          {/* Always rendered, even when empty. A status that appears and
+              disappears pushes everything below it down and back up again, so
+              the grid someone is reaching for moves while they reach. Holding
+              the line costs 14px and the panel never jumps. */}
+          <div className="h-3.5 truncate text-[10px] leading-[14px] text-brass-300">
+            {status}
           </div>
         </div>
         <div className="u-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-3">
@@ -215,7 +231,11 @@ function LightRow({
       <ControlRow icon="sun" hint="Brightness">
         <RampButtons
           label={`${device.name} brightness`}
-          value={state.level}
+          /* Not `state.level`. Switching a light off keeps its level so it
+             comes back at the brightness it left — correct in the simulation,
+             and the reason an unlit fixture was sitting there showing a bar
+             filled to 60%. Off means an empty meter. */
+          value={on ? state.level : 1}
           min={1}
           max={100}
           tapStep={5}
@@ -395,26 +415,20 @@ export function AppPanel({ view }: { view: AppView }) {
 
   const moving = (id: string) => busyDevices.includes(id);
 
+  /**
+   * One line for what the room is doing: the stage of a staged scene, or just
+   * the scene's name for one that lands in a single fade. Null at rest, which
+   * leaves the reserved line blank rather than removing it.
+   */
+  const status = sequence
+    ? sequence.label
+    : busy
+      ? (space.scenes.find((s) => s.id === activeSceneId)?.name ?? null)
+      : null;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col pb-4">
-      <Phone title={space.name}>
-
-        {/* A locked interface with no explanation reads as a crash. This is the
-            difference between "the room is doing what you asked" and "nothing
-            happened when I tapped".
-
-            Scenes only. A single device travelling no longer locks the panel,
-            and it announces itself where it is happening — the curtain's own
-            readout counting up to Closed — rather than with a banner over
-            everything else. */}
-        {busy && (
-          <div className="mb-2 flex items-center gap-2 rounded-lg border border-brass-700/40 bg-brass-600/10 px-2.5 py-1.5">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brass-400" />
-            <span className="text-[10px] text-brass-300">
-              {sequence ? sequence.label : "Running…"}
-            </span>
-          </div>
-        )}
+      <Phone title={space.name} status={status}>
 
         {view === "scenes" && (
           <div className="space-y-2">
@@ -423,6 +437,7 @@ export function AppPanel({ view }: { view: AppView }) {
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-2">
               {space.scenes.map((scene) => {
                 const active = scene.id === activeSceneId;
+                const running = Boolean(sequence && sequence.sceneId === scene.id);
                 return (
                   <button
                     key={scene.id}
@@ -430,37 +445,49 @@ export function AppPanel({ view }: { view: AppView }) {
                     onClick={() => applyScene(scene.id)}
                     aria-pressed={active}
                     disabled={busy && !active}
-                    className={`flex flex-col items-start gap-1.5 rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
+                    className={`relative overflow-hidden rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
                       active
                         ? "border-brass-600/70 bg-brass-600/15 text-brass-300"
                         : "border-shell-800 bg-shell-850/60 text-shell-300 hover:border-shell-700"
                     } ${busy && !active ? "pointer-events-none opacity-40" : ""}`}
                   >
-                    <Icon name={sceneIcon(scene)} />
-                    <span className="text-[11px] font-medium leading-tight">
-                      {scene.name}
+                    {/* Progress sits on the button that was pressed, rather
+                        than on a separate bar further down the panel. A staged
+                        scene takes twenty seconds, and the one thing a person
+                        needs to know during them is that the thing they touched
+                        is working — so that is where it is said.
+
+                        Along the bottom edge rather than filling the button: a
+                        full-height fill put a hard vertical edge straight
+                        through the scene's name, which read as a glitch. */}
+                    {running && (
+                      <span
+                        aria-hidden
+                        className="absolute inset-x-0 bottom-0 h-[3px] bg-shell-800"
+                      >
+                        <span
+                          className="block h-full rounded-r-full bg-brass-400 transition-[width] duration-500 ease-linear"
+                          style={{
+                            width: `${(sequence!.step / sequence!.total) * 100}%`,
+                          }}
+                        />
+                      </span>
+                    )}
+                    <span className="relative flex flex-col items-start gap-1.5">
+                      <Icon name={sceneIcon(scene)} />
+                      <span className="text-[11px] font-medium leading-tight">
+                        {scene.name}
+                      </span>
                     </span>
                   </button>
                 );
               })}
             </div>
-            {sequence ? (
-              // The stage is already named in the banner above; this is the bar.
-              <div className="rounded-xl border border-brass-700/50 bg-brass-600/10 px-3 py-2.5">
-                <div className="h-1 overflow-hidden rounded-full bg-shell-800">
-                  <div
-                    className="h-full bg-brass-500 transition-[width] duration-500"
-                    style={{ width: `${(sequence.step / sequence.total) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ) : (
-              <p className="px-1 text-[10px] leading-snug text-shell-500">
-                {activeSceneId
-                  ? space.scenes.find((s) => s.id === activeSceneId)?.blurb
-                  : "Adjusted by hand — no scene active."}
-              </p>
-            )}
+            <p className="px-1 text-[10px] leading-snug text-shell-500">
+              {activeSceneId
+                ? space.scenes.find((s) => s.id === activeSceneId)?.blurb
+                : "Adjusted by hand — no scene active."}
+            </p>
           </div>
         )}
 
