@@ -194,10 +194,24 @@ function Decorative({ state }: { state: LightState }) {
 
   return (
     <group>
+      {/**
+       * The lit face runs along X, with the housing it sits inside.
+       *
+       * It ran along Z. When the desk turned ninety degrees the housing in
+       * `CxoCabin3D` turned with it and this did not, so the glowing blade
+       * crossed its own dark body diagonally — a light at right angles to the
+       * fitting holding it.
+       *
+       * Three things had to agree and only one of them did: the box geometry,
+       * the emissive plane, and the area light's roll. The `Math.PI / 2` on the
+       * light's Z was what put its width along Z after the X rotation, and it
+       * is the easiest of the three to miss because nothing about it is visible
+       * until the shape of the pool on the desk is wrong.
+       */}
       {out > 0.001 && (
         <rectAreaLight
           position={[p.x, p.y - 0.055, p.z]}
-          rotation={[-Math.PI / 2, 0, Math.PI / 2]}
+          rotation={[-Math.PI / 2, 0, 0]}
           width={p.len}
           height={0.11}
           intensity={GAIN.pendant * out}
@@ -205,11 +219,11 @@ function Decorative({ state }: { state: LightState }) {
         />
       )}
       <mesh position={[p.x, p.y - 0.052, p.z]} rotation={[Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.11, p.len]} />
+        <planeGeometry args={[p.len, 0.11]} />
         <primitive object={blade} attach="material" />
       </mesh>
       <mesh position={[p.x, p.y + 0.052, p.z]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.11, p.len]} />
+        <planeGeometry args={[p.len, 0.11]} />
         <primitive object={blade} attach="material" />
       </mesh>
 
