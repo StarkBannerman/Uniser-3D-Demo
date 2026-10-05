@@ -477,6 +477,109 @@ export function makeScreenTexture(kind: ScreenContent = "streaming"): THREE.Canv
  * in close-valued off-whites, which is what reads as sculptural plaster under a
  * raking light.
  */
+/**
+ * Stacked wordmark on a wall, as both commercial rooms have.
+ *
+ * Canvas rather than geometry: at the distance these are read from, a texture
+ * is indistinguishable from cut letters and costs one draw call instead of a
+ * few hundred.
+ */
+export function makeWordsTexture(
+  lines: string[],
+  bg: string,
+  fg: string,
+  opts: { size?: number; spacing?: number; transparent?: boolean } = {},
+): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 512;
+  const g = c.getContext("2d")!;
+  if (!opts.transparent) {
+    g.fillStyle = bg;
+    g.fillRect(0, 0, c.width, c.height);
+  }
+  g.fillStyle = fg;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.font = `600 ${opts.size ?? 34}px system-ui, sans-serif`;
+  g.letterSpacing = `${opts.spacing ?? 6}px`;
+  const step = c.height / (lines.length + 1);
+  lines.forEach((line, i) => g.fillText(line, c.width / 2, step * (i + 1)));
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+
+/**
+ * Veined stone, for a feature wall or a desk top.
+ *
+ * Drawn rather than loaded, so the demo stays offline, and deterministic so the
+ * veining does not reshuffle on a remount. The veins are a random walk with a
+ * decaying branch at each step — which is close enough to how a mineral seam
+ * actually propagates that the result reads as stone rather than as marbling.
+ */
+export function makeMarbleTexture(
+  base = "#3a3531",
+  vein = "#8d8176",
+  seed = 4211,
+): THREE.CanvasTexture {
+  const w = 768;
+  const h = 768;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d")!;
+  let s = seed;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+
+  g.fillStyle = base;
+  g.fillRect(0, 0, w, h);
+
+  // Broad tonal drift, so the slab is not flat before the veins go on.
+  for (let i = 0; i < 26; i++) {
+    const r = 120 + rnd() * 260;
+    const grd = g.createRadialGradient(rnd() * w, rnd() * h, 0, rnd() * w, rnd() * h, r);
+    grd.addColorStop(0, `rgba(255,255,255,${0.012 + rnd() * 0.022})`);
+    grd.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = grd;
+    g.fillRect(0, 0, w, h);
+  }
+
+  const walk = (x: number, y: number, angle: number, width: number, life: number) => {
+    if (life <= 0 || width < 0.35) return;
+    g.strokeStyle = vein;
+    g.globalAlpha = Math.min(0.5, width / 5);
+    g.lineWidth = width;
+    g.beginPath();
+    g.moveTo(x, y);
+    let a = angle;
+    for (let i = 0; i < life; i++) {
+      a += (rnd() - 0.5) * 0.42;
+      x += Math.cos(a) * 9;
+      y += Math.sin(a) * 9;
+      g.lineTo(x, y);
+      if (rnd() < 0.035) walk(x, y, a + (rnd() - 0.5) * 1.5, width * 0.5, life * 0.45);
+    }
+    g.stroke();
+    g.globalAlpha = 1;
+  };
+
+  for (let i = 0; i < 7; i++) {
+    walk(rnd() * w, rnd() * h, Math.PI * 0.18 + (rnd() - 0.5) * 0.7, 2.6 + rnd() * 2.4, 70 + rnd() * 60);
+  }
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
+}
+
 export function makeArtTexture(seed = 11): THREE.CanvasTexture {
   const w = 1024;
   const h = 640;

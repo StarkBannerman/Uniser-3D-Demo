@@ -26,7 +26,12 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
-import { makeCityTexture, makeScreenTexture, type ScreenContent } from "./geometry";
+import {
+  makeCityTexture,
+  makeScreenTexture,
+  makeWordsTexture,
+  type ScreenContent,
+} from "./geometry";
 
 export const BR = {
   /** Across the room. The timber wall is at x = w, the glazing at x = 0. */
@@ -206,39 +211,6 @@ const M = {
   foliage: new THREE.MeshStandardMaterial({ color: "#3f5a39", roughness: 0.88 }),
   planter: new THREE.MeshStandardMaterial({ color: "#2b2d2f", roughness: 0.6 }),
 };
-
-/* ------------------------------------------------------------------ */
-/* Wordmark panel                                                      */
-/* ------------------------------------------------------------------ */
-
-/**
- * The stacked wordmark on the timber wall.
- *
- * Canvas rather than geometry because it is four words — and because at this
- * distance a texture is indistinguishable from cut letters, while costing one
- * draw call instead of a few hundred.
- */
-function makeWordsTexture(lines: string[], bg: string, fg: string): THREE.CanvasTexture {
-  const c = document.createElement("canvas");
-  c.width = 256;
-  c.height = 512;
-  const g = c.getContext("2d")!;
-  g.fillStyle = bg;
-  g.fillRect(0, 0, c.width, c.height);
-  g.fillStyle = fg;
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  const step = c.height / (lines.length + 1);
-  lines.forEach((line, i) => {
-    g.font = "600 34px system-ui, sans-serif";
-    g.letterSpacing = "6px";
-    g.fillText(line, c.width / 2, step * (i + 1));
-  });
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
-}
 
 /* ------------------------------------------------------------------ */
 /* Shell                                                               */
