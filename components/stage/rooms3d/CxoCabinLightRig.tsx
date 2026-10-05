@@ -178,7 +178,7 @@ function Decorative({ state }: { state: LightState }) {
        * black task light on the desk is an office, and it is the fitting the
        * brief actually asks for. Same device, same control, different room.
        */}
-      <group position={[d.x - 0.3, d.h, d.z - 1.25]}>
+      <group position={[d.x - 1.02, d.h, d.z - 0.2]}>
         <mesh position={[0, 0.01, 0]}>
           <cylinderGeometry args={[0.075, 0.085, 0.022, 18]} />
           <meshStandardMaterial color="#1a1b1d" roughness={0.6} metalness={0.2} />
@@ -197,8 +197,8 @@ function Decorative({ state }: { state: LightState }) {
         </mesh>
         {out > 0.001 && (
           <Spot
-            position={[d.x - 0.12, d.h + 0.4, d.z - 1.25]}
-            target={[d.x + 0.1, d.h, d.z - 1.0]}
+            position={[d.x - 0.85, d.h + 0.4, d.z - 0.2]}
+            target={[d.x - 0.6, d.h, d.z + 0.05]}
             angle={0.62}
             penumbra={0.7}
             distance={3}
@@ -363,16 +363,16 @@ function FeatureColour({ state }: { state: LightState }) {
       )}
 
       {/* The line under the desk, on its long side facing the room. */}
-      <mesh position={[desk.x + desk.w / 2 - 0.08, 0.115, desk.z - 0.35]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.12, desk.d - 1.3]} />
+      <mesh position={[desk.x, 0.115, desk.z + desk.d / 2 - 0.1]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[desk.w - 1.2, 0.12]} />
         <primitive object={face} attach="material" />
       </mesh>
       {out > 0.001 && (
         <rectAreaLight
-          position={[desk.x + desk.w / 2 - 0.04, 0.1, desk.z - 0.35]}
+          position={[desk.x, 0.1, desk.z + desk.d / 2 - 0.06]}
           rotation={[-Math.PI / 2, 0, 0]}
-          width={0.5}
-          height={desk.d - 1.3}
+          width={desk.w - 1.2}
+          height={0.5}
           intensity={GAIN.rgb * 1.6 * out}
           color={colour}
         />

@@ -87,8 +87,17 @@ export const CX_PLAN = {
    * reading as a table, which is the exact failure this room had. It stays
    * dominant through mass and through the line of light under it, not length.
    */
-  desk: { x: 2.65, z: 4.3, w: 1.15, d: 2.35, h: 0.75 },
-  execChair: { x: 1.52, z: 4.3 },
+  desk: { x: 2.95, z: 2.8, w: 2.6, d: 1.12, h: 0.75 },
+  /**
+   * Behind the desk, backing onto the feature wall and facing the room.
+   *
+   * The desk used to run parallel to the glazing with the chair on the window
+   * side, which left it floating in the middle of the floor directly in front
+   * of the marble. In the reference it is set back against the wall with the
+   * room open in front of it, which is both how an executive office is laid
+   * out and what keeps the feature wall visible.
+   */
+  execChair: { x: 2.95, z: 1.86 },
   /**
    * Two visitor chairs, and only two.
    *
@@ -97,17 +106,26 @@ export const CX_PLAN = {
    * and the seating has to say so.
    */
   visitors: [
-    { x: 3.78, z: 3.78 },
-    { x: 3.78, z: 4.82 },
+    { x: 2.3, z: 4.15 },
+    { x: 3.65, z: 4.15 },
   ],
-  /** A compact discussion table beside them. Not a meeting table. */
-  sideTable: { x: 4.55, z: 4.3 },
 
   /** Suspended linear over the desk, on its long axis. */
-  pendant: { x: 2.65, z: 4.3, len: 2.6, y: 2.36 },
+  pendant: { x: 2.95, z: 2.8, len: 2.2, y: 2.36 },
 
   /** Commercial carpet in the executive zone, not a patterned rug. */
-  carpet: { x: 3.1, z: 6.6, w: 5.4, d: 6.8 },
+  carpet: { x: 3.0, z: 4.0, w: 5.6, d: 4.4 },
+  /**
+   * The lounge, restored.
+   *
+   * The written brief said to strip it out; the client's own reference image
+   * has a sectional and a round table in the foreground, and the image is what
+   * they are actually asking for. A seating group in a CXO cabin is normal —
+   * what made the earlier version read as residential was its scale and its
+   * position in the frame, not its existence.
+   */
+  sofa: { x: 1.3, z: 7.15, len: 3.0 },
+  coffee: { x: 3.0, z: 7.15 },
 
   diffuser: { x: 5.6, z: 7.6, len: 2.2 },
 
@@ -123,19 +141,16 @@ export const CX_PLAN = {
     { x: 2.6, z: 9.9 }, { x: 6.2, z: 9.9 },
   ],
   taskHeads: [
-    { x: 2.1, z: 3.6 }, { x: 3.2, z: 3.6 },
-    { x: 2.1, z: 5.0 }, { x: 3.2, z: 5.0 },
+    { x: 2.1, z: 2.45 }, { x: 3.8, z: 2.45 },
+    { x: 2.1, z: 3.15 }, { x: 3.8, z: 3.15 },
   ],
   artHead: { x: 7.62, z: 0.95 },
   motto: { z: 10.7, cy: 1.85, h: 1.8 },
 
   /** Two large architectural planters, not a scatter of houseplants. */
   plants: [
-    { x: 0.95, z: 6.6, s: 1.15 },
-    // Clear of the first one. At (2.15, 7.55) the two overlapped from this
-    // viewpoint and read as one lumpy mass rather than two planters.
-    { x: 4.3, z: 7.9, s: 1.1 },
-    { x: 7.05, z: 9.7, s: 1.0 },
+    { x: 1.12, z: 4.5, s: 1 },
+    { x: 6.95, z: 6.0, s: 0.92 },
   ],
 } as const;
 
@@ -703,49 +718,31 @@ function Desk() {
       <RoundedBox args={[d.w, 0.085, d.d]} radius={0.015} smoothness={3} position={[0, d.h, 0]} castShadow receiveShadow>
         <meshStandardMaterial map={top} roughness={0.24} metalness={0.05} />
       </RoundedBox>
-      {/* Marble waterfall end, nearest the camera. */}
-      <mesh position={[0, (d.h - 0.1) / 2 + 0.1, d.d / 2 - 0.1]} castShadow>
-        <boxGeometry args={[d.w - 0.08, d.h - 0.1, 0.2]} />
-        <meshStandardMaterial map={top} roughness={0.26} metalness={0.05} />
-      </mesh>
+      {/* Marble waterfall ends, both sides. */}
+      {([-1, 1] as const).map((sgn) => (
+        <mesh key={sgn} position={[sgn * (d.w / 2 - 0.1), (d.h - 0.1) / 2 + 0.1, 0]} castShadow>
+          <boxGeometry args={[0.2, d.h - 0.1, d.d - 0.08]} />
+          <meshStandardMaterial map={top} roughness={0.26} metalness={0.05} />
+        </mesh>
+      ))}
       {/* Timber body on a recessed plinth that the strip lights. */}
-      <mesh position={[0.06, (d.h - 0.06) / 2 + 0.06, -0.35]} castShadow>
-        <boxGeometry args={[d.w - 0.3, d.h - 0.12, d.d - 1.0]} />
+      <mesh position={[0, (d.h - 0.06) / 2 + 0.06, -0.06]} castShadow>
+        <boxGeometry args={[d.w - 0.9, d.h - 0.12, d.d - 0.28]} />
         <primitive object={M.walnut} attach="material" />
       </mesh>
-      <mesh position={[0.06, 0.05, -0.35]}>
-        <boxGeometry args={[d.w - 0.45, 0.1, d.d - 1.3]} />
+      <mesh position={[0, 0.05, -0.06]}>
+        <boxGeometry args={[d.w - 1.2, 0.1, d.d - 0.42]} />
         <primitive object={M.walnutDark} attach="material" />
       </mesh>
 
-      <group position={[0.02, d.h + 0.045, -0.35]} rotation={[0, Math.PI / 2, 0]}>
-        <mesh>
-          <boxGeometry args={[0.37, 0.012, 0.25]} />
-          <primitive object={M.metal} attach="material" />
-        </mesh>
-        <mesh position={[0, 0.115, -0.125]} rotation={[-0.32, 0, 0]}>
-          <boxGeometry args={[0.37, 0.24, 0.01]} />
-          <primitive object={M.metal} attach="material" />
-        </mesh>
-        <mesh position={[0, 0.113, -0.119]} rotation={[-0.32, 0, 0]}>
-          <planeGeometry args={[0.345, 0.215]} />
-          <meshStandardMaterial
-            color="#000000"
-            emissive={new THREE.Color("#5b7ba8")}
-            emissiveIntensity={1.2}
-            toneMapped={false}
-          />
-        </mesh>
-      </group>
       {/**
        * A professional widescreen display on an arm, and a grommet for the
        * cables to disappear into.
        *
-       * The brief calls the desk the most important change, and this is most of
-       * what separates an executive workstation from a writing desk: a monitor
-       * somebody actually works at, and no visible cables.
+       * Most of what separates an executive workstation from a writing desk is
+       * a monitor somebody actually works at and no visible cabling.
        */}
-      <group position={[-0.25, d.h, -0.1]} rotation={[0, Math.PI / 2, 0]}>
+      <group position={[0.42, d.h, -0.26]}>
         <mesh position={[0, 0.012, 0]}>
           <boxGeometry args={[0.24, 0.024, 0.16]} />
           <primitive object={M.matteBlack} attach="material" />
@@ -754,12 +751,12 @@ function Desk() {
           <cylinderGeometry args={[0.022, 0.022, 0.38, 12]} />
           <primitive object={M.matteBlack} attach="material" />
         </mesh>
-        <mesh position={[0, 0.56, 0.02]} rotation={[-0.06, 0, 0]}>
-          <boxGeometry args={[1.0, 0.42, 0.022]} />
+        <mesh position={[0, 0.54, 0.02]} rotation={[-0.06, 0, 0]}>
+          <boxGeometry args={[0.95, 0.4, 0.022]} />
           <primitive object={M.matteBlack} attach="material" />
         </mesh>
-        <mesh position={[0, 0.56, 0.034]} rotation={[-0.06, 0, 0]}>
-          <planeGeometry args={[0.96, 0.385]} />
+        <mesh position={[0, 0.54, 0.034]} rotation={[-0.06, 0, 0]}>
+          <planeGeometry args={[0.91, 0.365]} />
           <meshStandardMaterial
             color="#000000"
             emissive={new THREE.Color("#4e6d96")}
@@ -768,27 +765,37 @@ function Desk() {
           />
         </mesh>
       </group>
-      {/* Cable grommet. */}
-      <mesh position={[0.18, d.h + 0.046, -0.1]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.035, 0.05, 20]} />
+
+      {/* Laptop, open, beside it. */}
+      <group position={[-0.32, d.h + 0.045, -0.12]}>
+        <mesh>
+          <boxGeometry args={[0.36, 0.012, 0.25]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
+        <mesh position={[0, 0.112, -0.125]} rotation={[-0.32, 0, 0]}>
+          <boxGeometry args={[0.36, 0.235, 0.01]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
+        <mesh position={[0, 0.11, -0.119]} rotation={[-0.32, 0, 0]}>
+          <planeGeometry args={[0.335, 0.21]} />
+          <meshStandardMaterial
+            color="#000000"
+            emissive={new THREE.Color("#5b7ba8")}
+            emissiveIntensity={1.2}
+            toneMapped={false}
+          />
+        </mesh>
+      </group>
+
+      {/* Cable grommet, a document set, and nothing else. */}
+      <mesh position={[0.05, d.h + 0.046, -0.3]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.032, 0.046, 20]} />
         <primitive object={M.matteBlack} attach="material" />
       </mesh>
-      <mesh position={[-0.1, d.h + 0.046, -1.15]} rotation={[-Math.PI / 2, 0, 0.12]}>
-        <planeGeometry args={[0.3, 0.42]} />
+      <mesh position={[-0.95, d.h + 0.046, 0.06]} rotation={[-Math.PI / 2, 0, 0.1]}>
+        <planeGeometry args={[0.3, 0.4]} />
         <primitive object={M.paper} attach="material" />
       </mesh>
-      <group position={[0.08, d.h + 0.1, 1.05]}>
-        <mesh>
-          <cylinderGeometry args={[0.11, 0.09, 0.12, 16]} />
-          <primitive object={M.brushed} attach="material" />
-        </mesh>
-        {[0, 1, 2].map((i) => (
-          <mesh key={i} position={[(i - 1) * 0.07, 0.12, (i % 2) * 0.05 - 0.02]}>
-            <icosahedronGeometry args={[0.09, 1]} />
-            <primitive object={M.foliage} attach="material" />
-          </mesh>
-        ))}
-      </group>
     </group>
   );
 }
@@ -860,68 +867,118 @@ function Chair({
 /* ------------------------------------------------------------------ */
 
 /**
- * The executive zone floor, and the compact discussion table.
+ * The executive zone floor, and the lounge in front of it.
  *
- * What stood here was a four-seat table with four chairs round it, which is a
- * boardroom in miniature and the opposite of what this room is. The visitor
- * seating is now two chairs at the desk and a small table beside them — enough
- * for a conversation, not enough for a meeting.
+ * A low sectional along the glazing with a round stone table, as the client's
+ * reference has. The earlier version of this was a four-seat meeting table,
+ * which read as a boardroom; the version before that was an oversized sofa
+ * filling the foreground, which read as a living room. The difference is scale
+ * and placement — a seating group set back along the window is what an
+ * executive cabin actually has.
  */
-function VisitorZone() {
+function Lounge() {
   const p = CX_PLAN;
-  const t = p.sideTable;
+  const stone = useMemo(() => makeMarbleTexture("#51493f", "#a79b86", 404), []);
 
   return (
     <group>
-      {/* Commercial carpet over the executive zone, plain. */}
+      {/* Commercial carpet under the executive zone, plain. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[p.carpet.x, 0.004, p.carpet.z]} receiveShadow>
         <planeGeometry args={[p.carpet.w, p.carpet.d]} />
         <meshStandardMaterial color="#4d4a46" roughness={1} />
       </mesh>
 
-      {/* Compact discussion table: stone top, matte black blade. */}
-      <group position={[t.x, 0, t.z]}>
-        <RoundedBox args={[0.62, 0.05, 0.62]} radius={0.012} smoothness={3} position={[0, 0.58, 0]} castShadow receiveShadow>
-          <meshStandardMaterial color="#2a2c2e" roughness={0.28} metalness={0.08} />
+      {/* Sectional along the glazing, facing into the room. */}
+      <group position={[p.sofa.x, 0, p.sofa.z]} rotation={[0, Math.PI / 2, 0]}>
+        <RoundedBox args={[p.sofa.len, 0.3, 0.94]} radius={0.07} smoothness={3} position={[0, 0.3, 0]} castShadow receiveShadow>
+          <primitive object={M.sofa} attach="material" />
         </RoundedBox>
-        <mesh position={[0, 0.29, 0]} castShadow>
-          <boxGeometry args={[0.1, 0.56, 0.1]} />
-          <primitive object={M.matteBlack} attach="material" />
+        <RoundedBox args={[p.sofa.len, 0.52, 0.24]} radius={0.07} smoothness={3} position={[0, 0.58, -0.35]} castShadow>
+          <primitive object={M.sofa} attach="material" />
+        </RoundedBox>
+        {([-1, 1] as const).map((sgn) => (
+          <RoundedBox
+            key={sgn}
+            args={[0.24, 0.44, 0.94]}
+            radius={0.07}
+            smoothness={3}
+            position={[(sgn * (p.sofa.len - 0.24)) / 2, 0.46, 0]}
+            castShadow
+          >
+            <primitive object={M.sofa} attach="material" />
+          </RoundedBox>
+        ))}
+        {[-0.95, -0.32, 0.32, 0.95].map((cx, i) => (
+          <RoundedBox
+            key={cx}
+            args={[0.4, 0.4, 0.14]}
+            radius={0.06}
+            smoothness={3}
+            position={[cx, 0.62, -0.21]}
+            rotation={[0.24, 0, i % 2 ? 0.1 : -0.08]}
+            castShadow
+          >
+            <primitive object={i % 2 ? M.cushion : M.sofa} attach="material" />
+          </RoundedBox>
+        ))}
+      </group>
+
+      {/* Round stone coffee table. */}
+      <group position={[p.coffee.x, 0, p.coffee.z]}>
+        <mesh position={[0, 0.15, 0]} castShadow>
+          <cylinderGeometry args={[0.3, 0.34, 0.3, 24]} />
+          <meshStandardMaterial map={stone} roughness={0.3} metalness={0.04} />
         </mesh>
-        <mesh position={[0, 0.015, 0]}>
-          <boxGeometry args={[0.42, 0.03, 0.42]} />
-          <primitive object={M.matteBlack} attach="material" />
+        <mesh position={[0, 0.32, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.44, 0.44, 0.045, 28]} />
+          <meshStandardMaterial map={stone} roughness={0.26} metalness={0.05} />
         </mesh>
-        {/* One document set. Nothing else. */}
-        <mesh position={[0, 0.608, 0.03]} rotation={[-Math.PI / 2, 0, 0.1]}>
-          <planeGeometry args={[0.24, 0.3]} />
-          <primitive object={M.paper} attach="material" />
-        </mesh>
+        {[0, 1].map((i) => (
+          <mesh key={i} position={[-0.05 + i * 0.02, 0.35 + i * 0.022, 0.02]} rotation={[-Math.PI / 2, 0, 0.3 + i * 0.4]}>
+            <planeGeometry args={[0.26, 0.19]} />
+            <primitive object={M.paper} attach="material" />
+          </mesh>
+        ))}
       </group>
     </group>
   );
 }
 
+/**
+ * Architectural planting: two slim specimens, not two trees.
+ *
+ * These were 0.7 m pots carrying two-metre canopies, and at this camera one of
+ * them filled a quarter of the frame and buried the desk behind it. A planter
+ * in an executive office is a tall narrow pot with a slender plant in it — it
+ * punctuates a corner, it does not occupy one.
+ */
 function Plants() {
   return (
     <group>
       {CX_PLAN.plants.map((p, i) => (
         <group key={i} position={[p.x, 0, p.z]} scale={p.s}>
-          <mesh position={[0, 0.33, 0]} castShadow>
-            <cylinderGeometry args={[0.3, 0.23, 0.66, 16]} />
+          {/* Tall, narrow, matte black. */}
+          <mesh position={[0, 0.28, 0]} castShadow>
+            <cylinderGeometry args={[0.17, 0.14, 0.56, 18]} />
             <primitive object={M.planter} attach="material" />
           </mesh>
+          {/* A slender stem with a few leaf clusters up it. */}
           {[
-            [0, 1.16, 0, 0.46],
-            [0.24, 1.6, 0.14, 0.32],
-            [-0.2, 1.5, -0.16, 0.28],
-            [0.08, 1.92, -0.07, 0.22],
+            [0.0, 0.78, 0.0, 0.14],
+            [0.11, 1.02, 0.05, 0.12],
+            [-0.09, 1.2, -0.07, 0.115],
+            [0.06, 1.38, 0.08, 0.1],
+            [-0.05, 1.54, -0.04, 0.085],
           ].map(([x, y, z, r], j) => (
             <mesh key={j} position={[x, y, z]} castShadow>
               <icosahedronGeometry args={[r, 1]} />
               <primitive object={M.foliage} attach="material" />
             </mesh>
           ))}
+          <mesh position={[0, 0.95, 0]}>
+            <cylinderGeometry args={[0.012, 0.016, 0.8, 8]} />
+            <meshStandardMaterial color="#3d4a32" roughness={0.9} />
+          </mesh>
         </group>
       ))}
     </group>
@@ -953,11 +1010,11 @@ function Housings() {
   return (
     <group>
       <mesh position={[p.pendant.x, p.pendant.y, p.pendant.z]} castShadow>
-        <boxGeometry args={[0.13, 0.1, p.pendant.len]} />
+        <boxGeometry args={[p.pendant.len, 0.1, 0.13]} />
         <primitive object={M.walnutDark} attach="material" />
       </mesh>
       {([-1, 1] as const).map((s) => (
-        <mesh key={s} position={[p.pendant.x, (p.pendant.y + CX.h) / 2 + 0.05, p.pendant.z + s * (p.pendant.len / 2 - 0.3)]}>
+        <mesh key={s} position={[p.pendant.x + s * (p.pendant.len / 2 - 0.3), (p.pendant.y + CX.h) / 2 + 0.05, p.pendant.z]}>
           <cylinderGeometry args={[0.006, 0.006, CX.h - p.pendant.y - 0.1, 6]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
@@ -1002,11 +1059,13 @@ export function CxoCabin3D({
       {/* The executive backs onto the glazing and faces the room; the
           visitors face back at the desk. A chair's back sits at its own local
           -z, so facing +x is a quarter turn one way and -x the other. */}
-      <Chair x={CX_PLAN.execChair.x} z={CX_PLAN.execChair.z} rotation={Math.PI / 2} exec />
+      {/* The executive faces the room; the visitors face back at the desk. A
+          chair's back sits at its own local -z, so rotation 0 faces +z. */}
+      <Chair x={CX_PLAN.execChair.x} z={CX_PLAN.execChair.z} rotation={0} exec />
       {CX_PLAN.visitors.map((v, i) => (
-        <Chair key={i} x={v.x} z={v.z} rotation={-Math.PI / 2} />
+        <Chair key={i} x={v.x} z={v.z} rotation={Math.PI} />
       ))}
-      <VisitorZone />
+      <Lounge />
       <Plants />
       <AirDiffuser />
       <Housings />
