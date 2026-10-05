@@ -89,7 +89,16 @@ export function BoardroomStage() {
     : 0;
 
   const night = daylight <= 0.02;
-  const view = useMemo(() => makeCityTexture(night), [night]);
+    /**
+   * Quantised to eight steps, deliberately.
+   *
+   * The skyline now takes the daylight level rather than a night flag, so dusk
+   * is a real state — but rebuilding a 2048x1024 canvas on every tick of the
+   * clock would be a stall a second. Eight buckets is finer than anyone can see
+   * through glass and rebuilds at most eight times across a whole day.
+   */
+  const skyStep = Math.round(Math.min(Math.max(daylight, 0), 1) * 8) / 8;
+  const view = useMemo(() => makeCityTexture(skyStep), [skyStep]);
 
   const ambient = space
     ? roomAmbience(space, states, clockMin)

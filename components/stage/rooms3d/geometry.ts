@@ -85,79 +85,180 @@ export function makeCurtainGeometry({
  * layout would reshuffle the skyline on every React remount, and a building that
  * moves when you change a light is instantly noticeable.
  */
-export function makeCityTexture(night: boolean, seed = 7): THREE.CanvasTexture {
-  // 2048 wide, with correspondingly small features. At 1024 against a 14 m
-  // plane each lit window covered ~7 cm of façade and read as a coarse block
-  // through the narrow curtain gaps, which is exactly where it is most visible.
+/**
+ * The view out of the window.
+ *
+ * Rewritten from a field of flat grey boxes into something that reads as a
+ * city: layered towers with aerial perspective, a tree canopy along the
+ * bottom, and a sky that actually changes through the day.
+ *
+ * `daylight` is 0..1 from the simulation, so dusk is a real state rather than
+ * a boolean between day and night — which matters here because three of the
+ * seven scenes in the executive cabin are set at or after sunset and the
+ * window is a third of the frame in all of them.
+ *
+ * Drawn rather than loaded, so the demo still works offline, and seeded so the
+ * skyline does not reshuffle on a remount.
+ */
+export function makeCityTexture(daylight: number, seed = 7): THREE.CanvasTexture {
   const w = 2048;
   const h = 1024;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
+  const g = canvas.getContext("2d")!;
 
-  // Cheap deterministic PRNG — no dependency, repeatable layout.
-  let s = seed * 9301 + 49297;
+  let s = seed * 7919;
   const rnd = () => {
     s = (s * 9301 + 49297) % 233280;
     return s / 233280;
   };
+  const d = Math.min(Math.max(daylight, 0), 1);
+  const mix = (a: number[], b: number[], t: number) =>
+    `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(",")})`;
 
-  const sky = ctx.createLinearGradient(0, 0, 0, h);
-  if (night) {
-    sky.addColorStop(0, "#0a1428");
-    sky.addColorStop(0.62, "#16305a");
-    sky.addColorStop(1, "#24507f");
-  } else {
-    sky.addColorStop(0, "#8fb6dd");
-    sky.addColorStop(0.7, "#c3d6e8");
-    sky.addColorStop(1, "#d9e4ee");
+  /* Sky. Night -> dusk at 0.18, dusk -> day above it: the horizon warms long
+     before the zenith does, which is what makes a dusk sky read as dusk. */
+  const duskT = Math.min(d / 0.18, 1);
+  const dayT = Math.max(0, (d - 0.18) / 0.82);
+  const zenith = mix(
+    [11, 16, 32],
+    duskT < 1 ? [38, 44, 78] : [122, 168, 219],
+    duskT < 1 ? duskT : dayT,
+  );
+  const horizon = mix(
+    [28, 26, 44],
+    duskT < 1 ? [223, 126, 74] : [198, 216, 234],
+    duskT < 1 ? duskT : dayT,
+  );
+  const sky = g.createLinearGradient(0, 0, 0, h * 0.78);
+  sky.addColorStop(0, zenith);
+  sky.addColorStop(1, horizon);
+  g.fillStyle = sky;
+  g.fillRect(0, 0, w, h);
+
+  // A low sun, strongest at dusk.
+  const sunStrength = duskT < 1 ? duskT : Math.max(0, 1 - dayT * 1.6);
+  if (sunStrength > 0.02) {
+    const sg = g.createRadialGradient(w * 0.26, h * 0.7, 0, w * 0.26, h * 0.7, h * 0.62);
+    sg.addColorStop(0, `rgba(255,196,128,${0.5 * sunStrength})`);
+    sg.addColorStop(1, "rgba(255,190,120,0)");
+    g.fillStyle = sg;
+    g.fillRect(0, 0, w, h);
   }
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, w, h);
 
-  // Buildings, back layer to front, getting darker and taller toward the viewer.
-  for (let layer = 0; layer < 3; layer++) {
-    const baseY = h * (0.52 + layer * 0.14);
-    const shade = night
-      ? ["#0d1c33", "#0a1628", "#06101d"][layer]
-      : ["#9db4c9", "#8ba4bb", "#7b95ae"][layer];
+  /**
+   * Three bands of towers, far to near.
+   *
+   * Aerial perspective is the whole trick: distant buildings are not smaller
+   * versions of near ones, they are *paler* — they sit behind more air. Each
+   * band is drawn closer to the sky colour than the one in front of it, and
+   * that alone turns a row of rectangles into a skyline.
+   */
+  const skyline = h * 0.72;
+  const bands = [
+    { haze: 0.74, base: [96, 110, 134], top: skyline - h * 0.34, lo: 26, hi: 70 },
+    { haze: 0.44, base: [62, 72, 92], top: skyline - h * 0.42, lo: 34, hi: 96 },
+    { haze: 0.16, base: [34, 40, 54], top: skyline - h * 0.5, lo: 44, hi: 128 },
+  ];
+
+  for (const band of bands) {
+    const night = 1 - Math.min(d / 0.3, 1);
+    const tint = mix(band.base, [198, 216, 234], band.haze * (1 - night * 0.7));
     let x = -40;
     while (x < w + 40) {
-      const bw = 30 + rnd() * 74;
-      const bh = (120 + rnd() * 420) * (1 - layer * 0.16);
-      ctx.fillStyle = shade;
-      ctx.fillRect(x, baseY - bh, bw, bh + h);
-
-      if (night) {
-        // Lit windows. Sparse, warm, and slightly irregular.
-        const cols = Math.max(1, Math.floor(bw / 9));
-        const rows = Math.max(1, Math.floor(bh / 13));
+      const bw = band.lo + rnd() * band.hi;
+      const bh = (0.28 + rnd() * 0.72) * (skyline - band.top);
+      const y = skyline - bh;
+      g.fillStyle = tint;
+      g.fillRect(x, y, bw, bh + 10);
+      // A few get a setback or a crown, so the roofline is not a flat comb.
+      if (rnd() < 0.3) {
+        g.fillRect(x + bw * 0.28, y - bh * 0.16, bw * 0.44, bh * 0.18);
+      }
+      // Lit windows, mostly after dark.
+      const lit = night * 0.85 + 0.04;
+      if (lit > 0.06 && band.haze < 0.6) {
+        const cols = Math.max(1, Math.floor(bw / 13));
+        const rows = Math.max(1, Math.floor(bh / 17));
         for (let c = 0; c < cols; c++) {
           for (let r = 0; r < rows; r++) {
-            if (rnd() > 0.34) continue;
-            const warm = rnd();
-            ctx.fillStyle =
-              warm > 0.75
-                ? "rgba(255,236,190,0.95)"
-                : warm > 0.4
-                  ? "rgba(255,214,150,0.8)"
-                  : "rgba(190,214,255,0.65)";
-            ctx.fillRect(x + 3 + c * 9, baseY - bh + 5 + r * 13, 3.2, 4.4);
+            if (rnd() > lit * 0.5) continue;
+            g.fillStyle = `rgba(255,214,150,${0.35 + rnd() * 0.5})`;
+            g.fillRect(x + 5 + c * 13, y + 7 + r * 17, 5, 7);
           }
         }
       }
-      x += bw + 7 + rnd() * 16;
+      x += bw + 3 + rnd() * 14;
     }
   }
 
+  /**
+   * Tree canopy along the bottom.
+   *
+   * The reference looks out over a park, and it is the one element that stops
+   * the view reading as a generic stock skyline — a band of green below the
+   * towers places the building somewhere.
+   */
+  const canopy = 1 - Math.min(d / 0.25, 1);
+  const leaf = mix([18, 34, 20], [58, 96, 48], 1 - canopy);
+  for (let i = 0; i < 420; i++) {
+    const cx = rnd() * w;
+    const cy = skyline + 10 + rnd() * (h - skyline - 10);
+    const r = 26 + rnd() * 58;
+    g.fillStyle = leaf;
+    g.globalAlpha = 0.5 + rnd() * 0.5;
+    g.beginPath();
+    g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.globalAlpha = 1;
+
+  // Haze along the skyline, which is what sells the distance.
+  const hz = g.createLinearGradient(0, skyline - h * 0.2, 0, skyline + 24);
+  hz.addColorStop(0, "rgba(0,0,0,0)");
+  hz.addColorStop(1, mix([20, 22, 34], [206, 222, 238], Math.min(d * 2, 1)).replace("rgb", "rgba").replace(")", ",0.5)"));
+  g.fillStyle = hz;
+  g.fillRect(0, skyline - h * 0.2, w, h * 0.2 + 24);
+
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.needsUpdate = true;
+  tex.anisotropy = 4;
   return tex;
 }
 
-/** What a screen is showing. Each scene wants a different one. */
+/**
+ * Venetian blind slats, as a texture rather than geometry.
+ *
+ * Thirty slats across five bays is a hundred and fifty boxes for something
+ * read at four metres through glass. A striped albedo with a matching normal
+ * gives the same picture for one draw call, which is the right trade in a room
+ * that already carries sixteen lights.
+ */
+export function makeBlindTexture(): THREE.CanvasTexture {
+  const w = 64;
+  const h = 512;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d")!;
+  const slat = 16;
+  for (let y = 0; y < h; y += slat) {
+    const grd = g.createLinearGradient(0, y, 0, y + slat);
+    grd.addColorStop(0, "#9a958c");
+    grd.addColorStop(0.55, "#cac5ba");
+    grd.addColorStop(0.92, "#6e6a63");
+    grd.addColorStop(1, "#4a4743");
+    g.fillStyle = grd;
+    g.fillRect(0, y, w, slat);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
 export type ScreenContent =
   | "streaming"
   | "presentation"

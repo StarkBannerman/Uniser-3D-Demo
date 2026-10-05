@@ -25,7 +25,7 @@
 import { useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import { RoundedBox } from "@react-three/drei";
-import { makeCityTexture, makeCurtainGeometry } from "./geometry";
+import { makeBlindTexture, makeCityTexture, makeCurtainGeometry } from "./geometry";
 import { applySet, useTextureSet } from "./pbr";
 
 export const CX = {
@@ -294,10 +294,13 @@ const M = {
     opacity: 0.52,
     side: THREE.DoubleSide,
   }),
-  /** Blackout roller behind it. Opaque, because that is the whole product. */
-  drape: new THREE.MeshStandardMaterial({
-    color: "#3e3c39",
+  /** Heavy taupe drape, stacking at the ends of the track. */
+  drape: new THREE.MeshPhysicalMaterial({
+    color: "#8a7f6d",
     roughness: 0.92,
+    sheen: 0.8,
+    sheenRoughness: 0.6,
+    sheenColor: new THREE.Color("#cdbfa4"),
     side: THREE.DoubleSide,
   }),
   glass: new THREE.MeshPhysicalMaterial({
@@ -613,11 +616,20 @@ function Glazing({ sheer, blackout, view }: CxoCurtains & { view: THREE.Texture 
   const height = win.y1 - win.y0;
   const bays = 5;
   const bay = span / bays;
+  const slats = useMemo(() => makeBlindTexture(), []);
 
   return (
     <group>
-      <mesh position={[-0.7, (win.y0 + win.y1) / 2, (win.z0 + win.z1) / 2]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[span * 1.7, height * 1.9]} />
+      {/**
+       * The city, well outside the building.
+       *
+       * It was 0.7 m behind the glass on a 13 m plane, which is a mural: the
+       * towers sat at arm's length and moved with the camera like wallpaper.
+       * At 18 m on a 46 m plane the parallax is right and the skyline reads as
+       * distance rather than as a backdrop.
+       */}
+      <mesh position={[-18, (win.y0 + win.y1) / 2 + 1.2, (win.z0 + win.z1) / 2]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[46, 22]} />
         <meshBasicMaterial map={view} toneMapped={false} />
       </mesh>
       <mesh position={[0.02, (win.y0 + win.y1) / 2, (win.z0 + win.z1) / 2]} rotation={[0, Math.PI / 2, 0]}>
@@ -625,51 +637,93 @@ function Glazing({ sheer, blackout, view }: CxoCurtains & { view: THREE.Texture 
         <primitive object={M.glass} attach="material" />
       </mesh>
 
-      {/* Mullions, head and sill. */}
+      {/* Thin dark mullions, head and sill. */}
       {Array.from({ length: bays + 1 }, (_, i) => (
         <mesh key={`m${i}`} position={[0.03, (win.y0 + win.y1) / 2, win.z0 + bay * i]}>
-          <boxGeometry args={[0.08, height, 0.06]} />
+          <boxGeometry args={[0.07, height, 0.05]} />
           <primitive object={M.matteBlack} attach="material" />
         </mesh>
       ))}
       {([win.y0, win.y1] as const).map((y, i) => (
         <mesh key={`t${i}`} position={[0.03, y, (win.z0 + win.z1) / 2]}>
-          <boxGeometry args={[0.08, 0.08, span]} />
+          <boxGeometry args={[0.07, 0.07, span]} />
           <primitive object={M.matteBlack} attach="material" />
         </mesh>
       ))}
 
-      {/* Cassettes, one pair per bay. */}
+      {/* Blind cassettes. */}
       {Array.from({ length: bays }, (_, i) => (
         <mesh key={`c${i}`} position={[0.13, win.y1 - 0.05, win.z0 + bay * (i + 0.5)]}>
-          <boxGeometry args={[0.13, 0.12, bay - 0.08]} />
+          <boxGeometry args={[0.11, 0.1, bay - 0.08]} />
           <primitive object={M.matteBlack} attach="material" />
         </mesh>
       ))}
 
-      {([
-        { pos: blackout, x: 0.08, mat: M.drape, key: "bo" },
-        { pos: sheer, x: 0.16, mat: M.sheer, key: "sh" },
-      ] as const).map(({ pos, x, mat, key }) =>
-        pos <= 0.4 ? null : (
-          <group key={key}>
-            {Array.from({ length: bays }, (_, i) => {
-              const drop = height * (pos / 100);
-              return (
-                <mesh
-                  key={i}
-                  position={[x, win.y1 - drop / 2, win.z0 + bay * (i + 0.5)]}
-                  rotation={[0, Math.PI / 2, 0]}
-                  castShadow={key === "bo"}
-                >
-                  <planeGeometry args={[bay - 0.1, drop]} />
-                  <primitive object={mat} attach="material" />
-                </mesh>
-              );
+      {/**
+       * Venetian blinds on the sheer channel, drapes on the blackout channel.
+       *
+       * Both are driven by the existing curtain device — the brief is explicit
+       * that nothing should grow a parallel system, and a shade already has
+       * exactly two layers. The venetian lowers from the head; the drapes stack
+       * at the two ends of the track.
+       *
+       * The slats are a striped texture rather than geometry. Thirty slats
+       * across five bays is a hundred and fifty boxes for something read at
+       * four metres through glass, and the picture is the same for one draw
+       * call — which matters in a room already carrying sixteen lights.
+       */}
+      {sheer > 0.4 &&
+        Array.from({ length: bays }, (_, i) => {
+          const drop = height * (sheer / 100);
+          return (
+            <mesh
+              key={`b${i}`}
+              position={[0.1, win.y1 - drop / 2, win.z0 + bay * (i + 0.5)]}
+              rotation={[0, Math.PI / 2, 0]}
+            >
+              <planeGeometry args={[bay - 0.1, drop]} />
+              <meshStandardMaterial
+                map={slats}
+                map-repeat-y={Math.max(1, Math.round(drop * 14))}
+                roughness={0.78}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          );
+        })}
+
+      {/* Heavy drapes, stacked at the ends of the track. */}
+      {Array.from({ length: 4 }, (_, i) => {
+        const closed = Math.min(Math.max(blackout / 100, 0), 1);
+        const toStart = i < 2;
+        const seg = span / 4;
+        const drawn = toStart
+          ? win.z0 + i * seg
+          : win.z0 + (i + 1) * seg;
+        const parked = toStart ? win.z0 + i * 0.16 : win.z1 - (3 - i) * 0.16;
+        const z = parked + (drawn - parked) * closed;
+        return (
+          <mesh
+            key={`d${i}`}
+            geometry={makeCurtainGeometry({
+              length: seg + 0.08,
+              height,
+              folds: 9,
+              foldDepth: 0.11,
+              gather: 1 - closed,
             })}
-          </group>
-        ),
-      )}
+            material={M.drape}
+            position={[0.3, win.y0, z]}
+            scale={[1, 1, toStart ? 1 : -1]}
+            castShadow={closed > 0.5}
+          />
+        );
+      })}
+      {/* Curtain track. */}
+      <mesh position={[0.3, win.y1 + 0.08, (win.z0 + win.z1) / 2]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.022, 0.022, span + 0.2, 8]} />
+        <primitive object={M.matteBlack} attach="material" />
+      </mesh>
     </group>
   );
 }

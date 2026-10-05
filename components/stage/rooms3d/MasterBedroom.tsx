@@ -757,7 +757,13 @@ function Curtains({ sheer, blackout }: CurtainPositions) {
 }
 
 function Glazing({ night }: { night: boolean }) {
-  const cityTex = useMemo(() => makeCityTexture(night), [night]);
+  /**
+   * The skyline takes a daylight level now rather than a night flag, so dusk is
+   * a real state. This room only has the boolean to hand and is not what the
+   * brief is about, so it passes a representative daytime value rather than
+   * growing a new prop for the sake of it.
+   */
+  const cityTex = useMemo(() => makeCityTexture(night ? 0 : 0.8), [night]);
   const cityMat = useMemo(
     () =>
       new THREE.MeshBasicMaterial({
