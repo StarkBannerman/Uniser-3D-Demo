@@ -389,13 +389,32 @@ function Heads({
 /**
  * Accent: strips in every shelf bay, and a graze on the artwork.
  *
- * One area light per joinery unit rather than one per bay — four bays stacked
- * in the same plane wash the same piece of timber, and four lights were three
- * more than the picture needed.
+ * One light per bay, and the earlier note here argued the opposite — that four
+ * bays stacked in the same plane wash the same timber, so one light per unit
+ * was three fewer for the same picture. It was the wrong economy. One source
+ * the full height of the bookcase is a studio softbox: every shelf gets the
+ * same light, so no shelf reads as having a light *in* it, and the whole unit
+ * goes evenly pale. That is most of what "the lighting looks fake" was.
  *
- * `rotation={[0, Math.PI, 0]}` throughout: a RectAreaLight emits along its own
- * local -Z, so without the half turn every one of these fires into the wall it
- * is mounted on. That exact bug has now cost time in two rooms.
+ * A real shelf strip sits under the shelf above and throws down. What sells it
+ * is the gradient — bright across the tops of the books, falling away to the
+ * shelf below — and a gradient needs the source close to one end of what it is
+ * lighting. So each bay now gets its own 60 mm line tucked under its own
+ * shelf, aimed down and back into the bay, matching the emissive strip that
+ * was already drawn there.
+ *
+ * The multiplier is large because a RectAreaLight's intensity is a luminance,
+ * not a flux: what the room receives scales with the light's *area*. Going
+ * from one source the size of the bookcase to a 60 mm line per bay cut the
+ * emitting area by about forty-five, and the first attempt kept the old
+ * number, so the shelves went nearly black. Area and intensity have to move
+ * in opposite directions here.
+ *
+ * On the rotations: a RectAreaLight emits along its own local -Z. The half
+ * turn on the spill light points it at the room; -PI/2 on the bay strips
+ * points them at the floor, and the 0.4 tilts them off vertical into the
+ * shelf. Nothing in the JSX says which way any of them face, which is how this
+ * has now cost time in two rooms and four separate fittings.
  */
 function Accent({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
   const colour = colourOf(state);
@@ -438,25 +457,27 @@ function Accent({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
              * Both were a light aimed at the room instead of at the thing it
              * is named after.
              */}
+            {out > 0.001 &&
+              Array.from({ length: unit.bays }, (_, b) => (
+                <rectAreaLight
+                  key={`l${b}`}
+                  position={[cx, bottom + pitch * (b + 1) - 0.07, 0.34]}
+                  rotation={[-Math.PI / 2 + 0.4, 0, 0]}
+                  width={span - 0.08}
+                  height={0.06}
+                  intensity={GAIN.accentStrip * 12 * out}
+                  color={colour}
+                />
+              ))}
             {out > 0.001 && (
-              <>
-                <rectAreaLight
-                  position={[cx, (bottom + top) / 2, 0.62]}
-                  rotation={[0, 0, 0]}
-                  width={span + 0.2}
-                  height={top - bottom + 0.2}
-                  intensity={GAIN.accentStrip * 1.6 * out}
-                  color={colour}
-                />
-                <rectAreaLight
-                  position={[cx, (bottom + top) / 2, 0.42]}
-                  rotation={[0, Math.PI, 0]}
-                  width={span}
-                  height={top - bottom}
-                  intensity={GAIN.accentStrip * 0.3 * out}
-                  color={colour}
-                />
-              </>
+              <rectAreaLight
+                position={[cx, (bottom + top) / 2, 0.42]}
+                rotation={[0, Math.PI, 0]}
+                width={span}
+                height={top - bottom}
+                intensity={GAIN.accentStrip * 0.25 * out}
+                color={colour}
+              />
             )}
           </group>
         );

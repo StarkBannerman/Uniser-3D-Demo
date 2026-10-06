@@ -21,7 +21,7 @@ import { Suspense, useLayoutEffect, type ReactNode } from "react";
 import * as THREE from "three";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
-import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
+import { EffectComposer, Bloom, N8AO, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 
 export interface CameraSpec {
@@ -193,7 +193,31 @@ export function Stage3D({
           intensity={1.05 * ambient.level}
         />
         {children}
-        <EffectComposer multisampling={4}>
+        <EffectComposer multisampling={4} enableNormalPass>
+          {/*
+            Ambient occlusion, and it is the difference between a room and a
+            diagram.
+
+            None of the area lights in any of these rooms cast a shadow —
+            three.js does not shadow `rectAreaLight` at all — and those are the
+            fittings doing most of the work: every cove, every shelf strip,
+            every under-counter line. So a book sat on a lit shelf with nothing
+            under it, the joinery met the wall with no seam, and a credenza
+            floated a millimetre off the floor. Everything was lit and nothing
+            was touching.
+
+            AO is what puts the contact back. The radius is in metres and half
+            of one is about right for furniture-scale geometry — wide enough to
+            darken the back of a shelf, tight enough to leave the open floor
+            alone. Half resolution because this runs behind a live demo on a
+            laptop, and the effect is low frequency enough that nobody can tell.
+          */}
+          <N8AO
+            aoRadius={0.35}
+            distanceFalloff={0.7}
+            intensity={3}
+            halfRes
+          />
           <Bloom
             intensity={bloomIntensity}
             luminanceThreshold={bloomThreshold}
