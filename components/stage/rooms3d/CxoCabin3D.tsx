@@ -883,12 +883,25 @@ function Glazing({ sheer, blackout, view }: CxoCurtains & { view: THREE.Texture 
        *
        * A single-sided track is also the more usual detail on a run this long,
        * and it puts the stack where there is nothing but wall behind it.
+       *
+       * Where it parks matters as much as which end. It used to stop 1.5 m
+       * short of the end of the track and spread the four panels over another
+       * 1.26 m, so a *fully open* curtain stood across about a fifth of the
+       * glazing — and it did it at the end nearest the camera, where
+       * perspective makes a fifth of the window look like half of it. The room
+       * read as permanently half shut.
+       *
+       * Real stack-back sits on the wall beside the opening, not on the glass.
+       * These now nest tight at the end and overhang the reveal, so open means
+       * open: about 0.3 m of glazing lost instead of 1.65.
        */}
       {Array.from({ length: 4 }, (_, i) => {
         const closed = Math.min(Math.max(blackout / 100, 0), 1);
         const seg = span / 4;
         const drawn = win.z0 + i * seg;
-        const parked = win.z1 - 1.5 - (3 - i) * 0.42;
+        // Hard against the end of the track, and overhanging the reveal onto
+        // the wall past it. See the note above for why 1.5 m inboard was not.
+        const parked = win.z1 - 0.3 + i * 0.22;
         const z = parked + (drawn - parked) * closed;
         return (
           <mesh
