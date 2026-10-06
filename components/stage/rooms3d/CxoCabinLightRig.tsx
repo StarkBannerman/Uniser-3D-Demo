@@ -404,15 +404,44 @@ function Accent({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
                 <primitive object={face} attach="material" />
               </mesh>
             ))}
+            {/**
+             * Clear of the joinery, and pointed at it.
+             *
+             * This sat at z = 0.34 facing the room — which is inside the
+             * unit's own 0.02 to 0.38 depth, and facing away from the books at
+             * 0.26. Two faults from one line: it lit nothing on the shelves,
+             * so the bays read as empty black frames however high the accent
+             * channel went; and grazing the uprights and shelf edges at
+             * almost zero degrees drew a bright line right round the unit,
+             * which is the glowing wireframe outline.
+             *
+             * It now stands 0.62 out and faces the wall, so the books are lit
+             * from the front and nothing is grazed. A second, much weaker one
+             * throws the spill into the room that the first used to.
+             *
+             * Same mistake as the stone slab's backlight, two commits apart.
+             * Both were a light aimed at the room instead of at the thing it
+             * is named after.
+             */}
             {out > 0.001 && (
-              <rectAreaLight
-                position={[cx, (bottom + top) / 2, 0.34]}
-                rotation={[0, Math.PI, 0]}
-                width={span}
-                height={top - bottom}
-                intensity={GAIN.accentStrip * out}
-                color={colour}
-              />
+              <>
+                <rectAreaLight
+                  position={[cx, (bottom + top) / 2, 0.62]}
+                  rotation={[0, 0, 0]}
+                  width={span + 0.2}
+                  height={top - bottom + 0.2}
+                  intensity={GAIN.accentStrip * 1.6 * out}
+                  color={colour}
+                />
+                <rectAreaLight
+                  position={[cx, (bottom + top) / 2, 0.42]}
+                  rotation={[0, Math.PI, 0]}
+                  width={span}
+                  height={top - bottom}
+                  intensity={GAIN.accentStrip * 0.3 * out}
+                  color={colour}
+                />
+              </>
             )}
           </group>
         );
