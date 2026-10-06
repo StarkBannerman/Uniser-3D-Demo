@@ -835,15 +835,23 @@ function Glazing({ sheer, blackout, view }: CxoCurtains & { view: THREE.Texture 
           );
         })}
 
-      {/* Heavy drapes, stacked at the ends of the track. */}
+      {/**
+       * Heavy drapes on a single-sided track, stacking at the near end.
+       *
+       * They used to draw from both ends, which meant two panels parked at
+       * z0 — the exact corner where the glazing meets the joinery. Open, they
+       * sat bunched in front of the left shelving unit and buried it: the one
+       * place in the room where a stack of fabric has something behind it
+       * worth seeing.
+       *
+       * A single-sided track is also the more usual detail on a run this long,
+       * and it puts the stack where there is nothing but wall behind it.
+       */}
       {Array.from({ length: 4 }, (_, i) => {
         const closed = Math.min(Math.max(blackout / 100, 0), 1);
-        const toStart = i < 2;
         const seg = span / 4;
-        const drawn = toStart
-          ? win.z0 + i * seg
-          : win.z0 + (i + 1) * seg;
-        const parked = toStart ? win.z0 + i * 0.16 : win.z1 - (3 - i) * 0.16;
+        const drawn = win.z0 + i * seg;
+        const parked = win.z1 - 1.5 - (3 - i) * 0.42;
         const z = parked + (drawn - parked) * closed;
         return (
           <mesh
@@ -857,7 +865,6 @@ function Glazing({ sheer, blackout, view }: CxoCurtains & { view: THREE.Texture 
             })}
             material={M.drape}
             position={[0.3, win.y0, z]}
-            scale={[1, 1, toStart ? 1 : -1]}
             castShadow={closed > 0.5}
           />
         );
