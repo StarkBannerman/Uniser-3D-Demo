@@ -105,17 +105,47 @@ export const WS_PLAN = {
     { x: 13.4, z: 8.3 },
   ],
 
-  /** General downlights, on a 2.4 m grid across the whole plate. */
-  generalX: [1.5, 3.9, 6.3, 8.7, 11.1, 13.5],
-  generalZ: [1.6, 4.0, 6.4, 8.8, 11.2],
-  /** Suspended linear runs: one over each bench, plus two over the break zone. */
+  /**
+   * General downlights, on a 2.2 m grid over the *whole* plate.
+   *
+   * The first grid stopped at x 13.5 and z 11.2 in a room that is 16.0 by
+   * 13.5, which left a two and a half metre strip down the break side and
+   * another across the front with no ceiling fitting over them at all. No
+   * amount of output fixes a hole in the layout, and those were exactly the
+   * two places that stayed dark with every channel at full.
+   */
+  generalX: [1.3, 3.5, 5.8, 8.0, 10.2, 12.5, 14.7],
+  generalZ: [1.5, 3.6, 5.8, 7.9, 10.1, 12.2],
+  /**
+   * Suspended linear runs, one on each bench axis and running the full bay.
+   *
+   * They used to stop at z 9.0, just past the end of the benches, which is the
+   * tidy answer and the wrong one. Recessed downlights put nothing on a
+   * ceiling and the cove only reaches the 0.7 m soffit band, so the indirect
+   * component of these runs is the only thing lighting the middle of a 16 by
+   * 13.5 m ceiling — and wherever they stopped, the ceiling went grey above a
+   * lit floor. Running them the length of the bay is also what the sheet
+   * shows, and what an office actually installs: the run is set out on the
+   * structural grid, not on the furniture.
+   */
   linears: [
-    { x: 2.35, z0: 2.2, z1: 9.0, y: 2.62 },
-    { x: 5.15, z0: 2.2, z1: 9.0, y: 2.62 },
-    { x: 7.95, z0: 2.2, z1: 9.0, y: 2.62 },
+    { x: 2.35, z0: 1.8, z1: 12.0, y: 2.62 },
+    { x: 5.15, z0: 1.8, z1: 12.0, y: 2.62 },
+    { x: 7.95, z0: 1.8, z1: 12.0, y: 2.62 },
+    /**
+     * A fourth run, off the bench grid, over the break side.
+     *
+     * The three bench runs cover x 2.35 to 7.95 and the plate is sixteen
+     * metres wide, so the whole right half of the ceiling had no fitting
+     * throwing anything at it — the cove reaches its 0.7 m soffit band and
+     * stops. That half read grey above a lit floor while the left half read
+     * white, which is a more obvious fault than either half being wrong on
+     * its own. It sits at 10.6 to clear the counter island at 11.8.
+     */
+    { x: 10.6, z0: 6.6, z1: 12.0, y: 2.62 },
   ],
   /** Downlights inside the glazed room, separately circuited. */
-  meetingHeads: { x: [10.9, 13.5], z: [2.4, 3.7, 5.0] },
+  meetingHeads: { x: [10.6, 12.2, 13.8], z: [2.3, 3.7, 5.1] },
   /** Ceiling fans over the open floor. */
   fans: [
     { x: 4.0, z: 10.6 },

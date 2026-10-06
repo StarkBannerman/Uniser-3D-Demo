@@ -59,13 +59,13 @@ RectAreaLightUniformsLib.init();
  * floor plate.
  */
 const GAIN = {
-  cove: 20,
+  cove: 12,
   coveEmissive: 4.2,
   /** Suspended runs over the benches. The grid that makes the floor read. */
-  linear: 17,
+  linear: 13,
   linearEmissive: 4.8,
   /** The field of downlights. */
-  general: 28,
+  general: 22,
   generalEmissive: 5.0,
   /**
    * Desk lights. Small, because they are 40 cm above the thing they light.
@@ -77,10 +77,10 @@ const GAIN = {
   task: 9,
   taskEmissive: 3.4,
   /** Inside the glazed room. */
-  meeting: 24,
+  meeting: 26,
   meetingEmissive: 4.6,
   /** Pendants over the counter, plus the lounge wash. */
-  break: 13,
+  break: 16,
   breakEmissive: 4.6,
   /** What the meeting room's panel throws back into the floor. */
   displayBounce: 0.2,
@@ -159,7 +159,14 @@ function Cove({ state }: { state: LightState }) {
               position={[r.pos[0], r.pos[1] + 0.04, r.pos[2]]}
               rotation={[Math.PI / 2, 0, r.along === "x" ? 0 : Math.PI / 2]}
               width={r.len}
-              height={0.16}
+              /**
+               * 0.42, not 0.16. The cove sits only 0.21 m below the ceiling it
+               * washes, so a narrow source draws a hard bright line along the
+               * perimeter and leaves the ceiling inboard of it untouched. A
+               * deeper source spreads the wash across more of the soffit and
+               * carries further in, which is what a cove detail is for.
+               */
+              height={0.42}
               intensity={GAIN.cove * out}
               color={colour}
             />
@@ -216,15 +223,25 @@ function Linear({ state }: { state: LightState }) {
                 color={colour}
               />
             )}
-            {/* A little spill upward, so the run is not a black line against
-                a lit plenum. Aimed at the ceiling. */}
+            {/**
+             * Uplight, and more of it than "a little spill".
+             *
+             * At 0.22 this was only stopping the run reading as a black line
+             * against the plenum. But recessed downlights put nothing on a
+             * ceiling by definition and the cove only reaches the soffit, so
+             * the middle of a 16 x 13.5 m ceiling was lit by bounce alone and
+             * sat there as a grey slab over a lit floor. Suspended linears in
+             * an office are usually specified direct/indirect for exactly this
+             * reason: the indirect component is what makes the ceiling read as
+             * part of the room. Aimed at the ceiling.
+             */}
             {out > 0.001 && (
               <rectAreaLight
                 position={[r.x, r.y + 0.09, cz]}
                 rotation={[Math.PI / 2, 0, 0]}
                 width={0.1}
                 height={len}
-                intensity={GAIN.linear * 0.22 * out}
+                intensity={GAIN.linear * 0.62 * out}
                 color={colour}
               />
             )}
@@ -501,28 +518,39 @@ export function WorkspaceLightRig({
 
   const generalHeads = p.generalX.flatMap((x) => p.generalZ.map((z) => ({ x, z })));
   /**
-   * Six of the thirty lit, spread over the whole plate.
+   * Fifteen of the forty-two lit, on a regular lattice that covers the plate.
    *
-   * Deliberately not clustered. The cabin next door sampled heads that all sat
-   * within three metres of each other in an eight-metre room, and the far half
-   * was dark in every scene no matter how high the channel went — a bug that
-   * took two rounds to find because the apertures all looked lit.
+   * Six were not enough and no gain would have made them enough. A 57 degree
+   * head on a 3.4 m ceiling throws an 8.3 m pool at desk height, so six of
+   * them cover about half of a 216 m² floor — and what you get is pools, with
+   * the gaps between them reading as dark patches that look like a fault.
+   * Uniformity on an open plan is a spacing problem, not an output problem:
+   * real offices get it by putting heads close enough together that the pools
+   * overlap, which is the whole reason the grid is a grid.
+   *
+   * Lighting every other column and every other row puts the lit heads 4.5 m
+   * apart against an 8.3 m pool, so every point on the floor is inside at
+   * least two of them. The last row is offset rather than aligned so the strip
+   * nearest the camera is covered without adding a whole fourth row.
+   *
+   * Per-head gain comes down accordingly — this is two and a half times as
+   * many sources as before, and the room is not meant to be two and a half
+   * times brighter.
    */
   const generalLit = [
-    { x: p.generalX[0], z: p.generalZ[1] },
-    { x: p.generalX[2], z: p.generalZ[0] },
-    { x: p.generalX[1], z: p.generalZ[3] },
-    { x: p.generalX[3], z: p.generalZ[2] },
-    { x: p.generalX[5], z: p.generalZ[1] },
-    { x: p.generalX[4], z: p.generalZ[4] },
+    ...[0, 2, 4, 6].flatMap((i) =>
+      [0, 2, 4].map((j) => ({ x: p.generalX[i], z: p.generalZ[j] })),
+    ),
+    ...[1, 3, 5].map((i) => ({ x: p.generalX[i], z: p.generalZ[5] })),
   ];
 
   const meetingHeads = p.meetingHeads.x.flatMap((x) =>
     p.meetingHeads.z.map((z) => ({ x, z })),
   );
   const meetingLit = [
-    { x: p.meetingHeads.x[0], z: p.meetingHeads.z[1] },
-    { x: p.meetingHeads.x[1], z: p.meetingHeads.z[1] },
+    { x: p.meetingHeads.x[0], z: p.meetingHeads.z[0] },
+    { x: p.meetingHeads.x[2], z: p.meetingHeads.z[0] },
+    { x: p.meetingHeads.x[1], z: p.meetingHeads.z[2] },
   ];
 
   return (
@@ -535,7 +563,7 @@ export function WorkspaceLightRig({
         lit={generalLit}
         gain={GAIN.general}
         emissiveGain={GAIN.generalEmissive}
-        angle={0.78}
+        angle={1.0}
         radius={0.056}
         ceilingY={WS.h}
       />

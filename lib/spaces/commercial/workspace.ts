@@ -298,7 +298,7 @@ export const workspace: Space = {
         "ws-cove": { on: true, level: 70, cct: 5000 },
         "ws-meeting": { on: true, level: 80, cct: 5600 },
         // Warm even at the top of the morning. See the note on the device.
-        "ws-break": { on: true, level: 65, cct: 3500 },
+        "ws-break": { on: true, level: 78, cct: 3500 },
         "ws-blinds": { sheer: 0, blackout: 0 },
         "ws-display": { on: true, source: "Signage", volume: 0 },
         "ws-ac": { on: true, setpointC: 24, mode: "cool", fan: 2 },
@@ -328,11 +328,19 @@ export const workspace: Space = {
         "Four stages: the blinds trim the glare off the screens, the desk lights come up, the floor shifts to neutral 4000 K, and the AC settles to its working setpoint.",
       fadeMs: 1600,
       targets: {
-        // The break area steps back here rather than following the floor.
-        // Nobody is in it during focus hours and a lit lounge in the corner of
-        // the frame pulls the eye off the desks, which are the subject.
-        "ws-break": { on: true, level: 30, cct: 3000 },
-        "ws-meeting": { on: true, level: 55, cct: 4000 },
+        /**
+         * The break area stays up, where it used to drop to 30.
+         *
+         * The reasoning for stepping it back was compositional — nobody is in
+         * it during focus hours, so let it recede. On a floor plate that is
+         * the wrong instinct: a zone at 30 while the desks are at 95 does not
+         * read as restraint, it reads as a corner somebody forgot to light,
+         * and the whole claim of the room is that the *whole* floor is lit
+         * while individual zones are balanced within it. It sits below the
+         * desks and comfortably above dark.
+         */
+        "ws-break": { on: true, level: 66, cct: 3200 },
+        "ws-meeting": { on: true, level: 74, cct: 4000 },
         "ws-display": { on: true, source: "Signage", volume: 0 },
         "ws-fan": { on: true, speed: 2 },
       },
@@ -350,15 +358,18 @@ export const workspace: Space = {
           holdMs: 2200,
           targets: {
             "ws-task": { on: true, level: 95, cct: 4000, fadeMs: 1800 },
-            // Down, not up. The point of the stage.
-            "ws-general": { on: true, level: 62, fadeMs: 1800 },
+            // Down, but only a little. The point of the stage is that the
+            // desks lead and the floor does not have to carry them — not that
+            // the floor goes dim. Taken to 62 this read as a room with the
+            // lights half off rather than as a room balanced for work.
+            "ws-general": { on: true, level: 78, fadeMs: 1800 },
           },
         },
         {
           label: "Cool / neutral white activated",
           holdMs: 2000,
           targets: {
-            "ws-general": { on: true, level: 62, cct: 4000, fadeMs: 2400 },
+            "ws-general": { on: true, level: 78, cct: 4000, fadeMs: 2400 },
             "ws-linear": { on: true, level: 82, cct: 4000, fadeMs: 2400 },
             "ws-cove": { on: true, level: 52, cct: 4000, fadeMs: 2400 },
           },
@@ -387,7 +398,7 @@ export const workspace: Space = {
         // Above the floor, which is the whole point of the scene. A room
         // people are talking in should be the brightest thing in the picture.
         "ws-meeting": { on: true, level: 92, cct: 3800 },
-        "ws-break": { on: true, level: 60, cct: 3200 },
+        "ws-break": { on: true, level: 74, cct: 3200 },
         "ws-blinds": { sheer: 35, blackout: 0 },
         "ws-display": { on: true, source: "Wireless", volume: 0 },
         "ws-ac": { on: true, setpointC: 23, mode: "cool", fan: 2 },
@@ -432,8 +443,8 @@ export const workspace: Space = {
         "ws-linear": { on: true, level: 85, cct: 5000 },
         "ws-task": { on: true, level: 78, cct: 5000 },
         "ws-cove": { on: true, level: 62, cct: 4500 },
-        "ws-meeting": { on: true, level: 70, cct: 5000 },
-        "ws-break": { on: true, level: 45, cct: 3200 },
+        "ws-meeting": { on: true, level: 82, cct: 5000 },
+        "ws-break": { on: true, level: 72, cct: 3200 },
         // The sun is round the front by three, so the sheer earns its keep.
         "ws-blinds": { sheer: 60, blackout: 0 },
         "ws-display": { on: true, source: "Signage", volume: 0 },
@@ -464,8 +475,8 @@ export const workspace: Space = {
         "ws-linear": { on: true, level: 60, cct: 3500 },
         "ws-task": { on: true, level: 70, cct: 3500 },
         "ws-cove": { on: true, level: 70, cct: 3000 },
-        "ws-meeting": { on: true, level: 35, cct: 3200 },
-        "ws-break": { on: true, level: 55, cct: 2700 },
+        "ws-meeting": { on: true, level: 58, cct: 3200 },
+        "ws-break": { on: true, level: 68, cct: 2700 },
         // Open. At this hour the city outside is the best thing in the room
         // and closing the blinds throws it away.
         "ws-blinds": { sheer: 0, blackout: 0 },
@@ -552,7 +563,7 @@ export const workspace: Space = {
        * luminaires that extinguish under them, and because the switching
        * cycles are hard on drivers.
        */
-      minLevel: 30,
+      minLevel: 35,
     },
     {
       id: "ws-circadian",
@@ -611,8 +622,25 @@ export const workspace: Space = {
      * and the break area at the back see almost none of it. A boardroom is one
      * shallow room where every seat is near the window, so its average is much
      * closer to its perimeter value than this floor's can be.
+     *
+     * It also has to agree with what the renderer actually puts on the floor,
+     * and that is the constraint that set the final number. At 0.006 the
+     * simulation believed daylight was supplying 500 lux across the whole
+     * plate and trimmed the fixtures to their floor accordingly — while the
+     * render was lighting the window side and leaving the back of the room
+     * dark, because a window really does fall off like that. The fixtures were
+     * dimming for light that never arrived. A figure the renderer can honour
+     * is worth more than one that is defensible on its own.
+     *
+     * 0.001 is the figure that leaves the fixtures doing visible work through
+     * the middle of the day. Most of this floor is six to twelve metres from
+     * the glass and a daylight factor falls off roughly with the square of
+     * that distance, so the average over the plate is a small fraction of what
+     * the first row of desks sees. Harvesting still trims about a fifth out of
+     * the working layers at noon, which is a real saving to point at, and the
+     * room stays lit while it does it.
      */
-    windowFactor: 0.006,
+    windowFactor: 0.001,
     // The number an office is actually specified to, and the highest in the
     // project. A boardroom is 420 because people read at a table; a whole
     // floor of screens is 400 across the working plane and has to hold it
