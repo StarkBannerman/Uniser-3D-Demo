@@ -13,11 +13,13 @@ import { den } from "./residential/den";
 import { livingRoomIllustrated } from "./residential/living-room-illustrated";
 import { boardroom } from "./commercial/boardroom";
 import { cxoCabin } from "./commercial/cxo-cabin";
+import { workspace } from "./commercial/workspace";
 
 export const spaces: Space[] = [
   masterBedroom,
   livingRoom,
   den,
+  workspace,
   boardroom,
   cxoCabin,
   kitchen,

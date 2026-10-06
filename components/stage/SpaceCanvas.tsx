@@ -54,6 +54,7 @@ import { LivingRoomStage } from "./rooms3d/LivingRoomStage";
 import { KitchenStage } from "./rooms3d/KitchenStage";
 import { DenStage } from "./rooms3d/DenStage";
 import { BoardroomStage } from "./rooms3d/BoardroomStage";
+import { WorkspaceStage } from "./rooms3d/WorkspaceStage";
 import { CxoCabinStage } from "./rooms3d/CxoCabinStage";
 
 /** Window luminance that counts as "fully bright" for compositing. */
@@ -111,6 +112,8 @@ export function SpaceCanvas() {
           <DenStage />
         ) : space.model === "boardroom" ? (
           <BoardroomStage />
+        ) : space.model === "workspace" ? (
+          <WorkspaceStage />
         ) : space.model === "cxo-cabin" ? (
           <CxoCabinStage />
         ) : space.model === "kitchen" ? (
