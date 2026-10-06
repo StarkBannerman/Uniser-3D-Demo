@@ -175,8 +175,16 @@ function Cove({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
   const runs: { pos: [number, number, number]; along: "x" | "z"; len: number; lit: boolean }[] = [
     { pos: [inset, CX_COVE_Y, CX.d / 2], along: "z", len: CX.d - 0.3, lit: true },
     { pos: [CX.w - inset, CX_COVE_Y, CX.d / 2], along: "z", len: CX.d - 0.3, lit: true },
-    { pos: [CX.w / 2, CX_COVE_Y, inset], along: "x", len: CX.w - 0.3, lit: false },
-    { pos: [CX.w / 2, CX_COVE_Y, CX.d - inset], along: "x", len: CX.w - 0.3, lit: false },
+    // All four carry a light, including the short runs.
+    //
+    // They were emissive-only, carried over from the boardroom where the end
+    // runs genuinely add nothing — but that room is lit from both long walls
+    // onto a pale ceiling. Here the run at z = 0.57 is the one above the
+    // feature wall, so switching it off left the entire back of the room with
+    // no cove wash at all. A perimeter cove that stops at two sides is not a
+    // perimeter cove.
+    { pos: [CX.w / 2, CX_COVE_Y, inset], along: "x", len: CX.w - 0.3, lit: true },
+    { pos: [CX.w / 2, CX_COVE_Y, CX.d - inset], along: "x", len: CX.w - 0.3, lit: true },
   ];
 
   return (
@@ -569,8 +577,25 @@ export function CxoCabinLightRig({
 }) {
   const p = CX_PLAN;
   const GAIN = gains(exposure);
-  /** Four of the ten heads carry a spotlight; the rest are lenses only. */
-  const generalLit = [p.generalHeads[1], p.generalHeads[3], p.generalHeads[6], p.generalHeads[8]];
+  /**
+   * Five of the ten heads carry a spotlight; the rest are lenses only.
+   *
+   * The sampled four used to span x 1.4 to 4.4 in an eight metre room — one of
+   * them on the right-hand half, and every head at x = 6.5 upwards was a trim
+   * ring with nothing behind it. With the cove's end runs dark as well, the
+   * whole right side of the room had no source of its own and stayed dark at
+   * any level.
+   *
+   * Sampling a grid is fine; sampling one side of it is not. These are picked
+   * to cover both halves and the depth the camera actually sees.
+   */
+  const generalLit = [
+    p.generalHeads[1],
+    p.generalHeads[2],
+    p.generalHeads[3],
+    p.generalHeads[4],
+    p.generalHeads[7],
+  ];
   /** Two of the four desk heads, diagonally opposite. */
   const taskLit = [p.taskHeads[0], p.taskHeads[3]];
 
