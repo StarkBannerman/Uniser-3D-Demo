@@ -74,16 +74,30 @@ export function CxoCabinStage() {
   };
 
   const env = space?.environment;
-  const daylight = env
-    ? clamp01(
-        daylightLux(
-          sunElevation01(clockMin, env.sunriseMin, env.sunsetMin),
-          env.outdoorPeakLux,
-        ) / 45000,
+  const outdoorLux = env
+    ? daylightLux(
+        sunElevation01(clockMin, env.sunriseMin, env.sunsetMin),
+        env.outdoorPeakLux,
       )
     : 0;
+  /** How much daylight reaches the glass, normalised against a bright noon. */
+  const daylight = clamp01(outdoorLux / 45000);
+  /**
+   * How dark it is *outside*, which is a different question.
+   *
+   * Exposure and ambient were keyed to `daylight`, which saturates against
+   * noon — so at 5:20 PM, the hour this room opens at, 27,000 lux outdoors
+   * scored 0.61 and the room arrived at 82 per cent exposure with its fill cut
+   * by a third. That is a bright afternoon being rendered as late dusk, and it
+   * is why the cabin looked dark on load.
+   *
+   * What those two actually want to know is whether the sun has gone, not how
+   * far it is from its peak. Anything above about 6,000 lux outside is plain
+   * daylight and the room should be exposed normally; below that it ramps down
+   * through twilight and reaches night when the sun is actually down.
+   */
+  const night = clamp01(1 - outdoorLux / 6000);
 
-  const night = daylight <= 0.02;
     /**
    * Quantised to eight steps, deliberately.
    *
@@ -113,11 +127,11 @@ export function CxoCabinStage() {
    */
   const ambient = {
     ...base,
-    level: base.level * (0.16 + 0.84 * daylight),
+    level: base.level * (1 - 0.84 * night),
   };
-  // 0.42 at night put the whole frame at a mean of 9.5/255 — past dim and
+  // 0.42 after dark put the whole frame at a mean of 9.5/255 — past dim and
   // into unreadable. 0.55 keeps the shadows deep without losing the room.
-  const exposure = 0.55 + 0.45 * daylight;
+  const exposure = 1 - 0.45 * night;
 
   /**
    * Screens follow the desk zone: off when the room stands down, dim when it
