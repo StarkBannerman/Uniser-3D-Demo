@@ -51,7 +51,14 @@ export function useTextureSet(name: string, repeat: [number, number]): TextureSe
       t.wrapS = THREE.RepeatWrapping;
       t.wrapT = THREE.RepeatWrapping;
       t.repeat.set(repeat[0], repeat[1]);
-      t.anisotropy = 8;
+      /**
+       * 16, not 8. A floor seen at a grazing angle is the whole reason
+       * anisotropic filtering exists: the texel footprint of the near carpet
+       * is long and thin, and under-sampling it turns a weave into static.
+       * Three.js clamps this to whatever the GPU reports, so asking for more
+       * than the hardware has costs nothing.
+       */
+      t.anisotropy = 16;
       t.needsUpdate = true;
     }
   }, [map, normalMap, roughnessMap, repeat]);

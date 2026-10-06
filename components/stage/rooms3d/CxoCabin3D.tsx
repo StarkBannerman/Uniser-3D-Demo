@@ -1251,7 +1251,18 @@ function Surfaces() {
   const floor = useTextureSet("floor", [6.5, 9]);
   const walnut = useTextureSet("walnut", [3, 2.2]);
   const stone = useTextureSet("stone", [1, 1]);
-  const carpet = useTextureSet("carpet", [7, 6]);
+  /**
+   * Coarser than it was, because this carpet fills the bottom of every shot.
+   *
+   * Measured against the other rooms the near foreground carried ten times
+   * their grain for the same brightness — it was not a busy composition, it
+   * was the weave. Coarsening the tile alone made it worse, which is what
+   * identified the albedo rather than the filtering as the cause: the scan
+   * had nearly three times the stone's texel-to-texel contrast, so making
+   * each tile bigger just made the speckle bigger. The map itself is flatter
+   * now; this is the tile size that suits it.
+   */
+  const carpet = useTextureSet("carpet", [5, 4.5]);
   const leather = useTextureSet("leather", [3, 3]);
 
   useLayoutEffect(() => {
@@ -1260,7 +1271,7 @@ function Surfaces() {
     applySet(M.walnutDark, walnut, { normalScale: 0.5, envMapIntensity: 0.3 });
     applySet(M.stone, stone, { normalScale: 0.4, envMapIntensity: 1.1 });
     applySet(M.deskTop, stone, { normalScale: 0.35, envMapIntensity: 1.2 });
-    applySet(M.carpet, carpet, { normalScale: 1.2, envMapIntensity: 0.2 });
+    applySet(M.carpet, carpet, { normalScale: 0.35, envMapIntensity: 0.2 });
     applySet(M.leather, leather, { normalScale: 0.8, envMapIntensity: 0.6 });
     applySet(M.execLeather, leather, { normalScale: 0.8, envMapIntensity: 0.6 });
     applySet(M.sofa, carpet, { normalScale: 1.1, envMapIntensity: 0.25 });
