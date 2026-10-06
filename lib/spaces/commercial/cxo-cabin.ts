@@ -459,29 +459,32 @@ export const cxoCabin: Space = {
       name: "Evening",
       icon: "☾",
       blurb:
-        "Warm and calming: everything down and amber, the drape drawn, colour lifting the stone from behind.",
+        "Working late: warm throughout, the drapes drawn for privacy, the desk lit to read by and the stone glowing behind it.",
       fadeMs: 3200,
       clockMin: 20 * 60 + 15,
       targets: {
-        "cx-general": { on: false },
         /**
-         * Dim, warm and uneven, which is what Evening is for.
+         * Warm and drawn, but a working level. This is an office at eight.
          *
-         * These were lifted once when the room had no exposure model and the
-         * fill was coming from the fixtures themselves — at which point a dark
-         * scene genuinely did read as switched off. With exposure and ambient
-         * now following the clock, the opposite is true: the levels that read
-         * as "low" at those settings flooded the room.
+         * It was taken down to almost nothing — cove 18, no general, no task —
+         * on an instruction to make Evening "mostly shadow with a few
+         * deliberate pools". That is a lounge brief, and applying it to a CXO
+         * cabin produced a room nobody could read a document in.
          *
-         * The stone backlight is the hero and is deliberately the brightest
-         * thing here. Everything else sits far below it, so the room is mostly
-         * shadow with the slab lifting out of it.
+         * This space already has the soft case and the task case: Relax drops
+         * the working layers and lets the stone and the lamp carry it, and
+         * Reading puts a hard pool on the desk with everything else low.
+         * Evening is neither. It is somebody still at their desk after seven —
+         * warm, private behind drawn drapes, and properly lit.
+         *
+         * The stone stays the feature; it is no longer the only thing lit.
          */
-        "cx-cove": { on: true, level: 18, cct: 2200 },
-        "cx-decorative": { on: true, level: 30, cct: 2300 },
-        "cx-task": { on: false },
-        "cx-accent": { on: true, level: 22, cct: 2400 },
-        "cx-rgb": { on: true, level: 70, cct: 2200, sat: 0 },
+        "cx-general": { on: true, level: 42, cct: 2900 },
+        "cx-cove": { on: true, level: 48, cct: 2700 },
+        "cx-decorative": { on: true, level: 72, cct: 2700 },
+        "cx-task": { on: true, level: 72, cct: 3200 },
+        "cx-accent": { on: true, level: 58, cct: 2700 },
+        "cx-rgb": { on: true, level: 55, cct: 2500, sat: 0 },
         "cx-curtain": { sheer: 100, blackout: 100 },
         "cx-audio": { on: true, source: "Radio", volume: 18 },
         "cx-ac": { on: true, setpointC: 24, fan: 1 },

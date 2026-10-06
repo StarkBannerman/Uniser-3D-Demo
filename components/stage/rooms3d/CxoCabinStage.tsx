@@ -129,9 +129,17 @@ export function CxoCabinStage() {
     ...base,
     level: base.level * (1 - 0.84 * night),
   };
-  // 0.42 after dark put the whole frame at a mean of 9.5/255 — past dim and
-  // into unreadable. 0.55 keeps the shadows deep without losing the room.
-  const exposure = 1 - 0.45 * night;
+  /**
+   * The night floor went 0.42, then 0.55, now 0.72.
+   *
+   * The first two were chosen while Evening was being pushed towards a lounge.
+   * An office with its own lights on after dark is not a dim room — the
+   * fixtures are doing the same work they do at four in the afternoon, and the
+   * only thing that has actually changed is that there is no daylight adding
+   * to them. Stopping the aperture down by nearly half on top of that was
+   * double-counting the dark.
+   */
+  const exposure = 1 - 0.28 * night;
 
   /**
    * Screens follow the desk zone: off when the room stands down, dim when it
