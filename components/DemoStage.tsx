@@ -16,6 +16,7 @@
  * itself is what is being sold.
  */
 
+import Link from "next/link";
 import { useLayoutEffect, useState } from "react";
 import { useSim } from "@/lib/sim/store";
 import { useTicker } from "@/lib/sim/useTicker";
@@ -77,12 +78,16 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-shell-800 bg-shell-900/80 px-3 py-2.5">
         <div className="flex items-center gap-3">
-          {/* A mark, not a link. Home redirects here, so clicking it would tear
-              down and rebuild the WebGL scene — which mid-pitch looks like a
-              crash. Make it a Link again when there is more than one room. */}
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brass-500">
-            Uniser
-          </span>
+          {/* A link again, now that home is a chooser rather than a redirect
+              back to this page. It was a dead mark for as long as clicking it
+              would have torn down and rebuilt the WebGL scene only to land you
+              where you already were — which mid-pitch looks like a crash. */}
+          <Link
+            href="/"
+            className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brass-500 transition-colors hover:text-brass-400"
+          >
+            SmartSpaces
+          </Link>
           <div className="h-5 w-px bg-shell-700" />
           <div>
             <div className="text-sm font-medium leading-tight text-shell-100">
@@ -94,7 +99,7 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
           </div>
         </div>
         <ClockScrubber />
-        <RoomSwitch currentId={space.id} />
+        <RoomSwitch currentId={space.id} segment={space.segment} />
       </header>
 
       {/* `min-h-0` on every rung of this ladder is what lets the room grow. A
