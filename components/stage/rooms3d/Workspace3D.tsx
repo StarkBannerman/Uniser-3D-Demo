@@ -284,6 +284,21 @@ const M = {
     opacity: 0.5,
     side: THREE.DoubleSide,
   }),
+  /**
+   * The same roller with its slat stripes, as one material.
+   *
+   * It used to be two, both written onto the same mesh with `attach="material"`
+   * — which is not an error and not a blend either. The second simply replaced
+   * the first, so the plain material above was dead code on a mesh that was
+   * facing the wrong way regardless.
+   */
+  blindSheerSlatted: new THREE.MeshStandardMaterial({
+    color: "#d4cdc0",
+    roughness: 0.8,
+    transparent: true,
+    opacity: 0.52,
+    side: THREE.DoubleSide,
+  }),
   blindBlackout: new THREE.MeshStandardMaterial({
     color: "#514c45",
     roughness: 0.92,
@@ -487,6 +502,10 @@ function Glazing({ sheer, blackout, view }: { sheer: number; blackout: number; v
   const bay = span / bays;
   const slats = useMemo(() => makeBlindTexture(), []);
   useLayoutEffect(() => {
+    M.blindSheerSlatted.map = slats;
+    M.blindSheerSlatted.needsUpdate = true;
+  }, [slats]);
+  useLayoutEffect(() => {
     view.wrapS = THREE.RepeatWrapping;
     view.repeat.set(1.6, 1);
     view.needsUpdate = true;
@@ -552,41 +571,40 @@ function Glazing({ sheer, blackout, view }: { sheer: number; blackout: number; v
        * eight metres through glass, and a striped albedo gives the same picture
        * for one draw call.
        */}
-      {sheer > 0.4 &&
-        Array.from({ length: bays }, (_, i) => {
-          const drop = height * (sheer / 100);
-          return (
-            <mesh
-              key={`s${i}`}
-              position={[0.1, win.y1 - drop / 2, win.z0 + bay * (i + 0.5)]}
-            >
-              <planeGeometry args={[bay - 0.1, drop]} />
-              <primitive object={M.blindSheer} attach="material" />
-              <meshStandardMaterial
-                attach="material"
-                map={slats}
-                color="#d4cdc0"
-                roughness={0.8}
-                transparent
-                opacity={0.5}
-                side={THREE.DoubleSide}
-              />
-            </mesh>
-          );
-        })}
-      {blackout > 0.4 &&
-        Array.from({ length: bays }, (_, i) => {
-          const drop = height * (blackout / 100);
-          return (
-            <mesh
-              key={`b${i}`}
-              position={[0.06, win.y1 - drop / 2, win.z0 + bay * (i + 0.5)]}
-            >
-              <planeGeometry args={[bay - 0.1, drop]} />
-              <primitive object={M.blindBlackout} attach="material" />
-            </mesh>
-          );
-        })}
+      {/**
+       * Both rollers need the quarter turn, and leaving it off does not look
+       * like a slightly wrong blind — it looks like no blind at all.
+       *
+       * A `planeGeometry` is built in XY with its width along X. This façade
+       * runs along Z, so without the rotation every panel stood edge-on to the
+       * glass, eight 1.4 m fins projecting into the room at the window head.
+       * Seen from anywhere in the room they are invisible, so the control
+       * reported the blinds closed while the city showed straight through.
+       *
+       * Same family of mistake as the area lights' local -Z: a default
+       * orientation that is only correct for one of the two long walls a room
+       * can have.
+       */}
+      {([
+        { pos: blackout, x: 0.06, mat: M.blindBlackout, key: "bo" },
+        { pos: sheer, x: 0.1, mat: M.blindSheerSlatted, key: "sh" },
+      ] as const).map(({ pos, x, mat, key }) =>
+        pos > 0.4
+          ? Array.from({ length: bays }, (_, i) => {
+              const drop = height * (pos / 100);
+              return (
+                <mesh
+                  key={`${key}${i}`}
+                  position={[x, win.y1 - drop / 2, win.z0 + bay * (i + 0.5)]}
+                  rotation={[0, Math.PI / 2, 0]}
+                >
+                  <planeGeometry args={[bay - 0.09, drop]} />
+                  <primitive object={mat} attach="material" />
+                </mesh>
+              );
+            })
+          : null,
+      )}
     </group>
   );
 }
