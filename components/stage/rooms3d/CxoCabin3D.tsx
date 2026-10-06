@@ -350,7 +350,16 @@ const M = {
     opacity: 0.07,
     side: THREE.DoubleSide,
   }),
-  foliage: new THREE.MeshStandardMaterial({ color: "#35512c", roughness: 0.9 }),
+  foliage: new THREE.MeshStandardMaterial({
+    color: "#3f5c33",
+    roughness: 0.82,
+    side: THREE.DoubleSide,
+  }),
+  foliageDark: new THREE.MeshStandardMaterial({
+    color: "#2b4425",
+    roughness: 0.86,
+    side: THREE.DoubleSide,
+  }),
   planter: new THREE.MeshStandardMaterial({ color: "#1d1e20", roughness: 0.55 }),
   paper: new THREE.MeshStandardMaterial({ color: "#cfc8b8", roughness: 0.9 }),
   /**
@@ -1147,7 +1156,52 @@ function Lounge() {
  * them filled a quarter of the frame and buried the desk behind it. A planter
  * in an executive office is a tall narrow pot with a slender plant in it — it
  * punctuates a corner, it does not occupy one.
+ *
+ * The canopy was five spheres threaded up a stem, which is a lollipop. Nothing
+ * else in the room was that obviously a primitive, so it drew the eye to
+ * itself and read as a placeholder.
+ *
+ * A plant is legible from its leaves, so it is built from leaves: blades on
+ * the golden angle, drooping at the bottom and standing at the top, longest
+ * low down. Two greens, alternating, because a canopy in one flat colour is
+ * the same mistake the park outside the window was making.
  */
+/**
+ * One leaf, pointed at both ends, built once and shared.
+ *
+ * A rectangle will not do. The first attempt used plain planes and they read
+ * as cardboard strips stapled to a pole — a leaf is recognised by its taper,
+ * and without that no amount of arranging helps.
+ */
+const LEAF_GEOM = (() => {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.bezierCurveTo(0.38, 0.2, 0.32, 0.76, 0, 1);
+  s.bezierCurveTo(-0.32, 0.76, -0.38, 0.2, 0, 0);
+  return new THREE.ShapeGeometry(s, 12);
+})();
+
+const LEAF_COUNT = 38;
+const LEAVES = Array.from({ length: LEAF_COUNT }, (_, i) => {
+  const t = i / (LEAF_COUNT - 1);
+  // Deterministic jitter, so the canopy is not a perfect mathematical object.
+  const n = Math.sin(i * 12.9898) * 43758.5453;
+  const j = n - Math.floor(n);
+  return {
+    // 137.5 degrees: the angle real stems put successive leaves at, and the
+    // reason a plant never looks like it is in rows.
+    turn: i * 2.39996,
+    // Lower leaves hang out and away, upper ones close toward vertical.
+    tilt: 1.38 - t * 1.04 + (j - 0.5) * 0.22,
+    // A roll about the leaf's own axis, so they do not all face the camera.
+    roll: (j - 0.5) * 1.1,
+    len: (0.44 - t * 0.16) * (0.85 + j * 0.3),
+    width: 0.7,
+    y: 0.58 + t * 0.92,
+    dark: i % 3 === 0,
+  };
+});
+
 function Plants() {
   return (
     <group>
@@ -1158,18 +1212,22 @@ function Plants() {
             <cylinderGeometry args={[0.17, 0.14, 0.56, 18]} />
             <primitive object={M.planter} attach="material" />
           </mesh>
-          {/* A slender stem with a few leaf clusters up it. */}
-          {[
-            [0.0, 0.78, 0.0, 0.14],
-            [0.11, 1.02, 0.05, 0.12],
-            [-0.09, 1.2, -0.07, 0.115],
-            [0.06, 1.38, 0.08, 0.1],
-            [-0.05, 1.54, -0.04, 0.085],
-          ].map(([x, y, z, r], j) => (
-            <mesh key={j} position={[x, y, z]} castShadow>
-              <icosahedronGeometry args={[r, 1]} />
-              <primitive object={M.foliage} attach="material" />
-            </mesh>
+          {LEAVES.map((l, j) => (
+            <group key={j} position={[0, l.y, 0]} rotation={[0, l.turn, 0]}>
+              <group rotation={[0, 0, -l.tilt]}>
+                <mesh
+                  geometry={LEAF_GEOM}
+                  rotation={[0, l.roll, 0]}
+                  scale={[l.len * l.width, l.len, 1]}
+                  castShadow
+                >
+                  <primitive
+                    object={l.dark ? M.foliageDark : M.foliage}
+                    attach="material"
+                  />
+                </mesh>
+              </group>
+            </group>
           ))}
           <mesh position={[0, 0.95, 0]}>
             <cylinderGeometry args={[0.012, 0.016, 0.8, 8]} />
