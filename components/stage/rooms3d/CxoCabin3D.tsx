@@ -185,33 +185,62 @@ const M = {
   wallDeep: new THREE.MeshStandardMaterial({ color: "#6e6459", roughness: 0.94 }),
   /** Fluted timber panelling, for the wall the art hangs on. */
   walnut: new THREE.MeshPhysicalMaterial({
-    color: "#5a4230",
+    color: "#f7f2ea",
     roughness: 0.42,
     metalness: 0.03,
     clearcoat: 0.35,
     clearcoatRoughness: 0.32,
   }),
   /** The inside of a niche: darker, so a lit bay reads as lit. */
-  walnutDark: new THREE.MeshStandardMaterial({ color: "#2e2117", roughness: 0.7 }),
+  walnutDark: new THREE.MeshStandardMaterial({ color: "#9b9286", roughness: 0.7 }),
   /**
    * Floor, stone and carpet are declared here rather than inline, so the
    * texture pass can write scanned maps onto them without reconstructing
-   * anything. Their colours stay as a tint under the albedo.
+   * anything.
+   *
+   * Everything from here down that takes a scanned map reads almost white in
+   * source. That is deliberate, and it is the opposite of what was here
+   * before. Colour and map *multiply*; the colour is not a tint laid over the
+   * texture, it is a second albedo stacked on the first. These colours had
+   * each been tuned when the material was untextured and the colour was the
+   * whole answer, and multiplying them by an albedo that was already correct
+   * halved the room a second time.
+   *
+   * The joinery came out reflecting half a per cent of the light that reached
+   * it, against eight to twelve for real walnut; the niche interiors a tenth
+   * of a per cent, the floor one. The den returns thirteen per cent and the
+   * boardroom forty-five. So the room was a light sink, the compensation all
+   * went into the fixtures, and the only surfaces that were not sinks — the
+   * stone and the carpet — blew out while the walnut stayed black. That is
+   * where the flat, washed look came from.
+   *
+   * The rule: a material with a map gets a near-white colour, because the
+   * albedo already carries the tone. A material without one gets a real
+   * colour, because there is nothing else to carry it.
+   */
+  /**
+   * The floor colour is blue, and that is not a mistake.
+   *
+   * This scan is a strongly orange oak — 0.136 red against 0.015 blue, a nine
+   * to one cast that read as glaring pine next to the walnut. Blue is the only
+   * thing that cancels it, since colour and map multiply and there is no
+   * subtracting. Red and green come down, blue goes to full, and what lands on
+   * screen is the dark neutral-warm floor the scene sheet shows.
    */
   floor: new THREE.MeshStandardMaterial({
-    color: "#8a7a67",
+    color: "#a9c8ff",
     roughness: 0.52,
     metalness: 0.02,
     envMapIntensity: 0.5,
   }),
   stone: new THREE.MeshStandardMaterial({
-    color: "#a89d8c",
+    color: "#ebe4d8",
     roughness: 0.3,
     metalness: 0.04,
     envMapIntensity: 1.1,
   }),
   deskTop: new THREE.MeshStandardMaterial({
-    color: "#6f685e",
+    color: "#a09d98",
     /**
      * Matt-honed, and the number went up twice before it was right.
      *
@@ -229,7 +258,7 @@ const M = {
     envMapIntensity: 0.7,
   }),
   carpet: new THREE.MeshStandardMaterial({
-    color: "#c6bdb0",
+    color: "#e5ded5",
     roughness: 0.96,
     envMapIntensity: 0.25,
   }),
@@ -257,7 +286,7 @@ const M = {
   }),
   /** Black leather, on the executive chair only. */
   execLeather: new THREE.MeshPhysicalMaterial({
-    color: "#36332f",
+    color: "#6b6764",
     roughness: 0.42,
     sheen: 0.8,
     sheenRoughness: 0.4,
@@ -266,28 +295,27 @@ const M = {
   /**
    * Neutral commercial upholstery on the guest chairs.
    *
-   * The colours from here down read lighter in source than they do on screen.
-   * The scanned albedos are deliberately desaturated to a mid grey at build
-   * time — ambientCG's carpet is red and its leather brown, and a tint cannot
-   * undo a hue — so the material colour is multiplied by roughly 0.5 before
-   * anything else touches it. Reading these as finished values is a mistake.
+   * The scanned albedos here are desaturated to a neutral grey at build time,
+   * because ambientCG's carpet is red and its leather brown and a tint cannot
+   * undo a hue. The colour supplies the warmth back; the albedo supplies the
+   * weave and the tone.
    */
   leather: new THREE.MeshPhysicalMaterial({
-    color: "#7e7974",
+    color: "#c8c2bc",
     roughness: 0.58,
     sheen: 0.6,
     sheenRoughness: 0.5,
     sheenColor: new THREE.Color("#9c978f"),
   }),
   sofa: new THREE.MeshPhysicalMaterial({
-    color: "#d6cbb8",
+    color: "#fffaf2",
     roughness: 0.82,
     sheen: 1,
     sheenRoughness: 0.6,
     sheenColor: new THREE.Color("#d4cab6"),
   }),
   cushion: new THREE.MeshPhysicalMaterial({
-    color: "#9a9684",
+    color: "#bbb4a9",
     roughness: 0.84,
     sheen: 0.9,
     sheenRoughness: 0.6,

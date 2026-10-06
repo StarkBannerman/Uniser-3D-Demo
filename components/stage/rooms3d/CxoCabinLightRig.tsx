@@ -31,7 +31,22 @@ import { CX, CX_COVE_Y, CX_PLAN, CX_WINDOW } from "./CxoCabin3D";
 RectAreaLightUniformsLib.init();
 
 const BASE = {
-  cove: 26,
+  /**
+   * These came down by a bit over half in one go, and the reason is not in
+   * this file.
+   *
+   * Every luminaire gain here had been raised to compensate for a room whose
+   * surfaces were reflecting almost nothing — the joinery returned half a per
+   * cent of what reached it because its material colour was being multiplied
+   * by a scanned albedo instead of replaced by one. Fixing the materials
+   * multiplied the light coming back off the walnut by fifteen, so every one
+   * of these numbers was suddenly lighting a room that no longer needed it.
+   *
+   * The emissive values are deliberately *not* cut. They set how the strip
+   * itself looks against the tone curve, which has nothing to do with how much
+   * the room reflects.
+   */
+  cove: 11.7,
   /**
    * Emissive values are chosen against the tone curve, not against taste.
    *
@@ -57,7 +72,7 @@ const BASE = {
   // Back up from the 7 it was cut to while hunting the blown desk. The
   // pendant was never the cause, and it is the one luminaire in the room
   // anybody looks at.
-  pendant: 13,
+  pendant: 5.85,
   pendantEmissive: 2.4,
   /**
    * A near-field source, and the number is small for a reason.
@@ -68,7 +83,7 @@ const BASE = {
    * white band across the whole top; at 3 it still did. 0.9 is the first value
    * that reads as a lamp rather than as a fault.
    */
-  lamp: 1.6,
+  lamp: 0.72,
   lampEmissive: 1.5,
   /**
    * Working light, raised after measuring.
@@ -78,10 +93,10 @@ const BASE = {
    * atmosphere. The decorative layers were carrying the room and the working
    * ones were not, which is the right instinct taken one step too far.
    */
-  general: 38,
+  general: 17.1,
   generalEmissive: 2.1,
   /** Narrow heads on the desk. */
-  task: 42,
+  task: 18.9,
   taskEmissive: 2.3,
   /**
    * Shelf strips. Small, because of what they physically are.
@@ -102,8 +117,8 @@ const BASE = {
    * light the far side of the room, and it certainly does not do it harder
    * than the ceiling does.
    */
-  accentStrip: 4.5,
-  accentGraze: 20,
+  accentStrip: 2.02,
+  accentGraze: 9,
   accentEmissive: 1.7,
   /**
    * Concealed colour: bright to look at, modest as a source.
@@ -113,7 +128,7 @@ const BASE = {
    * disappeared under it. "Where appropriate" in this room means you should
    * have to look for it.
    */
-  rgb: 5,
+  rgb: 2.25,
   rgbEmissive: 2.0,
   sun: 1.3,
   // Enough to read as a lit window, not enough to bleach the floor in front of
