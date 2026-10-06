@@ -249,7 +249,17 @@ export const cxoCabin: Space = {
 
   scenes: [
     {
+      /**
+       * Every scene sets its own hour, and that is new.
+       *
+       * Evening was the only scene in the room that moved the clock, so
+       * pressing it left the time at 20:15 for everything after it — press
+       * Evening then Focus and you got a daytime working scene rendered at
+       * night, with the city lit up outside. Nobody would guess the fix was to
+       * press a different room. A scene is a moment, so it owns its hour.
+       */
       id: "welcome",
+      clockMin: 9 * 60 + 10,
       name: "Welcome",
       icon: "☼",
       blurb:
@@ -296,6 +306,7 @@ export const cxoCabin: Space = {
     },
     {
       id: "focus",
+      clockMin: 11 * 60,
       name: "Focus",
       icon: "❑",
       blurb:
@@ -352,6 +363,7 @@ export const cxoCabin: Space = {
        * changes something visible while it is changing it.
        */
       id: "meeting",
+      clockMin: 14 * 60 + 30,
       name: "Meeting",
       icon: "◉",
       blurb:
@@ -410,6 +422,7 @@ export const cxoCabin: Space = {
     },
     {
       id: "relax",
+      clockMin: 16 * 60 + 40,
       name: "Relax",
       icon: "◐",
       blurb:
@@ -434,6 +447,7 @@ export const cxoCabin: Space = {
     },
     {
       id: "reading",
+      clockMin: 17 * 60 + 30,
       name: "Reading",
       icon: "◪",
       blurb:
@@ -479,10 +493,10 @@ export const cxoCabin: Space = {
          *
          * The stone stays the feature; it is no longer the only thing lit.
          */
-        "cx-general": { on: true, level: 42, cct: 2900 },
-        "cx-cove": { on: true, level: 48, cct: 2700 },
-        "cx-decorative": { on: true, level: 72, cct: 2700 },
-        "cx-task": { on: true, level: 72, cct: 3200 },
+        "cx-general": { on: true, level: 80, cct: 2900 },
+        "cx-cove": { on: true, level: 66, cct: 2700 },
+        "cx-decorative": { on: true, level: 78, cct: 2700 },
+        "cx-task": { on: true, level: 90, cct: 3200 },
         "cx-accent": { on: true, level: 58, cct: 2700 },
         "cx-rgb": { on: true, level: 55, cct: 2500, sat: 0 },
         "cx-curtain": { sheer: 100, blackout: 100 },
@@ -579,7 +593,16 @@ export const cxoCabin: Space = {
   openingSceneId: "welcome",
   // Late afternoon. The hour this room looks best: low sun across the glazing,
   // the cove and the accent layers already doing visible work.
-  openingClockMin: 17 * 60 + 20,
+  /**
+   * An office, opened in office hours.
+   *
+   * This was 17:20 — in October, with sunset just after six, that is a room
+   * already losing its daylight. The boardroom opens at 10:40 and looks like a
+   * workplace; this opened at dusk and looked like somebody had forgotten to
+   * go home, which is most of why the two rooms read so differently side by
+   * side. Nothing about the fittings was the difference. It was the hour.
+   */
+  openingClockMin: 10 * 60 + 20,
 
   // Mumbai.
   environment: {

@@ -127,7 +127,7 @@ export function CxoCabinStage() {
    */
   const ambient = {
     ...base,
-    level: base.level * (1 - 0.84 * night),
+    level: base.level * (1 - 0.62 * night),
   };
   /**
    * The night floor went 0.42, then 0.55, now 0.72.
@@ -139,7 +139,16 @@ export function CxoCabinStage() {
    * to them. Stopping the aperture down by nearly half on top of that was
    * double-counting the dark.
    */
-  const exposure = 1 - 0.28 * night;
+  /**
+   * The night dip, and it is deliberately small.
+   *
+   * Stopping down after dark is how you photograph a room that is *meant* to
+   * read as dark — a lounge, a bedroom. An executive office at eight is not
+   * that: somebody is still working, and the room has to look like somewhere
+   * they could. At 0.28 this took an already-dim scene down another quarter
+   * and Evening read as midnight.
+   */
+  const exposure = 1 - 0.14 * night;
 
   /**
    * Screens follow the desk zone: off when the room stands down, dim when it

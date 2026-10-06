@@ -156,21 +156,42 @@ export function makeCityTexture(daylight: number, seed = 7): THREE.CanvasTexture
    * that alone turns a row of rectangles into a skyline.
    */
   const skyline = h * 0.72;
+  /**
+   * The haze numbers were set when this room opened at 17:20, where a low sun
+   * damps them through the `1 - night * 0.7` term. Opened at mid-morning
+   * instead they run at full strength and the whole city dissolves into the
+   * sky, so they come down to suit the hour the room actually opens at.
+   */
   const bands = [
-    { haze: 0.74, base: [96, 110, 134], top: skyline - h * 0.34, lo: 26, hi: 70 },
-    { haze: 0.44, base: [62, 72, 92], top: skyline - h * 0.42, lo: 34, hi: 96 },
-    { haze: 0.16, base: [34, 40, 54], top: skyline - h * 0.5, lo: 44, hi: 128 },
+    { haze: 0.56, base: [96, 110, 134], top: skyline - h * 0.34, lo: 26, hi: 70 },
+    { haze: 0.32, base: [62, 72, 92], top: skyline - h * 0.42, lo: 34, hi: 96 },
+    { haze: 0.1, base: [34, 40, 54], top: skyline - h * 0.5, lo: 44, hi: 128 },
   ];
 
   for (const band of bands) {
     const night = 1 - Math.min(d / 0.3, 1);
-    const tint = mix(band.base, [198, 216, 234], band.haze * (1 - night * 0.7));
     let x = -40;
     while (x < w + 40) {
       const bw = band.lo + rnd() * band.hi;
       const bh = (0.28 + rnd() * 0.72) * (skyline - band.top);
       const y = skyline - bh;
-      g.fillStyle = tint;
+      /**
+       * Each tower gets its own tint, and its own top-to-bottom gradient.
+       *
+       * A band drawn in one flat colour is a paper cut-out however good the
+       * haze between bands is — real towers differ from their neighbours in
+       * facade and in how much sky they are reflecting, and each one is
+       * paler at the top where it has more sky above it. Without that this
+       * read as three grey slabs.
+       */
+      const j = (rnd() - 0.5) * 26;
+      const facade = band.base.map((v) => v + j);
+      const tint = mix(facade, [198, 216, 234], band.haze * (1 - night * 0.7));
+      const tintTop = mix(facade, [198, 216, 234], Math.min(1, (band.haze + 0.12) * (1 - night * 0.7)));
+      const col = g.createLinearGradient(0, y, 0, skyline);
+      col.addColorStop(0, tintTop);
+      col.addColorStop(1, tint);
+      g.fillStyle = col;
       g.fillRect(x, y, bw, bh + 10);
       // A few get a setback or a crown, so the roofline is not a flat comb.
       if (rnd() < 0.3) {
@@ -201,15 +222,46 @@ export function makeCityTexture(daylight: number, seed = 7): THREE.CanvasTexture
    * towers places the building somewhere.
    */
   const canopy = 1 - Math.min(d / 0.25, 1);
-  const leaf = mix([18, 34, 20], [58, 96, 48], 1 - canopy);
-  for (let i = 0; i < 420; i++) {
-    const cx = rnd() * w;
-    const cy = skyline + 10 + rnd() * (h - skyline - 10);
-    const r = 26 + rnd() * 58;
-    g.fillStyle = leaf;
-    g.globalAlpha = 0.5 + rnd() * 0.5;
+  /**
+   * The green was the most synthetic thing in the view and the colour was
+   * never the reason — sampled off the render it came back rgb(59,100,46),
+   * which is a muted olive. It looked fluorescent because four hundred
+   * circles were stamped in a single tint and averaged into one flat slab
+   * with a hard horizontal edge, sitting next to a city drawn in greys.
+   *
+   * What makes a treetop canopy read is that no two crowns are the same
+   * colour and the far ones are washed out by the air in front of them. So
+   * every blob now jitters in hue and value, and the ones nearer the skyline
+   * are mixed toward the horizon colour. The band is laid down back to front
+   * so the near crowns overlap the far ones.
+   */
+  const trees: { x: number; y: number; r: number }[] = [];
+  for (let i = 0; i < 460; i++) {
+    trees.push({
+      x: rnd() * w,
+      y: skyline + 6 + rnd() * (h - skyline - 6),
+      r: 22 + rnd() * 54,
+    });
+  }
+  trees.sort((a, b) => a.y - b.y);
+  for (const t of trees) {
+    // 0 at the skyline, 1 at the bottom of the frame: how near the crown is.
+    const near = Math.min(1, (t.y - skyline) / Math.max(1, h - skyline));
+    const base = [
+      20 + rnd() * 16 + near * 14,
+      38 + rnd() * 26 + near * 22,
+      22 + rnd() * 14 + near * 10,
+    ];
+    const lit = mix([12, 20, 14], base, 1 - canopy * 0.85);
+    // Aerial perspective: the far edge of the park sits behind more air.
+    g.fillStyle = mix(
+      lit.slice(4, -1).split(",").map(Number),
+      [182, 198, 206],
+      (1 - near) * 0.5 * (1 - canopy * 0.8),
+    );
+    g.globalAlpha = 0.42 + rnd() * 0.42;
     g.beginPath();
-    g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.arc(t.x, t.y, t.r, 0, Math.PI * 2);
     g.fill();
   }
   g.globalAlpha = 1;
