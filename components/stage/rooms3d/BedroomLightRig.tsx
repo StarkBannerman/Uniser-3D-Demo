@@ -506,10 +506,11 @@ function HeadboardWash({ state, gain }: { state: LightState; gain: number }) {
     [colour.getHex(), glow],
   );
 
+  // One run, matching the one panel. It was three while the headboard had
+  // wings; carrying that over would have lit wall the headboard no longer
+  // covers, which is a strip in plain sight rather than a concealed one.
   const runs: { cx: number; w: number; top: number }[] = [
-    { cx: x, w: H.tallW - 0.12, top: H.tallH },
-    { cx: (H.wingX0 + x - H.tallW / 2) / 2, w: x - H.tallW / 2 - H.wingX0 - 0.1, top: H.wingH },
-    { cx: (H.wingX1 + x + H.tallW / 2) / 2, w: H.wingX1 - (x + H.tallW / 2) - 0.1, top: H.wingH },
+    { cx: x, w: H.w - 0.12, top: H.h },
   ];
 
   return (

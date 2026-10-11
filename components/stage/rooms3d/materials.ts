@@ -96,9 +96,15 @@ export const PALETTE = {
   wardrobeBack: "#ffffff",
   /** Mushroom velvet, on the headboard and the bed frame. */
   velvet: "#8a847f",
-  cushionA: "#7d655b",
-  cushionB: "#65685b",
-  cushionC: "#cac7c3",
+  /**
+   * The bed's whole accent palette, and there are two colours in it.
+   *
+   * Caramel on the runner, the headboard's own taupe on the single lumbar
+   * cushion. The three-cushion set this replaces — terracotta, moss and cream
+   * — was three accents on a bed that wanted one, which is most of what made
+   * it read as busy rather than as calm.
+   */
+  caramel: "#8a735d",
   /** The top sheet folded back over the duvet: the brightest cloth on the bed. */
   sheetTop: "#f5f4f5",
   /** Bouclé throw. */
@@ -159,11 +165,17 @@ export const materials = {
    */
   floor: new THREE.MeshStandardMaterial({
     color: PALETTE.floorTile,
-    // Honed, not polished. At 0.22 the floor mirrored the cove and the lamps
-    // as near-specular streaks, which is a showroom finish rather than a suite
-    // one — and with a vein map under it the sharp reflection fought the
-    // stone instead of sitting in it.
-    roughness: 0.34,
+    /**
+     * Honed, at the matte end of it.
+     *
+     * 0.22 mirrored the cove and the lamps as near-specular streaks, which is
+     * a showroom finish rather than a suite one, and with a vein map under it
+     * the sharp reflection fought the stone instead of sitting in it. 0.34
+     * still left the bedside lamp clipping to pure white in a blob the size of
+     * a coin — a real reflection, but a hard one. 0.40 spreads the same energy
+     * over enough floor to read as sheen.
+     */
+    roughness: 0.4,
     metalness: 0.03,
   }),
   headboard: new THREE.MeshPhysicalMaterial({
@@ -296,29 +308,13 @@ export const materials = {
     sheenRoughness: 0.32,
     sheenColor: new THREE.Color("#d8c9b6"),
   }),
-  cushionA: new THREE.MeshPhysicalMaterial({
-    color: PALETTE.cushionA,
-    roughness: 0.8,
+  caramel: new THREE.MeshPhysicalMaterial({
+    color: PALETTE.caramel,
+    roughness: 0.88,
     metalness: 0,
     sheen: 1,
-    sheenRoughness: 0.45,
-    sheenColor: new THREE.Color("#c99f86"),
-  }),
-  cushionB: new THREE.MeshPhysicalMaterial({
-    color: PALETTE.cushionB,
-    roughness: 0.86,
-    metalness: 0,
-    sheen: 0.9,
     sheenRoughness: 0.55,
-    sheenColor: new THREE.Color("#a6ad96"),
-  }),
-  cushionC: new THREE.MeshPhysicalMaterial({
-    color: PALETTE.cushionC,
-    roughness: 0.9,
-    metalness: 0,
-    sheen: 1,
-    sheenRoughness: 0.5,
-    sheenColor: new THREE.Color("#efe9df"),
+    sheenColor: new THREE.Color("#c9a583"),
   }),
   sheetTop: new THREE.MeshPhysicalMaterial({
     color: PALETTE.sheetTop,
