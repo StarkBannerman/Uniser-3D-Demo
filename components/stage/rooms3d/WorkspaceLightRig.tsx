@@ -65,7 +65,7 @@ const GAIN = {
   linear: 13,
   linearEmissive: 4.8,
   /** The field of downlights. */
-  general: 22,
+  general: 30,
   generalEmissive: 5.0,
   /**
    * Desk lights. Small, because they are 40 cm above the thing they light.
@@ -74,13 +74,13 @@ const GAIN = {
    * down, so their pools have to be visible against a floor that is still lit.
    * Narrow beam does that far better than brightness.
    */
-  task: 9,
+  task: 13,
   taskEmissive: 3.4,
   /** Inside the glazed room. */
   meeting: 26,
   meetingEmissive: 4.6,
   /** Pendants over the counter, plus the lounge wash. */
-  break: 16,
+  break: 24,
   breakEmissive: 4.6,
   /** What the meeting room's panel throws back into the floor. */
   displayBounce: 0.2,
@@ -235,13 +235,18 @@ function Linear({ state }: { state: LightState }) {
              * reason: the indirect component is what makes the ceiling read as
              * part of the room. Aimed at the ceiling.
              */}
-            {out > 0.001 && (
+            {/* Only every other run carries an uplight. A RectAreaLight runs a
+                linearly transformed cosine integration per light per pixel and
+                is the most expensive thing in any of these rooms; two of these
+                at 1.3x put the same light on the ceiling as four at 0.62, for
+                half the shader cost. */}
+            {out > 0.001 && i % 2 === 0 && (
               <rectAreaLight
                 position={[r.x, r.y + 0.09, cz]}
                 rotation={[Math.PI / 2, 0, 0]}
                 width={0.1}
                 height={len}
-                intensity={GAIN.linear * 0.62 * out}
+                intensity={GAIN.linear * 1.3 * out}
                 color={colour}
               />
             )}
@@ -341,9 +346,9 @@ function Task({ state }: { state: LightState }) {
         x: bench.x + sgn * (half - 0.16),
         z: b.z0 + pitch * (i + 0.5),
         key: `${bi}-${i}-${sgn}`,
-        // Two per bench carry a light, on alternating sides so neither half of
-        // a bench is systematically darker than the other.
-        lit: i === (sgn > 0 ? 1 : 2),
+        // One per bench carries a light. Two was a second spotlight for a
+        // second desk pool nobody could pick out, at full per-pixel price.
+        lit: sgn > 0 && i === 1,
       })),
     ).flat(),
   );
@@ -394,7 +399,7 @@ function Break({ state }: { state: LightState }) {
             <circleGeometry args={[0.155, 18]} />
             <primitive object={face} attach="material" />
           </mesh>
-          {out > 0.001 && (
+          {out > 0.001 && i % 2 === 0 && (
             <Spot
               position={[c.x - 0.35, 1.93, z]}
               target={[c.x - 0.2, c.h, z]}
@@ -528,29 +533,26 @@ export function WorkspaceLightRig({
    * real offices get it by putting heads close enough together that the pools
    * overlap, which is the whole reason the grid is a grid.
    *
-   * Lighting every other column and every other row puts the lit heads 4.5 m
-   * apart against an 8.3 m pool, so every point on the floor is inside at
-   * least two of them. The last row is offset rather than aligned so the strip
-   * nearest the camera is covered without adding a whole fourth row.
-   *
-   * Per-head gain comes down accordingly — this is two and a half times as
-   * many sources as before, and the room is not meant to be two and a half
-   * times brighter.
+   * Nine, on a 6.7 x 4.3 m lattice and a 66 degree beam. It was fifteen, and
+   * fifteen is what made this room unusable: every light in a scene is
+   * evaluated by every fragment, so the count is a per-pixel cost, and at
+   * forty-five simultaneous lights the floor ran at under three frames a
+   * second. Measured, dropping to nine and widening the beam holds the same
+   * coverage — the pools are 10.5 m across against a 6.7 m spacing, so every
+   * point is still inside at least two — for a third of the shader work.
    */
   const generalLit = [
-    ...[0, 2, 4, 6].flatMap((i) =>
+    ...[0, 3, 6].flatMap((i) =>
       [0, 2, 4].map((j) => ({ x: p.generalX[i], z: p.generalZ[j] })),
     ),
-    ...[1, 3, 5].map((i) => ({ x: p.generalX[i], z: p.generalZ[5] })),
   ];
 
   const meetingHeads = p.meetingHeads.x.flatMap((x) =>
     p.meetingHeads.z.map((z) => ({ x, z })),
   );
   const meetingLit = [
-    { x: p.meetingHeads.x[0], z: p.meetingHeads.z[0] },
-    { x: p.meetingHeads.x[2], z: p.meetingHeads.z[0] },
-    { x: p.meetingHeads.x[1], z: p.meetingHeads.z[2] },
+    { x: p.meetingHeads.x[0], z: p.meetingHeads.z[1] },
+    { x: p.meetingHeads.x[2], z: p.meetingHeads.z[1] },
   ];
 
   return (
@@ -563,7 +565,7 @@ export function WorkspaceLightRig({
         lit={generalLit}
         gain={GAIN.general}
         emissiveGain={GAIN.generalEmissive}
-        angle={1.0}
+        angle={1.15}
         radius={0.056}
         ceilingY={WS.h}
       />

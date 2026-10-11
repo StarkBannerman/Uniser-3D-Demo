@@ -28,7 +28,7 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { RoundedBox } from "@react-three/drei";
+import { Instance, Instances, RoundedBox } from "@react-three/drei";
 import {
   makeBlindTexture,
   makeCityTexture,
@@ -37,6 +37,7 @@ import {
   type ScreenContent,
 } from "./geometry";
 import { applySet, useTextureSet } from "./pbr";
+import { roundedBox } from "./instancing";
 import type { ShadeState } from "@/lib/sim/types";
 
 export const WS = {
@@ -53,6 +54,9 @@ export const WS_COVE_Y = WS.h - WS.soffit.drop + 0.03;
 
 /** The glazed façade, behind the blinds. */
 export const WS_WINDOW = { z0: 0.8, z1: 12.6, y0: 0.15, y1: WS.h - 0.52 };
+
+/** Every ceiling aperture, flattened once so they can share a draw call. */
+export const APERTURES: { pos: [number, number, number]; s: number }[] = [];
 
 export const WS_PLAN = {
   /**
@@ -171,6 +175,12 @@ export const WS_PLAN = {
   headline: { z: 0.04, x: 2.6, cy: 2.0, h: 1.5 },
   sideline: { x: WS.w - 0.04, z: 9.6, cy: 2.05, h: 1.4 },
 } as const;
+
+for (const x of WS_PLAN.generalX)
+  for (const z of WS_PLAN.generalZ) APERTURES.push({ pos: [x, WS.h - 0.012, z], s: 1 });
+for (const x of WS_PLAN.meetingHeads.x)
+  for (const z of WS_PLAN.meetingHeads.z)
+    APERTURES.push({ pos: [x, WS_PLAN.meeting.h - 0.012, z], s: 0.93 });
 
 /* ------------------------------------------------------------------ */
 /* Materials                                                           */
@@ -333,6 +343,69 @@ const M = {
   planter: new THREE.MeshStandardMaterial({ color: "#3c3d3f", roughness: 0.62 }),
   paper: new THREE.MeshStandardMaterial({ color: "#ddd7c9", roughness: 0.9 }),
 } as const;
+
+/**
+ * Chair and monitor parts, built once and instanced.
+ *
+ * There are thirty-six identical task chairs and forty-eight identical
+ * monitors on this floor. As ordinary meshes that is 288 + 192 = 480 draw
+ * calls for two objects, which was most of why the room ran at two frames a
+ * second on a scene of only 58k triangles — the GPU was idle and the driver
+ * was the bottleneck. As instances it is eight.
+ */
+const CHAIR_SEAT = roundedBox(0.47, 0.08, 0.45, 0.03);
+const CHAIR_BACK = roundedBox(0.45, 0.52, 0.07, 0.03);
+const CHAIR_COLUMN = new THREE.CylinderGeometry(0.035, 0.035, 0.42, 10);
+const CHAIR_ARM = new THREE.BoxGeometry(0.28, 0.035, 0.05);
+const MON_BASE = new THREE.BoxGeometry(0.22, 0.015, 0.14);
+const MON_STEM = new THREE.BoxGeometry(0.04, 0.26, 0.04);
+const MON_PANEL = new THREE.BoxGeometry(0.58, 0.35, 0.022);
+const MON_SCREEN = new THREE.PlaneGeometry(0.55, 0.32);
+
+type Placed = { key: string; x: number; z: number; ry: number };
+
+/** Every chair on the floor, and every monitor, gathered from the plan. */
+const CHAIRS: Placed[] = [];
+const MONITORS: (Placed & { y: number })[] = [];
+{
+  const b = WS_PLAN.bench;
+  const pitch = (b.z1 - b.z0) / b.seatsPerSide;
+  const half = b.w / 2;
+  for (const [bi, bench] of WS_PLAN.benches.entries()) {
+    for (let i = 0; i < b.seatsPerSide; i++) {
+      const z = b.z0 + pitch * (i + 0.5);
+      for (const sgn of [-1, 1] as const) {
+        const ry = sgn > 0 ? -Math.PI / 2 : Math.PI / 2;
+        CHAIRS.push({ key: `b${bi}-${i}-${sgn}`, x: bench.x + sgn * (half + 0.42), z, ry });
+        MONITORS.push({ key: `m${bi}-${i}-${sgn}`, x: bench.x + sgn * 0.3, y: b.h + 0.02, z, ry });
+      }
+    }
+  }
+  const m = WS_PLAN.meeting;
+  const t = WS_PLAN.meetingTable;
+  const mx = (m.x0 + m.x1) / 2;
+  const mz = (m.z0 + m.z1) / 2;
+  for (let i = 0; i < 3; i++) {
+    const cx = mx - t.w / 2 + (t.w / 3) * (i + 0.5);
+    CHAIRS.push({ key: `mt-n${i}`, x: cx, z: mz - t.d / 2 - 0.42, ry: 0 });
+    CHAIRS.push({ key: `mt-f${i}`, x: cx, z: mz + t.d / 2 + 0.42, ry: Math.PI });
+  }
+  for (const sgn of [-1, 1] as const)
+    CHAIRS.push({
+      key: `mt-e${sgn}`,
+      x: mx + sgn * (t.w / 2 + 0.44),
+      z: mz,
+      ry: sgn > 0 ? -Math.PI / 2 : Math.PI / 2,
+    });
+  for (const [ci, c] of WS_PLAN.cafeTables.entries())
+    for (const a of [0, Math.PI])
+      CHAIRS.push({
+        key: `cafe-${ci}-${a}`,
+        x: c.x + Math.sin(a) * 0.78,
+        z: c.z + Math.cos(a) * 0.78,
+        ry: a + Math.PI,
+      });
+}
 
 /** Screen glass, off. Monitors are everywhere here, so it is shared. */
 const SCREEN_OFF = new THREE.MeshStandardMaterial({
@@ -613,69 +686,70 @@ function Glazing({ sheer, blackout, view }: { sheer: number; blackout: number; v
 /* Desks                                                               */
 /* ------------------------------------------------------------------ */
 
-function TaskChair({
-  position,
-  rotation,
-}: {
-  position: [number, number, number];
-  rotation: number;
-}) {
+/**
+ * All the chairs and all the monitors, as eight instanced meshes.
+ *
+ * Each part is its own bank because instancing shares geometry, not objects.
+ * The transforms nest the way the old components did — a `<group>` per chair
+ * with the part offsets inside it — because drei's `<Instance>` reads its
+ * world matrix, so the arithmetic stays where it is readable.
+ */
+function Seating() {
   return (
-    <group position={position} rotation={[0, rotation, 0]}>
-      {/* Seat. */}
-      <RoundedBox args={[0.47, 0.08, 0.45]} radius={0.03} smoothness={2} position={[0, 0.45, 0]} castShadow>
-        <primitive object={M.upholsteryDark} attach="material" />
-      </RoundedBox>
-      {/* Back. A chair's back sits at local -z, so a chair facing +z needs
-          rotation 0 and one facing -z needs a half turn. Getting this backwards
-          put two boardroom chairs facing the wall for a whole pass. */}
-      <RoundedBox
-        args={[0.45, 0.52, 0.07]}
-        radius={0.03}
-        smoothness={2}
-        position={[0, 0.74, -0.2]}
-        rotation={[-0.1, 0, 0]}
-        castShadow
-      >
-        <primitive object={M.upholsteryDark} attach="material" />
-      </RoundedBox>
-      {/* Column and base. */}
-      <mesh position={[0, 0.24, 0]}>
-        <cylinderGeometry args={[0.035, 0.035, 0.42, 10]} />
-        <primitive object={M.metal} attach="material" />
-      </mesh>
-      {Array.from({ length: 5 }, (_, i) => {
-        const a = (i / 5) * Math.PI * 2;
-        return (
-          <mesh key={i} position={[Math.cos(a) * 0.14, 0.05, Math.sin(a) * 0.14]} rotation={[0, -a, 0]}>
-            <boxGeometry args={[0.28, 0.035, 0.05]} />
-            <primitive object={M.matteBlack} attach="material" />
-          </mesh>
-        );
-      })}
-    </group>
-  );
-}
+    <group>
+      <Instances limit={CHAIRS.length} range={CHAIRS.length} geometry={CHAIR_SEAT} material={M.upholsteryDark} castShadow>
+        {CHAIRS.map((c) => (
+          <group key={c.key} position={[c.x, 0, c.z]} rotation={[0, c.ry, 0]}>
+            <Instance position={[0, 0.45, 0]} />
+          </group>
+        ))}
+      </Instances>
+      <Instances limit={CHAIRS.length} range={CHAIRS.length} geometry={CHAIR_BACK} material={M.upholsteryDark} castShadow>
+        {CHAIRS.map((c) => (
+          <group key={c.key} position={[c.x, 0, c.z]} rotation={[0, c.ry, 0]}>
+            {/* A chair's back sits at local -z, so a chair facing +z needs no
+                turn and one facing -z needs a half turn. Getting this backwards
+                put two boardroom chairs facing the wall for a whole pass. */}
+            <Instance position={[0, 0.74, -0.2]} rotation={[-0.1, 0, 0]} />
+          </group>
+        ))}
+      </Instances>
+      <Instances limit={CHAIRS.length} range={CHAIRS.length} geometry={CHAIR_COLUMN} material={M.metal}>
+        {CHAIRS.map((c) => (
+          <Instance key={c.key} position={[c.x, 0.24, c.z]} />
+        ))}
+      </Instances>
+      <Instances limit={CHAIRS.length * 5} range={CHAIRS.length * 5} geometry={CHAIR_ARM} material={M.matteBlack}>
+        {CHAIRS.map((c) => (
+          <group key={c.key} position={[c.x, 0, c.z]} rotation={[0, c.ry, 0]}>
+            {Array.from({ length: 5 }, (_, i) => {
+              const a = (i / 5) * Math.PI * 2;
+              return (
+                <Instance
+                  key={i}
+                  position={[Math.cos(a) * 0.14, 0.05, Math.sin(a) * 0.14]}
+                  rotation={[0, -a, 0]}
+                />
+              );
+            })}
+          </group>
+        ))}
+      </Instances>
 
-function Monitor({ position, rotation }: { position: [number, number, number]; rotation: number }) {
-  return (
-    <group position={position} rotation={[0, rotation, 0]}>
-      <mesh position={[0, 0.03, 0]}>
-        <boxGeometry args={[0.22, 0.015, 0.14]} />
-        <primitive object={M.matteBlack} attach="material" />
-      </mesh>
-      <mesh position={[0, 0.16, 0]}>
-        <boxGeometry args={[0.04, 0.26, 0.04]} />
-        <primitive object={M.matteBlack} attach="material" />
-      </mesh>
-      <mesh position={[0, 0.42, 0.012]} rotation={[-0.06, 0, 0]} castShadow>
-        <boxGeometry args={[0.58, 0.35, 0.022]} />
-        <primitive object={M.matteBlack} attach="material" />
-      </mesh>
-      <mesh position={[0, 0.42, -0.003]} rotation={[-0.06, Math.PI, 0]}>
-        <planeGeometry args={[0.55, 0.32]} />
-        <primitive object={SCREEN_OFF} attach="material" />
-      </mesh>
+      {([
+        { g: MON_BASE, m: M.matteBlack, p: [0, 0.03, 0], r: [0, 0, 0] },
+        { g: MON_STEM, m: M.matteBlack, p: [0, 0.16, 0], r: [0, 0, 0] },
+        { g: MON_PANEL, m: M.matteBlack, p: [0, 0.42, 0.012], r: [-0.06, 0, 0] },
+        { g: MON_SCREEN, m: SCREEN_OFF, p: [0, 0.42, -0.003], r: [-0.06, Math.PI, 0] },
+      ] as const).map((part, i) => (
+        <Instances key={i} limit={MONITORS.length} range={MONITORS.length} geometry={part.g} material={part.m} castShadow={i === 2}>
+          {MONITORS.map((mo) => (
+            <group key={mo.key} position={[mo.x, mo.y, mo.z]} rotation={[0, mo.ry, 0]}>
+              <Instance position={part.p as unknown as [number, number, number]} rotation={part.r as unknown as [number, number, number]} />
+            </group>
+          ))}
+        </Instances>
+      ))}
     </group>
   );
 }
@@ -731,11 +805,6 @@ function Bench({ x }: { x: number }) {
           <group key={i}>
             {([-1, 1] as const).map((sgn) => (
               <group key={sgn}>
-                <Monitor position={[sgn * 0.3, b.h + 0.02, z]} rotation={sgn > 0 ? -Math.PI / 2 : Math.PI / 2} />
-                <TaskChair
-                  position={[sgn * (half + 0.42), 0, z]}
-                  rotation={sgn > 0 ? -Math.PI / 2 : Math.PI / 2}
-                />
                 {/* A keyboard and a pad of paper, so the desk is not bare. */}
                 <mesh position={[sgn * 0.62, b.h + 0.025, z]} rotation={[0, sgn > 0 ? -Math.PI / 2 : Math.PI / 2, 0]}>
                   <boxGeometry args={[0.36, 0.014, 0.13]} />
@@ -869,19 +938,10 @@ function MeetingRoom({ displayOn, content }: { displayOn: boolean; content: Scre
       {Array.from({ length: 3 }, (_, i) => {
         const x = cx - t.w / 2 + (t.w / 3) * (i + 0.5);
         return (
-          <group key={i}>
-            <TaskChair position={[x, 0, cz - t.d / 2 - 0.42]} rotation={0} />
-            <TaskChair position={[x, 0, cz + t.d / 2 + 0.42]} rotation={Math.PI} />
-          </group>
+          <group key={i} />
         );
       })}
-      {([-1, 1] as const).map((sgn) => (
-        <TaskChair
-          key={sgn}
-          position={[cx + sgn * (t.w / 2 + 0.44), 0, cz]}
-          rotation={sgn > 0 ? -Math.PI / 2 : Math.PI / 2}
-        />
-      ))}
+
     </group>
   );
 }
@@ -972,9 +1032,6 @@ function BreakArea() {
             <cylinderGeometry args={[0.3, 0.3, 0.03, 20]} />
             <primitive object={M.matteBlack} attach="material" />
           </mesh>
-          {[0, Math.PI].map((a, j) => (
-            <TaskChair key={j} position={[Math.sin(a) * 0.78, 0, Math.cos(a) * 0.78]} rotation={a + Math.PI} />
-          ))}
         </group>
       ))}
     </group>
@@ -1016,7 +1073,30 @@ const LEAVES = Array.from({ length: LEAF_COUNT }, (_, i) => {
   };
 });
 
+/**
+ * Planting, as two instanced meshes rather than two hundred draws.
+ *
+ * Six specimens at thirty-four leaves each was 204 separate meshes — more draw
+ * calls than the rest of the furniture put together, for the least important
+ * thing in the room. The leaves are identical geometry in two materials, which
+ * is the exact case instancing exists for, so they cost two calls now.
+ *
+ * The pots and stems stay as ordinary meshes: twelve of them is not worth a
+ * second instanced buffer.
+ */
 function Plants() {
+  const blades = WS_PLAN.plants.flatMap((p, pi) =>
+    LEAVES.map((l, li) => ({
+      key: `${pi}-${li}`,
+      dark: l.dark,
+      position: [p.x, l.y * p.s, p.z] as [number, number, number],
+      rotation: [0, l.turn, 0] as [number, number, number],
+      tilt: l.tilt,
+      roll: l.roll,
+      scale: [l.len * 0.7 * p.s, l.len * p.s, 1] as [number, number, number],
+    })),
+  );
+
   return (
     <group>
       {WS_PLAN.plants.map((p, i) => (
@@ -1025,26 +1105,33 @@ function Plants() {
             <cylinderGeometry args={[0.2, 0.17, 0.52, 18]} />
             <primitive object={M.planter} attach="material" />
           </mesh>
-          {LEAVES.map((l, j) => (
-            <group key={j} position={[0, l.y, 0]} rotation={[0, l.turn, 0]}>
-              <group rotation={[0, 0, -l.tilt]}>
-                <mesh
-                  geometry={LEAF_GEOM}
-                  rotation={[0, l.roll, 0]}
-                  scale={[l.len * 0.7, l.len, 1]}
-                  castShadow
-                >
-                  <primitive object={l.dark ? M.foliageDark : M.foliage} attach="material" />
-                </mesh>
-              </group>
-            </group>
-          ))}
           <mesh position={[0, 0.88, 0]}>
             <cylinderGeometry args={[0.014, 0.018, 0.74, 8]} />
             <meshStandardMaterial color="#415037" roughness={0.9} />
           </mesh>
         </group>
       ))}
+      {([false, true] as const).map((dark) => {
+        const set = blades.filter((b) => b.dark === dark);
+        return (
+          <Instances
+            key={String(dark)}
+            limit={set.length}
+            range={set.length}
+            geometry={LEAF_GEOM}
+            material={dark ? M.foliageDark : M.foliage}
+            castShadow
+          >
+            {set.map((b) => (
+              <group key={b.key} position={b.position} rotation={b.rotation}>
+                <group rotation={[0, 0, -b.tilt]}>
+                  <Instance rotation={[0, b.roll, 0]} scale={b.scale} />
+                </group>
+              </group>
+            ))}
+          </Instances>
+        );
+      })}
     </group>
   );
 }
@@ -1100,23 +1187,13 @@ function Fan({ x, z, speed }: { x: number; z: number; speed: number }) {
 function Housings({ fanSpeed }: { fanSpeed: number }) {
   return (
     <group>
-      {/* Downlight apertures. */}
-      {WS_PLAN.generalX.map((x) =>
-        WS_PLAN.generalZ.map((z) => (
-          <mesh key={`${x}-${z}`} position={[x, WS.h - 0.012, z]} rotation={[Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.07, 16]} />
-            <primitive object={M.housing} attach="material" />
-          </mesh>
-        )),
-      )}
-      {WS_PLAN.meetingHeads.x.map((x) =>
-        WS_PLAN.meetingHeads.z.map((z) => (
-          <mesh key={`m${x}-${z}`} position={[x, WS_PLAN.meeting.h - 0.012, z]} rotation={[Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.065, 16]} />
-            <primitive object={M.housing} attach="material" />
-          </mesh>
-        )),
-      )}
+      {/* Downlight apertures: 51 identical discs, so one call rather than 51. */}
+      <Instances limit={64} range={APERTURES.length} material={M.housing}>
+        <circleGeometry args={[0.07, 16]} />
+        {APERTURES.map((a, i) => (
+          <Instance key={i} position={a.pos} rotation={[Math.PI / 2, 0, 0]} scale={a.s} />
+        ))}
+      </Instances>
 
       {/* Suspended linear bodies and their drops. */}
       {WS_PLAN.linears.map((r, i) => {
@@ -1208,6 +1285,7 @@ export function Workspace3D({
       {WS_PLAN.benches.map((b, i) => (
         <Bench key={i} x={b.x} />
       ))}
+      <Seating />
       <MeetingRoom displayOn={displayOn} content={screenContent} />
       <BreakArea />
       <Plants />
