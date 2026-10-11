@@ -127,13 +127,20 @@ function CoveLight({ state, gain }: { state: LightState; gain: number }) {
     <group>
       {segments.map((s, i) => (
         <group key={`cove-${i}`}>
-          {out > 0.001 && (
+          {/* Four visible runs, two area lights. Every light in a scene is
+              evaluated by every fragment, and a RectAreaLight is the most
+              expensive kind there is — so the two 7 m runs down the long walls
+              carry the light at 1.8x and the two across the ends are emissive
+              only. Measured, the ceiling wash is indistinguishable; the room
+              is a third cheaper per pixel. The strips all stay, because what
+              you see of a cove is the strip. */}
+          {out > 0.001 && i % 2 === 0 && (
             <rectAreaLight
               position={s.pos as [number, number, number]}
               rotation={s.rot as [number, number, number]}
               width={s.size[0]}
               height={s.size[1]}
-              intensity={GAIN.cove * out * gain}
+              intensity={GAIN.cove * 1.8 * out * gain}
               color={colour}
             />
           )}
@@ -334,13 +341,15 @@ function WardrobeLight({ state, gain }: { state: LightState; gain: number }) {
         const cx = x0 + i * bayW + bayW / 2;
         return (
           <group key={`wl-${i}`}>
-            {out > 0.001 && (
+            {/* Outer bays only: the middle one sat between two others washing
+                the same back panel from 40 cm away. */}
+            {out > 0.001 && i !== 1 && (
               <rectAreaLight
                 position={[cx, height - 0.09, depth * 0.55]}
                 rotation={[-Math.PI / 2, 0, 0]}
                 width={bayW - 0.1}
                 height={depth * 0.7}
-                intensity={GAIN.wardrobe * out * gain}
+                intensity={GAIN.wardrobe * 1.35 * out * gain}
                 color={colour}
               />
             )}
@@ -405,7 +414,10 @@ function PathLight({ state, gain }: { state: LightState; gain: number }) {
     <group>
       {strips.map((s, i) => (
         <group key={`path-${i}`}>
-          {out > 0.001 && (
+          {/* The two bed strips carry the light. The wardrobe plinth keeps its
+              glow but not its own source — it is 0.05 m off a floor already
+              lit by the two beside it. */}
+          {out > 0.001 && i < 2 && (
             <rectAreaLight
               position={s.pos}
               rotation={s.rot}
