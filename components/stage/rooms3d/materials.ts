@@ -94,8 +94,16 @@ export const PALETTE = {
   wardrobeCarcass: "#9ba8ab",
   /** Light, so the interior strips have something to bounce off. */
   wardrobeBack: "#ffffff",
-  /** Mushroom velvet, on the headboard and the bed frame. */
-  velvet: "#8a847f",
+  /**
+   * Oatmeal greige, on the headboard.
+   *
+   * Lighter than the wall behind it, which is the whole job. At mushroom it
+   * reflected 0.178 against the oak slats' 0.210, so the headboard was the
+   * darker of the two and sank into the wall instead of standing off it. This
+   * returns 0.305 — half again as bright as the timber, which is what lets a
+   * panel read as an object in front of a surface rather than as part of it.
+   */
+  velvet: "#afaaa3",
   /**
    * The bed's whole accent palette, and there are two colours in it.
    *
