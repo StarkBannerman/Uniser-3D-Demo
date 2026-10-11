@@ -44,38 +44,56 @@ export const COVE_Y = ROOM.h - ROOM.soffit.drop + 0.05;
 /* ------------------------------------------------------------------ */
 
 export const PALETTE = {
+  /**
+   * Read these as *tints on a scanned albedo*, not as finished colours.
+   *
+   * Everything a map is written onto in `MasterBedroom.tsx` reads far lighter
+   * here than it looks on screen, and several of the dark woods are frankly
+   * blue. Both are consequences of one fact: colour and map multiply. A colour
+   * chosen as if it were the whole answer gets its tone applied twice, which
+   * is how the executive cabin ended up with joinery returning half a per cent
+   * of the light that hit it against eight to twelve for the real timber.
+   *
+   * The blue is the same arithmetic. The walnut scan runs red nearly twice
+   * blue, so a neutral dark wood can only be had by pulling red and green down
+   * and leaving blue alone — there is no subtracting when the two multiply.
+   *
+   * Each value below was solved against its map's measured per-channel albedo
+   * for a real-world reflectance: light marble around 0.42, oak 0.21, white
+   * bed linen 0.59-0.65, a wool rug 0.11, dark walnut 0.03.
+   */
   plaster: "#e8e2d7",
   plasterCool: "#dcd6cb",
-  woodSlat: "#c8ab85",
+  woodSlat: "#fdfcf8",
   woodSlatAlt: "#b2946e",
-  woodGap: "#4a3a2a",
+  woodGap: "#889495",
   /** Large-format polished tile. Light enough to bounce, warm enough not to
       turn the room clinical — and far lighter than the timber it replaced,
       which was swallowing every fixture aimed at it. */
-  floorTile: "#b4a795",
+  floorTile: "#ffffe6",
   floorGrout: "#9a8d7c",
-  headboard: "#7d6650",
+  headboard: "#8d8882",
   bedBase: "#3f3229",
   /** Warm off-white, not paper-white. Pure white linen is the brightest thing
       in the room by a wide margin and pulls the eye off whatever the scene is
       actually demonstrating. */
-  duvet: "#d6cfc0",
-  sheet: "#e3ddd0",
-  throw: "#6d5f52",
-  pillow: "#e9e3d7",
-  pillowAccent: "#8e8375",
+  duvet: "#e7e5e1",
+  sheet: "#f1efee",
+  throw: "#746c65",
+  pillow: "#eeece8",
+  pillowAccent: "#908b84",
   /** Several stops below the tile it sits on. A rug that matches the floor is
       a rug nobody can see, and the floor then reads as one flat expanse. */
-  rug: "#6e6455",
-  bench: "#5e5347",
-  armchair: "#6b6054",
-  curtainBlackout: "#c9b89c",
+  rug: "#cabfaf",
+  bench: "#817c77",
+  armchair: "#87837d",
+  curtainBlackout: "#b0aaa0",
   curtainSheer: "#e2e6ec",
-  nightstand: "#3b2f26",
-  nightstandTop: "#d8d2c6",
-  wardrobeCarcass: "#3a3129",
+  nightstand: "#929c9c",
+  nightstandTop: "#ffffee",
+  wardrobeCarcass: "#9ba8ab",
   /** Light, so the interior strips have something to bounce off. */
-  wardrobeBack: "#b6a488",
+  wardrobeBack: "#ffffff",
   brass: "#b08d55",
   metal: "#2b2e33",
   fanBlade: "#5a4a38",
@@ -132,8 +150,12 @@ export const materials = {
    */
   floor: new THREE.MeshStandardMaterial({
     color: PALETTE.floorTile,
-    roughness: 0.22,
-    metalness: 0.04,
+    // Honed, not polished. At 0.22 the floor mirrored the cove and the lamps
+    // as near-specular streaks, which is a showroom finish rather than a suite
+    // one — and with a vein map under it the sharp reflection fought the
+    // stone instead of sitting in it.
+    roughness: 0.34,
+    metalness: 0.03,
   }),
   headboard: new THREE.MeshPhysicalMaterial({
     color: PALETTE.headboard,
@@ -216,7 +238,7 @@ export const materials = {
   }),
   nightstandTop: new THREE.MeshStandardMaterial({
     color: PALETTE.nightstandTop,
-    roughness: 0.18,
+    roughness: 0.26,
     metalness: 0.05,
   }),
   wardrobeCarcass: new THREE.MeshStandardMaterial({

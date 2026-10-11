@@ -20,7 +20,7 @@
  *   leather  Leather011
  */
 
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import { useTexture } from "@react-three/drei";
 
@@ -38,12 +38,34 @@ export interface TextureSet {
  * wrong everywhere — and `repeat` has to be applied to all three or the grain
  * and the gloss drift apart from the colour.
  */
-export function useTextureSet(name: string, repeat: [number, number]): TextureSet {
-  const [map, normalMap, roughnessMap] = useTexture([
+export function useTextureSet(
+  name: string,
+  repeat: [number, number],
+  /**
+   * Take a private copy, so the same scan can be used at two physical scales.
+   *
+   * `useTexture` caches by URL, so every call for the same file hands back the
+   * *same* `Texture` object — and `repeat` lives on the object. One room
+   * wanting marble at tile size on the floor and at slab size on a nightstand
+   * top therefore gets whichever one ran last, on both. A clone has its own
+   * `repeat` and `offset` while sharing `source`, so the image is uploaded to
+   * the GPU once however many clones point at it.
+   */
+  { clone = false }: { clone?: boolean } = {},
+): TextureSet {
+  const [rawMap, rawNormal, rawRough] = useTexture([
     `/textures/${name}_color.jpg`,
     `/textures/${name}_normal.jpg`,
     `/textures/${name}_rough.jpg`,
   ]);
+
+  const [map, normalMap, roughnessMap] = useMemo(
+    () =>
+      clone
+        ? [rawMap.clone(), rawNormal.clone(), rawRough.clone()]
+        : [rawMap, rawNormal, rawRough],
+    [clone, rawMap, rawNormal, rawRough],
+  );
 
   useLayoutEffect(() => {
     map.colorSpace = THREE.SRGBColorSpace;

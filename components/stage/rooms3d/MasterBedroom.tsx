@@ -28,6 +28,7 @@ import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import { COVE_Y, PALETTE, ROOM, materials } from "./materials";
 import { makeCurtainGeometry, makeCityTexture } from "./geometry";
+import { applySet, useTextureSet } from "./pbr";
 import { MAX_BLADE_STEP_RAD } from "@/lib/sim/fan";
 
 /* ------------------------------------------------------------------ */
@@ -910,6 +911,70 @@ function FixtureBodies() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Scanned surfaces                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Scanned PBR maps, written onto the shared materials in place.
+ *
+ * Every material in `materials.ts` was already a `MeshStandardMaterial` or a
+ * `MeshPhysicalMaterial` with sheen on the fabrics, so the room was already
+ * physically shaded. What it had no answer for was grain: a roughness number
+ * cannot do a linen weave, a marble vein or the figure in a timber slat, and
+ * that absence is most of what made this read as a blockout of a nice room
+ * rather than as the room.
+ *
+ * Two things this pass has to get right, both learned the expensive way in the
+ * executive cabin:
+ *
+ *  - **Colour and map multiply.** Every colour in `PALETTE` was chosen when it
+ *    was the whole answer. Laying an albedo underneath one and calling it a
+ *    tint applies the tone twice: the cabin's joinery ended up returning half
+ *    a per cent of the light that reached it against eight to twelve for real
+ *    walnut, and the compensation all went into the fixtures. The colours have
+ *    been re-solved so that `colour x albedo` lands on a real reflectance.
+ *  - **One scan, one `repeat`.** `useTexture` caches by URL and `repeat` lives
+ *    on the texture, so marble at floor-tile scale and marble at nightstand
+ *    scale need separate clones or the last one mounted wins on both.
+ *
+ * Mutated in place rather than rebuilt: these materials are module singletons
+ * on purpose, and constructing new ones recompiles shaders during a fade.
+ */
+function Surfaces() {
+  const stone = useTextureSet("stone", [5, 4.3]);
+  const stoneTop = useTextureSet("stone", [2.2, 2.2], { clone: true });
+  const oak = useTextureSet("oak", [0.7, 3.2]);
+  const walnut = useTextureSet("walnut", [2, 2]);
+  const linen = useTextureSet("linen", [7, 6]);
+  const linenCoarse = useTextureSet("linen", [3.2, 3], { clone: true });
+  const wool = useTextureSet("carpet", [4, 4]);
+
+  useLayoutEffect(() => {
+    applySet(materials.floor, stone, { normalScale: 0.28, envMapIntensity: 0.9 });
+    applySet(materials.woodSlat, oak, { normalScale: 0.65, envMapIntensity: 0.4 });
+    applySet(materials.woodBack, walnut, { normalScale: 0.5, envMapIntensity: 0.2 });
+
+    applySet(materials.headboard, linenCoarse, { normalScale: 0.7 });
+    applySet(materials.duvet, linen, { normalScale: 0.55 });
+    applySet(materials.sheet, linen, { normalScale: 0.45 });
+    applySet(materials.pillow, linen, { normalScale: 0.6 });
+    applySet(materials.pillowAccent, linen, { normalScale: 0.6 });
+    applySet(materials.throw, linenCoarse, { normalScale: 0.95 });
+    applySet(materials.bench, linenCoarse, { normalScale: 0.7 });
+    applySet(materials.armchair, linenCoarse, { normalScale: 0.75 });
+    applySet(materials.curtainBlackout, linenCoarse, { normalScale: 0.6 });
+    applySet(materials.rug, wool, { normalScale: 0.5, envMapIntensity: 0.15 });
+
+    applySet(materials.nightstand, walnut, { normalScale: 0.45, envMapIntensity: 0.3 });
+    applySet(materials.nightstandTop, stoneTop, { normalScale: 0.3, envMapIntensity: 1.0 });
+    applySet(materials.wardrobeCarcass, walnut, { normalScale: 0.45, envMapIntensity: 0.3 });
+    applySet(materials.wardrobeBack, oak, { normalScale: 0.4, envMapIntensity: 0.2 });
+  }, [stone, stoneTop, oak, walnut, linen, linenCoarse, wool]);
+
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
 
 export function MasterBedroom({
   curtains,
@@ -922,6 +987,7 @@ export function MasterBedroom({
 }) {
   return (
     <group>
+      <Surfaces />
       <Shell />
       <SlatWall />
       <Wardrobe />
