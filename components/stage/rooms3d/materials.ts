@@ -94,6 +94,15 @@ export const PALETTE = {
   wardrobeCarcass: "#9ba8ab",
   /** Light, so the interior strips have something to bounce off. */
   wardrobeBack: "#ffffff",
+  /** Mushroom velvet, on the headboard and the bed frame. */
+  velvet: "#8a847f",
+  cushionA: "#7d655b",
+  cushionB: "#65685b",
+  cushionC: "#cac7c3",
+  /** The top sheet folded back over the duvet: the brightest cloth on the bed. */
+  sheetTop: "#f5f4f5",
+  /** Bouclé throw. */
+  knit: "#78726c",
   brass: "#b08d55",
   metal: "#2b2e33",
   fanBlade: "#5a4a38",
@@ -270,9 +279,72 @@ export const materials = {
     ior: 1.5,
     side: THREE.DoubleSide,
   }),
+  /**
+   * Velvet, and the sheen is doing nearly all of it.
+   *
+   * Velvet is a cut pile: the fibres stand up off the backing, so it is far
+   * more retroreflective than a woven cloth and it is that bright rim along
+   * every curved edge, not the colour, that reads as velvet. Sheen roughness
+   * is low for the same reason — a tight, bright rim rather than a soft one,
+   * which is what separates it from the linen next to it.
+   */
+  velvet: new THREE.MeshPhysicalMaterial({
+    color: PALETTE.velvet,
+    roughness: 0.74,
+    metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.32,
+    sheenColor: new THREE.Color("#d8c9b6"),
+  }),
+  cushionA: new THREE.MeshPhysicalMaterial({
+    color: PALETTE.cushionA,
+    roughness: 0.8,
+    metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.45,
+    sheenColor: new THREE.Color("#c99f86"),
+  }),
+  cushionB: new THREE.MeshPhysicalMaterial({
+    color: PALETTE.cushionB,
+    roughness: 0.86,
+    metalness: 0,
+    sheen: 0.9,
+    sheenRoughness: 0.55,
+    sheenColor: new THREE.Color("#a6ad96"),
+  }),
+  cushionC: new THREE.MeshPhysicalMaterial({
+    color: PALETTE.cushionC,
+    roughness: 0.9,
+    metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.5,
+    sheenColor: new THREE.Color("#efe9df"),
+  }),
+  sheetTop: new THREE.MeshPhysicalMaterial({
+    color: PALETTE.sheetTop,
+    roughness: 0.88,
+    metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.6,
+    sheenColor: new THREE.Color("#ffffff"),
+  }),
+  /** Bouclé: looped yarn, so a coarse normal and a broad, soft sheen. */
+  knit: new THREE.MeshPhysicalMaterial({
+    color: PALETTE.knit,
+    roughness: 0.95,
+    metalness: 0,
+    sheen: 1,
+    sheenRoughness: 0.75,
+    sheenColor: new THREE.Color("#b3a89c"),
+  }),
   brass: new THREE.MeshStandardMaterial({
     color: PALETTE.brass,
-    roughness: 0.28,
+    /**
+     * Brushed, not polished. At 0.28 these read as mirror-finish jewellery,
+     * which is a bathroom tap rather than a hotel-suite fitting — brushed
+     * brass scatters the highlight into a streak and that is the whole look.
+     */
+    roughness: 0.38,
     metalness: 0.85,
   }),
   metal: new THREE.MeshStandardMaterial({

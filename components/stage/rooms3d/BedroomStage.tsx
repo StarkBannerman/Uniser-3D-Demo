@@ -58,6 +58,7 @@ export function BedroomStage() {
 
   const fixtures: BedroomFixtures = {
     general: light("bd-general"),
+    headboard: light("bd-headboard"),
     cove: light("bd-cove"),
     bedsideLeft: light("bd-bedside-l"),
     bedsideRight: light("bd-bedside-r"),

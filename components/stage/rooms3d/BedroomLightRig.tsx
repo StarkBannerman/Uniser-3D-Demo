@@ -26,12 +26,23 @@ import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLigh
 import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { COVE_Y, ROOM, emissive, shade } from "./materials";
-import { FIXTURES, PLAN, WINDOW } from "./MasterBedroom";
+import { FIXTURES, HEADBOARD, PLAN, WINDOW } from "./MasterBedroom";
 import { Spot } from "./Spot";
 
 /* Tuning — the numbers that decide whether this reads as a render. ---- */
 
 const GAIN = {
+  /**
+   * Hidden strip behind the headboard, washing up the slat wall.
+   *
+   * Lower than the cove and deliberately so. This is a grazing wash on a
+   * surface 15 cm away, which is the most flattering thing you can do to a
+   * timber slat wall and the easiest to overdo — the slats are already
+   * catching the cove from above, and two strong washes on one surface cancel
+   * the relief that makes it worth having.
+   */
+  headboard: 9,
+  headboardEmissive: 2.6,
   /** RectAreaLight luminance for the cove at full output. */
   cove: 40,
   /** Emissive intensity of the cove's visible strip. Drives the bloom. */
@@ -468,8 +479,71 @@ function Daylight({
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * The strip hidden behind the headboard, grazing up the slat wall.
+ *
+ * Geometry comes from `HEADBOARD` in the room file rather than from literals
+ * here. Body and light are declared in different modules — the bedroom has
+ * already had a fitting whose housing moved and whose light stayed — so the
+ * only thing keeping them honest is that both read the same constant.
+ *
+ * `rotation={[Math.PI / 2, 0, 0]}` points a RectAreaLight's local -Z straight
+ * up; the negative quarter turn points it straight down. This was written with
+ * the negative one, so the wash fired into the floor behind the bed and the
+ * slats above it measured 93 against 90 for the same wall unlit — which is to
+ * say, nothing. Nothing in the JSX says which way an area light faces, and
+ * this is the fifth fitting in this project to be wrong about it.
+ */
+function HeadboardWash({ state, gain }: { state: LightState; gain: number }) {
+  const colour = colourOf(state);
+  const out = output(state);
+  const glow = apertureBrightness(state);
+  const { x } = PLAN.bed;
+  const H = HEADBOARD;
+
+  const strip = useMemo(
+    () => emissive(colour, GAIN.headboardEmissive * glow),
+    [colour.getHex(), glow],
+  );
+
+  const runs: { cx: number; w: number; top: number }[] = [
+    { cx: x, w: H.tallW - 0.12, top: H.tallH },
+    { cx: (H.wingX0 + x - H.tallW / 2) / 2, w: x - H.tallW / 2 - H.wingX0 - 0.1, top: H.wingH },
+    { cx: (H.wingX1 + x + H.tallW / 2) / 2, w: H.wingX1 - (x + H.tallW / 2) - 0.1, top: H.wingH },
+  ];
+
+  return (
+    <group>
+      {runs.map((r, i) =>
+        r.w <= 0.05 ? null : (
+          <group key={`hw-${i}`}>
+            {out > 0.001 && (
+              <rectAreaLight
+                position={[r.cx, r.top - 0.04, H.stripZ]}
+                rotation={[Math.PI / 2, 0, 0]}
+                width={r.w}
+                height={0.1}
+                intensity={GAIN.headboard * out * gain}
+                color={colour}
+              />
+            )}
+            {/* The strip itself, seen only as a glow on the slats above it. */}
+            <mesh position={[r.cx, r.top - 0.03, H.stripZ]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[r.w, 0.03]} />
+              <primitive object={strip} attach="material" />
+            </mesh>
+          </group>
+        ),
+      )}
+    </group>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
 export interface BedroomFixtures {
   general: LightState;
+  headboard: LightState;
   cove: LightState;
   bedsideLeft: LightState;
   bedsideRight: LightState;
@@ -507,6 +581,7 @@ export function BedroomLightRig({
   return (
     <group>
       <CoveLight state={fixtures.cove} gain={gain} />
+      <HeadboardWash state={fixtures.headboard} gain={gain} />
       <Downlights state={fixtures.general} gain={gain} />
       <BedsideLamp state={fixtures.bedsideLeft} gain={gain} x={PLAN.nightstand.left} />
       <BedsideLamp state={fixtures.bedsideRight} gain={gain} x={PLAN.nightstand.right} />

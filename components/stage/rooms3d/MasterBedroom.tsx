@@ -365,117 +365,346 @@ function Wardrobe() {
 /* Bed                                                                 */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Headboard geometry, shared by the bed and the rig.
+ *
+ * The wash light behind the headboard has to clear the panel it hides behind,
+ * and the panel has to be deep enough to hide it. Both numbers therefore live
+ * here rather than being written twice — the room has already been bitten once
+ * by a fitting whose body moved and whose light did not.
+ */
+export const HEADBOARD = {
+  /**
+   * Centre of the tall upholstered panel, in front of the slat wall.
+   *
+   * The slats occupy z 0 to 0.02, and at the original 0.06 this panel ran
+   * straight through them with no cavity at all — so there was nowhere for a
+   * concealed strip to be concealed. 0.11 leaves a 30 mm gap behind the
+   * upholstery, which is about what the real detail needs.
+   */
+  z: PLAN.bed.headZ - 0.11,
+  /** Where the hidden strip sits: 15 mm off the slat faces, grazing up them. */
+  stripZ: 0.035,
+  depth: 0.12,
+  /** Tall section, over the bed. */
+  tallW: PLAN.bed.width + 0.52,
+  tallH: 1.56,
+  /** Lower wings, running on behind both nightstands. */
+  wingX0: 2.98,
+  wingX1: 6.72,
+  wingH: 1.06,
+  channels: 13,
+} as const;
+
 function Bed() {
   const { x, headZ, width, length } = PLAN.bed;
   const midZ = headZ + length / 2;
+  const H = HEADBOARD;
+
+  /** Plinth 0.10, platform to 0.32, mattress to 0.58, pillow top to 0.66. */
+  const PLATFORM_TOP = 0.32;
+  const MATTRESS_TOP = 0.58;
+  const SLEEP = 0.66;
+
+  const duvetZ0 = headZ + 0.66;
+  const duvetZ1 = headZ + length + 0.06;
+  const duvetLen = duvetZ1 - duvetZ0;
+  const FOLDS = 6;
 
   return (
     <group>
-      {/* Upholstered panelled headboard, in front of the slats. Five buttoned
-          panels: the vertical joints are what stop a 2.5 m slab of fabric from
-          reading as a wall. Rounded, because foam under fabric has no sharp
-          arrises anywhere — that is most of what separates upholstery from a
-          painted box. */}
+      {/**
+       * Headboard: a tall channel-tufted panel over the bed, carried on across
+       * the wall behind both nightstands at a lower height.
+       *
+       * The wings are what make it read as a suite rather than as a bed with a
+       * big headboard. A panel that stops at the mattress width leaves the
+       * nightstands standing against bare slats, and the eye reads the join;
+       * running the upholstery behind them turns three objects into one wall
+       * composition, which is the whole trick of the reference images.
+       */}
       <RoundedBox
-        args={[width + 0.62, 1.36, 0.1]}
-        radius={0.035}
+        args={[H.wingX1 - H.wingX0, H.wingH, 0.08]}
+        radius={0.025}
         smoothness={3}
-        position={[x, 0.68, headZ - 0.13]}
+        position={[(H.wingX0 + H.wingX1) / 2, H.wingH / 2, H.z + 0.02]}
         castShadow
         receiveShadow
       >
-        <primitive object={materials.headboard} attach="material" />
+        <primitive object={materials.velvet} attach="material" />
       </RoundedBox>
-      {Array.from({ length: 5 }, (_, i) => (
-        <RoundedBox
-          key={`panel-${i}`}
-          args={[(width + 0.62) / 5 - 0.045, 1.26, 0.05]}
-          radius={0.022}
-          smoothness={3}
-          position={[
-            x - (width + 0.62) / 2 + ((i + 0.5) * (width + 0.62)) / 5,
-            0.68,
-            headZ - 0.06,
-          ]}
-          castShadow
-        >
-          <primitive object={materials.headboard} attach="material" />
-        </RoundedBox>
-      ))}
-
-      {/* Base, then an inset platform. Two stacked slabs of slightly different
-          footprint is what gives a platform bed its shadow line — a single box
-          reads as a crate. The recess under the base is where the path light
-          lives, so the gap is load-bearing, not styling. */}
-      <mesh position={[x, 0.16, midZ]} castShadow receiveShadow>
-        <boxGeometry args={[width + 0.22, 0.2, length + 0.2]} />
-        <primitive object={materials.bedBase} attach="material" />
-      </mesh>
-      <mesh position={[x, 0.32, midZ]} castShadow receiveShadow>
-        <boxGeometry args={[width + 0.06, 0.12, length + 0.04]} />
-        <primitive object={materials.bedBase} attach="material" />
-      </mesh>
-
-      {/* Mattress, duvet, and a folded runner across the foot. */}
       <RoundedBox
-        args={[width, 0.3, length]}
-        radius={0.05}
+        args={[H.tallW, H.tallH, H.depth]}
+        radius={0.04}
         smoothness={3}
-        position={[x, 0.53, midZ]}
+        position={[x, H.tallH / 2, H.z]}
+        castShadow
+        receiveShadow
+      >
+        <primitive object={materials.velvet} attach="material" />
+      </RoundedBox>
+
+      {/**
+       * Vertical channel tufting.
+       *
+       * Rounded ribs with a gap between them, not scored lines. Channel tufting
+       * is foam compressed between stitch lines, so what you actually see is a
+       * row of soft cylinders — and on a panel this size the shadow in each
+       * gap is the only thing giving a 2.4 m slab of fabric any depth.
+       */}
+      {Array.from({ length: H.channels }, (_, i) => {
+        const pitch = (H.tallW - 0.08) / H.channels;
+        return (
+          <RoundedBox
+            key={`ch-${i}`}
+            args={[pitch - 0.038, H.tallH - 0.1, 0.1]}
+            radius={0.042}
+            smoothness={4}
+            position={[
+              x - (H.tallW - 0.08) / 2 + (i + 0.5) * pitch,
+              H.tallH / 2,
+              H.z + H.depth / 2 + 0.026,
+            ]}
+            castShadow
+          >
+            <primitive object={materials.velvet} attach="material" />
+          </RoundedBox>
+        );
+      })}
+
+      {/* Brass trim along the top edge of both panels. A line, not a frame:
+          3 mm of metal reading as a highlight is enough, and anything more
+          turns upholstery into cabinetry. */}
+      <mesh position={[x, H.tallH + 0.012, H.z + 0.012]} castShadow>
+        <boxGeometry args={[H.tallW + 0.02, 0.024, H.depth + 0.03]} />
+        <primitive object={materials.brass} attach="material" />
+      </mesh>
+      <mesh
+        position={[(H.wingX0 + H.wingX1) / 2, H.wingH + 0.01, H.z + 0.03]}
+        castShadow
+      >
+        <boxGeometry args={[H.wingX1 - H.wingX0 + 0.02, 0.02, 0.1]} />
+        <primitive object={materials.brass} attach="material" />
+      </mesh>
+
+      {/**
+       * Floating platform.
+       *
+       * The plinth is inset on every side and dark, so from standing height you
+       * do not see it at all and the bed appears to hover — and the shadow gap
+       * it leaves is where the `bd-night` path light already lives. The recess
+       * is load-bearing, not styling.
+       */}
+      <mesh position={[x, 0.05, midZ]} castShadow receiveShadow>
+        <boxGeometry args={[width - 0.3, 0.1, length - 0.3]} />
+        <primitive object={materials.bedBase} attach="material" />
+      </mesh>
+      <RoundedBox
+        args={[width + 0.18, 0.22, length + 0.18]}
+        radius={0.03}
+        smoothness={3}
+        position={[x, 0.21, midZ]}
+        castShadow
+        receiveShadow
+      >
+        <primitive object={materials.velvet} attach="material" />
+      </RoundedBox>
+
+      {/* Mattress in the fitted sheet, so the sheet is what you see at the
+          edges, with welted piping along both seams. */}
+      <RoundedBox
+        args={[width, MATTRESS_TOP - PLATFORM_TOP, length]}
+        radius={0.035}
+        smoothness={3}
+        position={[x, (PLATFORM_TOP + MATTRESS_TOP) / 2, midZ]}
         castShadow
         receiveShadow
       >
         <primitive object={materials.sheet} attach="material" />
       </RoundedBox>
+      {[PLATFORM_TOP + 0.035, MATTRESS_TOP - 0.035].map((y, i) => (
+        <group key={`piping-${i}`}>
+          {([-1, 1] as const).map((sgn) => (
+            <mesh key={`s${sgn}`} position={[x + sgn * (width / 2 - 0.004), y, midZ]}>
+              <boxGeometry args={[0.022, 0.022, length - 0.06]} />
+              <primitive object={materials.sheetTop} attach="material" />
+            </mesh>
+          ))}
+          {([-1, 1] as const).map((sgn) => (
+            <mesh key={`e${sgn}`} position={[x, y, midZ + sgn * (length / 2 - 0.004)]}>
+              <boxGeometry args={[width - 0.06, 0.022, 0.022]} />
+              <primitive object={materials.sheetTop} attach="material" />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      {/* Pillow top. */}
       <RoundedBox
-        args={[width + 0.05, 0.12, length - 0.34]}
-        radius={0.055}
+        args={[width - 0.045, SLEEP - MATTRESS_TOP, length - 0.045]}
+        radius={0.038}
         smoothness={3}
-        position={[x, 0.7, midZ + 0.12]}
+        position={[x, (MATTRESS_TOP + SLEEP) / 2, midZ]}
+        castShadow
+        receiveShadow
+      >
+        <primitive object={materials.sheet} attach="material" />
+      </RoundedBox>
+
+      {/**
+       * Duvet: one draped body, with folds laid on top of it.
+       *
+       * The first attempt built it from six separate bands across its length,
+       * on the reasoning that a duvet is never flat. True, and it produced
+       * corrugations — six boxes with six shadow gaps between them read as a
+       * ribbed air mattress, because what you see of a fold is the *soft*
+       * change of height, not the edge of a slab.
+       *
+       * So the body is a single rounded box that wraps down past the mattress
+       * on both sides, hiding the stack of platform, mattress and pillow top
+       * under one continuous surface — which is what a duvet actually does —
+       * and the folds are shallow ridges sitting on it, far too low to cast an
+       * edge of their own.
+       */}
+      <RoundedBox
+        args={[width + 0.17, 0.26, duvetLen]}
+        radius={0.07}
+        smoothness={4}
+        position={[x, SLEEP + 0.05, (duvetZ0 + duvetZ1) / 2]}
         castShadow
         receiveShadow
       >
         <primitive object={materials.duvet} attach="material" />
       </RoundedBox>
+      {Array.from({ length: FOLDS }, (_, i) => {
+        const seg = duvetLen / FOLDS;
+        const z = duvetZ0 + (i + 0.5) * seg;
+        const wave = Math.sin(i * 1.9) * 0.009;
+        return (
+          <RoundedBox
+            key={`fold-${i}`}
+            args={[width + 0.1, 0.05 + wave, seg * 0.82]}
+            radius={0.024}
+            smoothness={3}
+            position={[x, SLEEP + 0.168 + wave, z]}
+            castShadow
+          >
+            <primitive object={materials.duvet} attach="material" />
+          </RoundedBox>
+        );
+      })}
+
+      {/* Top sheet, folded back over the duvet at the pillow end. The brightest
+          cloth on the bed, and the detail that most reads as "made". */}
       <RoundedBox
-        args={[width + 0.07, 0.07, 0.46]}
-        radius={0.03}
+        args={[width + 0.17, 0.055, 0.32]}
+        radius={0.025}
         smoothness={3}
-        position={[x, 0.76, headZ + length - 0.26]}
+        position={[x, SLEEP + 0.158, duvetZ0 + 0.1]}
+        rotation={[-0.08, 0, 0]}
         castShadow
-        receiveShadow
       >
-        <primitive object={materials.throw} attach="material" />
+        <primitive object={materials.sheetTop} attach="material" />
       </RoundedBox>
 
-      {/* Pillows leaning back against the headboard, plus accent cushions.
-          Generous radii: a pillow is almost all edge. */}
-      {[-0.46, 0.46].map((dx, i) => (
+      {/**
+       * Pillows, in three ranks.
+       *
+       * Two Euro shams standing against the headboard, two sleeping pillows
+       * lying in front of them, then the decorative cushions. The rank is the
+       * point: a hotel bed is read as made from the fact that the pillows are
+       * stacked front to back in descending size, and two pillows side by side
+       * — which is what was here — reads as a bed somebody has slept in.
+       */}
+      {([-1, 1] as const).map((sgn) => (
         <RoundedBox
-          key={`pillow-${i}`}
-          args={[0.76, 0.2, 0.48]}
-          radius={0.085}
-          smoothness={3}
-          position={[x + dx, 0.79, headZ + 0.3]}
-          rotation={[-0.36, 0, 0]}
+          key={`euro-${sgn}`}
+          args={[0.64, 0.62, 0.2]}
+          radius={0.1}
+          smoothness={4}
+          position={[x + sgn * 0.35, 0.93, headZ + 0.14]}
+          rotation={[-0.16, 0, 0]}
           castShadow
         >
           <primitive object={materials.pillow} attach="material" />
         </RoundedBox>
       ))}
-      {[-0.3, 0.3].map((dx, i) => (
+      {([-1, 1] as const).map((sgn) => (
         <RoundedBox
-          key={`cushion-${i}`}
-          args={[0.38, 0.17, 0.32]}
-          radius={0.07}
-          smoothness={3}
-          position={[x + dx, 0.76, headZ + 0.52]}
-          rotation={[-0.2, dx > 0 ? -0.22 : 0.22, 0]}
+          key={`sleep-${sgn}`}
+          args={[0.8, 0.21, 0.5]}
+          radius={0.095}
+          smoothness={4}
+          position={[x + sgn * 0.45, 0.8, headZ + 0.46]}
+          rotation={[-0.3, 0, 0]}
           castShadow
         >
-          <primitive object={materials.pillowAccent} attach="material" />
+          <primitive object={materials.pillow} attach="material" />
         </RoundedBox>
       ))}
+      {([
+        { dx: -0.46, mat: materials.cushionA, w: 0.38, h: 0.17, d: 0.3, rot: 0.24 },
+        { dx: 0.0, mat: materials.cushionC, w: 0.34, h: 0.16, d: 0.28, rot: -0.05 },
+        { dx: 0.46, mat: materials.cushionB, w: 0.38, h: 0.17, d: 0.3, rot: -0.24 },
+      ] as const).map((c, i) => (
+        <RoundedBox
+          key={`cushion-${i}`}
+          args={[c.w, c.h, c.d]}
+          radius={0.07}
+          smoothness={4}
+          position={[x + c.dx, 0.775, headZ + 0.76]}
+          rotation={[-0.18, c.rot, 0]}
+          castShadow
+        >
+          <primitive object={c.mat} attach="material" />
+        </RoundedBox>
+      ))}
+
+      {/**
+       * Bouclé throw, across the foot on the diagonal and over one side.
+       *
+       * Diagonal and one-sided on purpose. A runner laid square across the
+       * foot is a hotel-housekeeping convention rather than a styling one and
+       * it reads as a stripe; a throw is a thing somebody put down.
+       *
+       * One body with two shallow ridges on it, for the same reason the duvet
+       * is built that way — three separate bands at this scale read as three
+       * painted stripes, which is exactly what the first version looked like.
+       */}
+      <RoundedBox
+        args={[width + 0.52, 0.09, 0.56]}
+        radius={0.042}
+        smoothness={4}
+        position={[x - 0.07, SLEEP + 0.212, headZ + length - 0.36]}
+        rotation={[0, 0.17, 0]}
+        castShadow
+        receiveShadow
+      >
+        <primitive object={materials.knit} attach="material" />
+      </RoundedBox>
+      {[-0.14, 0.15].map((dz, i) => (
+        <RoundedBox
+          key={`throwfold-${i}`}
+          args={[width + 0.46, 0.035, 0.12]}
+          radius={0.017}
+          smoothness={3}
+          position={[x - 0.07, SLEEP + 0.255, headZ + length - 0.36 + dz]}
+          rotation={[0, 0.17, 0]}
+          castShadow
+        >
+          <primitive object={materials.knit} attach="material" />
+        </RoundedBox>
+      ))}
+      {/* Falling off the right-hand side, below the duvet's own overhang. */}
+      <RoundedBox
+        args={[0.11, 0.58, 0.5]}
+        radius={0.04}
+        smoothness={3}
+        position={[x + width / 2 + 0.13, SLEEP - 0.1, headZ + length - 0.26]}
+        rotation={[0, 0.17, 0.05]}
+        castShadow
+      >
+        <primitive object={materials.knit} attach="material" />
+      </RoundedBox>
     </group>
   );
 }
@@ -960,6 +1189,14 @@ function Surfaces() {
     applySet(materials.pillow, linen, { normalScale: 0.6 });
     applySet(materials.pillowAccent, linen, { normalScale: 0.6 });
     applySet(materials.throw, linenCoarse, { normalScale: 0.95 });
+    applySet(materials.velvet, linenCoarse, { normalScale: 0.4 });
+    applySet(materials.cushionA, linen, { normalScale: 0.7 });
+    applySet(materials.cushionB, linenCoarse, { normalScale: 0.85 });
+    applySet(materials.cushionC, linen, { normalScale: 0.6 });
+    applySet(materials.sheetTop, linen, { normalScale: 0.5 });
+    // Bouclé is the one fabric that wants its weave exaggerated: the loop is
+    // the product, and at linen's scale it reads as flannel.
+    applySet(materials.knit, linenCoarse, { normalScale: 1.6 });
     applySet(materials.bench, linenCoarse, { normalScale: 0.7 });
     applySet(materials.armchair, linenCoarse, { normalScale: 0.75 });
     applySet(materials.curtainBlackout, linenCoarse, { normalScale: 0.6 });

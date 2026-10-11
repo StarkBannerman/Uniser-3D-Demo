@@ -89,6 +89,31 @@ export const masterBedroom: Space = {
       glow: [],
     },
     {
+      /**
+       * The strip hidden behind the headboard, grazing up the slat wall.
+       *
+       * Its own circuit rather than part of the cove, because it is the only
+       * layer in the room that lights a *vertical* surface. The cove washes
+       * the ceiling and the downlights wash the floor; this is what gives the
+       * headboard wall its own presence after dark, and it is the one thing
+       * you would want on by itself at two in the morning.
+       */
+      id: "bd-headboard",
+      kind: "light",
+      name: "Headboard",
+      zoneId: "bd-main",
+      productId: "connekt-profile",
+      subsystem: "lighting",
+      pitch:
+        "Four metres of warm strip concealed behind the upholstered headboard, washing up the timber. You never see the source — only the wall, lit from a direction nothing else in the room lights it from.",
+      dimmable: true,
+      tunable: { minK: 2200, maxK: 4000 },
+      fixtures: 4, // metres of strip
+      wattsEach: 9,
+      lumensEach: 900,
+      glow: [],
+    },
+    {
       id: "bd-bedside-l",
       kind: "light",
       name: "Bedside Left",
@@ -300,6 +325,8 @@ export const masterBedroom: Space = {
         // the feature and it needs a scene that does not fight it.
         "bd-general": { on: true, level: 75 },
         "bd-cove": { on: true, level: 60 },
+        // Morning: daylight does the work, the wall wash would not be seen.
+        "bd-headboard": { on: false },
         "bd-bedside-l": { on: false },
         "bd-bedside-r": { on: false },
         "bd-reading-l": { on: false },
@@ -321,6 +348,7 @@ export const masterBedroom: Space = {
       targets: {
         "bd-general": { on: false },
         "bd-cove": { on: true, level: 45, cct: 2400 },
+        "bd-headboard": { on: true, level: 70, cct: 2400 },
         "bd-bedside-l": { on: true, level: 55, cct: 2300 },
         "bd-bedside-r": { on: true, level: 55, cct: 2300 },
         "bd-reading-l": { on: false },
@@ -343,6 +371,9 @@ export const masterBedroom: Space = {
       targets: {
         "bd-general": { on: false },
         "bd-cove": { on: true, level: 15, cct: 2200 },
+        // Reading: low, so it lifts the wall behind the sconce without
+        // competing with the pool the sconce is putting on the page.
+        "bd-headboard": { on: true, level: 28, cct: 2300 },
         "bd-bedside-l": { on: false },
         "bd-bedside-r": { on: true, level: 40, cct: 2400 },
         "bd-reading-l": { on: false },
@@ -366,6 +397,7 @@ export const masterBedroom: Space = {
       targets: {
         "bd-general": { on: true, level: 35, cct: 2700 },
         "bd-cove": { on: true, level: 70, cct: 2700 },
+        "bd-headboard": { on: true, level: 80, cct: 2600 },
         "bd-bedside-l": { on: true, level: 60, cct: 2400 },
         "bd-bedside-r": { on: true, level: 60, cct: 2400 },
         "bd-reading-l": { on: false },
@@ -388,6 +420,7 @@ export const masterBedroom: Space = {
       targets: {
         "bd-general": { on: false },
         "bd-cove": { on: true, level: 8, cct: 2200 },
+        "bd-headboard": { on: true, level: 12, cct: 2200 },
         "bd-bedside-l": { on: false },
         "bd-bedside-r": { on: false },
         "bd-reading-l": { on: false },
@@ -422,6 +455,7 @@ export const masterBedroom: Space = {
       targets: {
         "bd-general": { on: true, level: 22, cct: 2300 },
         "bd-cove": { on: true, level: 30, cct: 2300 },
+        "bd-headboard": { on: true, level: 40, cct: 2300 },
         "bd-reading-l": { on: false },
         "bd-reading-r": { on: false },
         "bd-wardrobe": { on: false },
@@ -456,6 +490,7 @@ export const masterBedroom: Space = {
           targets: {
             "bd-general": { on: false, fadeMs: 3200 },
             "bd-cove": { on: false, fadeMs: 3200 },
+            "bd-headboard": { on: false, fadeMs: 3200 },
             "bd-bedside-l": { on: false, fadeMs: 2600 },
             "bd-bedside-r": { on: false, fadeMs: 2600 },
             "bd-night": { on: true, level: 30, cct: 2200, fadeMs: 2000 },
@@ -478,10 +513,12 @@ export const masterBedroom: Space = {
       holdMin: 20,
       onOccupied: {
         "bd-cove": { on: true, level: 55, fadeMs: 1600 },
+        "bd-headboard": { on: true, level: 60, fadeMs: 1600 },
       },
       onVacant: {
         "bd-general": { on: false, fadeMs: 4000 },
         "bd-cove": { on: false, fadeMs: 4000 },
+        "bd-headboard": { on: false, fadeMs: 4000 },
         "bd-bedside-l": { on: false, fadeMs: 4000 },
         "bd-bedside-r": { on: false, fadeMs: 4000 },
         "bd-reading-l": { on: false, fadeMs: 4000 },

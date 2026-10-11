@@ -39,6 +39,7 @@ const PRESETS: Record<string, { fixtures: BedroomFixtures; sheer: number; blacko
     fixtures: {
       general: light(35, 2700),
       cove: light(70, 2700),
+      headboard: light(70, 2700),
       bedsideLeft: light(60, 2400),
       bedsideRight: light(60, 2400),
       readingLeft: OFF,
@@ -53,6 +54,7 @@ const PRESETS: Record<string, { fixtures: BedroomFixtures; sheer: number; blacko
     fixtures: {
       general: OFF,
       cove: light(15, 2200),
+      headboard: light(15, 2200),
       bedsideLeft: OFF,
       bedsideRight: light(40, 2400),
       readingLeft: OFF,
@@ -67,6 +69,7 @@ const PRESETS: Record<string, { fixtures: BedroomFixtures; sheer: number; blacko
     fixtures: {
       general: OFF,
       cove: light(8, 2200),
+      headboard: light(8, 2200),
       bedsideLeft: OFF,
       bedsideRight: OFF,
       readingLeft: OFF,
@@ -81,6 +84,7 @@ const PRESETS: Record<string, { fixtures: BedroomFixtures; sheer: number; blacko
     fixtures: {
       general: light(75, 4200),
       cove: light(60, 4200),
+      headboard: light(60, 4200),
       bedsideLeft: OFF,
       bedsideRight: OFF,
       readingLeft: OFF,
@@ -97,6 +101,7 @@ const PRESETS: Record<string, { fixtures: BedroomFixtures; sheer: number; blacko
     fixtures: {
       general: OFF,
       cove: OFF,
+      headboard: OFF,
       bedsideLeft: OFF,
       bedsideRight: OFF,
       readingLeft: OFF,
