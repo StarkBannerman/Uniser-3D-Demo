@@ -18,6 +18,7 @@ import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLigh
 import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { emissive } from "./materials";
+import { useEmissiveMaterial } from "./lightMaterials";
 import { KT, KT_GLASS, KT_ISLAND, KT_PENDANTS, KT_RUN } from "./Kitchen3D";
 import { Spot } from "./Spot";
 
@@ -52,6 +53,27 @@ function colourOf(state: LightState): THREE.Color {
 const output = (s: LightState) => (s.on ? lightOutput(s.level) : 0);
 const aperture = (s: LightState) => (s.on ? Math.pow(s.level / 100, 0.42) : 0);
 
+/**
+ * Lights stay mounted, and are driven to zero instead of being removed.
+ *
+ * three.js bakes the number of each kind of light into every material's shader
+ * as a `#define`, so adding or removing one light recompiles every material in
+ * the scene. During a scene fade the channels cross zero at different moments,
+ * which means the count changes several times per transition and each
+ * combination is a variant the driver has not seen.
+ *
+ * Measured on the bedroom before this: pressing Reading compiled 38 shader
+ * programs and froze the worst frame for 2684 ms. Pressing it a second time
+ * still compiled 12 and still froze for 2400 — caching does not save you,
+ * because the intermediate combinations are combinatorial.
+ *
+ * Mounted throughout, the same transition compiles nothing and its worst frame
+ * is 183 ms, which is the ordinary frame time. A light at zero intensity still
+ * costs its per-fragment evaluation, so this is paid for by keeping the counts
+ * low rather than by switching them off.
+ */
+const MOUNTED = true;
+
 /** The warm line under the wall units, washing the worktop and splashback. */
 function UnderCabinet({ state, gain }: { state: LightState; gain: number }) {
   const colour = colourOf(state);
@@ -60,14 +82,11 @@ function UnderCabinet({ state, gain }: { state: LightState; gain: number }) {
   const width = KT_RUN.x1 - KT_RUN.x0 - 0.1;
   const cx = (KT_RUN.x0 + KT_RUN.x1) / 2;
 
-  const mat = useMemo(
-    () => emissive(colour, GAIN.underCabinetEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const mat = useEmissiveMaterial(colour, GAIN.underCabinetEmissive * glow);
 
   return (
     <group>
-      {out > 0.001 && (
+      {MOUNTED && (
         <rectAreaLight
           position={[cx, KT.upper - 0.03, 0.3]}
           // Faces down onto the worktop.
@@ -95,10 +114,7 @@ function Pendants({ state, gain }: { state: LightState; gain: number }) {
     () => new THREE.MeshStandardMaterial({ color: "#1b1d21", roughness: 0.4 }),
     [],
   );
-  const lens = useMemo(
-    () => emissive(colour, GAIN.pendantEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const lens = useEmissiveMaterial(colour, GAIN.pendantEmissive * glow);
 
   return (
     <group>
@@ -121,7 +137,7 @@ function Pendants({ state, gain }: { state: LightState; gain: number }) {
             <circleGeometry args={[0.1, 18]} />
             <primitive object={lens} attach="material" />
           </mesh>
-          {out > 0.001 && (
+          {MOUNTED && (
             <pointLight
               position={[p.x, p.y - 0.1, p.z]}
               intensity={GAIN.pendant * out * gain}
@@ -141,16 +157,13 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
   const out = output(state);
   const glow = aperture(state);
 
-  const lens = useMemo(
-    () => emissive(colour, GAIN.downlightEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const lens = useEmissiveMaterial(colour, GAIN.downlightEmissive * glow);
 
   return (
     <group>
       {KT_DOWNLIGHTS.map((d, i) => (
         <group key={`dl-${d.x}-${d.z}`}>
-          {out > 0.001 && (
+          {MOUNTED && (
             <Spot
               position={[d.x, KT.h - 0.03, d.z]}
               target={[d.x, 0, d.z]}
@@ -179,10 +192,7 @@ function Plinth({ state, gain }: { state: LightState; gain: number }) {
   const out = output(state);
   const glow = aperture(state);
 
-  const mat = useMemo(
-    () => emissive(colour, GAIN.plinthEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const mat = useEmissiveMaterial(colour, GAIN.plinthEmissive * glow);
 
   return (
     <group>
@@ -190,7 +200,7 @@ function Plinth({ state, gain }: { state: LightState; gain: number }) {
         <planeGeometry args={[KT_ISLAND.w - 0.2, 0.05]} />
         <primitive object={mat} attach="material" />
       </mesh>
-      {out > 0.001 && (
+      {MOUNTED && (
         <pointLight
           position={[KT_ISLAND.x, 0.1, KT_ISLAND.z + KT_ISLAND.d / 2 + 0.2]}
           intensity={2.4 * out * gain}

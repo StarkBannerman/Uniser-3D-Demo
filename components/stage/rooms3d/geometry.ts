@@ -100,7 +100,40 @@ export function makeCurtainGeometry({
  * Drawn rather than loaded, so the demo still works offline, and seeded so the
  * skyline does not reshuffle on a remount.
  */
+/**
+ * Built skylines, kept.
+ *
+ * This draws a 2048 x 1024 canvas: three bands of towers, their lit windows,
+ * and four hundred and sixty tree crowns. Measured, that is roughly 600 ms of
+ * main-thread work — and the callers quantise `daylight` to eight steps, so a
+ * scene that moves the clock across a step boundary rebuilt the whole thing
+ * mid-transition. Pressing Reading froze the worst frame for 635 ms with no
+ * shader compilation involved at all; it was this.
+ *
+ * Eight steps and a couple of seeds is a handful of canvases for the life of
+ * the page, so they are simply kept. `makeScreenTexture` already does this for
+ * the same reason.
+ *
+ * What is cached is the *canvas*, not the texture, and that distinction
+ * matters: the workspace sets `repeat` on the view it is given, and `repeat`
+ * lives on the texture. Handing two rooms the same texture would hand one of
+ * them the other's tiling. A fresh `CanvasTexture` over a drawn canvas costs
+ * an upload and nothing else.
+ */
+const CITY_CACHE = new Map<string, HTMLCanvasElement>();
+
+function cityTexture(canvas: HTMLCanvasElement): THREE.CanvasTexture {
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
 export function makeCityTexture(daylight: number, seed = 7): THREE.CanvasTexture {
+  const cacheKey = `${daylight}|${seed}`;
+  const cached = CITY_CACHE.get(cacheKey);
+  if (cached) return cityTexture(cached);
+
   const w = 2048;
   const h = 1024;
   const canvas = document.createElement("canvas");
@@ -273,10 +306,8 @@ export function makeCityTexture(daylight: number, seed = 7): THREE.CanvasTexture
   g.fillStyle = hz;
   g.fillRect(0, skyline - h * 0.2, w, h * 0.2 + 24);
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  return tex;
+  CITY_CACHE.set(cacheKey, canvas);
+  return cityTexture(canvas);
 }
 
 /**

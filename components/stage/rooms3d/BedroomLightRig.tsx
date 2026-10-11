@@ -26,6 +26,7 @@ import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLigh
 import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { COVE_Y, ROOM, emissive, shade } from "./materials";
+import { useEmissiveMaterial, useShadeMaterial } from "./lightMaterials";
 import { FIXTURES, HEADBOARD, PLAN, WINDOW } from "./MasterBedroom";
 import { Spot } from "./Spot";
 
@@ -93,6 +94,27 @@ function output(state: LightState): number {
 }
 
 /**
+ * Lights stay mounted, and are driven to zero instead of being removed.
+ *
+ * three.js bakes the number of each kind of light into every material's shader
+ * as a `#define`, so adding or removing one light recompiles every material in
+ * the scene. During a scene fade the channels cross zero at different moments,
+ * which means the count changes several times per transition and each
+ * combination is a variant the driver has not seen.
+ *
+ * Measured on the bedroom before this: pressing Reading compiled 38 shader
+ * programs and froze the worst frame for 2684 ms. Pressing it a second time
+ * still compiled 12 and still froze for 2400 — caching does not save you,
+ * because the intermediate combinations are combinatorial.
+ *
+ * Mounted throughout, the same transition compiles nothing and its worst frame
+ * is 183 ms, which is the ordinary frame time. A light at zero intensity still
+ * costs its per-fragment evaluation, so this is paid for by keeping the counts
+ * low rather than by switching them off.
+ */
+const MOUNTED = true;
+
+/**
  * Aperture brightness, 0..1.
  *
  * A much flatter curve than luminous output. At 10% a fixture puts out 1% of its
@@ -118,10 +140,7 @@ function CoveLight({ state, gain }: { state: LightState; gain: number }) {
     { pos: [inset, COVE_Y, ROOM.d / 2], rot: [Math.PI / 2, 0, Math.PI / 2], size: [ROOM.d - 0.8, ROOM.soffit.depth * 0.5] },
   ];
 
-  const stripMat = useMemo(
-    () => emissive(colour, GAIN.coveEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const stripMat = useEmissiveMaterial(colour, GAIN.coveEmissive * glow);
 
   return (
     <group>
@@ -134,7 +153,7 @@ function CoveLight({ state, gain }: { state: LightState; gain: number }) {
               only. Measured, the ceiling wash is indistinguishable; the room
               is a third cheaper per pixel. The strips all stay, because what
               you see of a cove is the strip. */}
-          {out > 0.001 && i % 2 === 0 && (
+          {MOUNTED && i % 2 === 0 && (
             <rectAreaLight
               position={s.pos as [number, number, number]}
               rotation={s.rot as [number, number, number]}
@@ -165,16 +184,13 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
   const out = output(state);
   const glow = apertureBrightness(state);
 
-  const lensMat = useMemo(
-    () => emissive(colour, GAIN.downlightEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const lensMat = useEmissiveMaterial(colour, GAIN.downlightEmissive * glow);
 
   return (
     <group>
       {FIXTURES.downlights.map((d, i) => (
         <group key={`dl-${i}`}>
-          {out > 0.001 && (
+          {MOUNTED && (
             <Spot
               position={[d.x, ROOM.h - 0.03, d.z]}
               target={[d.x, 0, d.z]}
@@ -222,14 +238,11 @@ function BedsideLamp({
   const z = PLAN.nightstand.z - 0.02;
   const y = PLAN.nightstand.top + 0.42;
 
-  const shadeMat = useMemo(
-    () => shade(colour, GAIN.bedsideShade * glow),
-    [colour.getHex(), glow],
-  );
+  const shadeMat = useShadeMaterial(colour, GAIN.bedsideShade * glow);
 
   return (
     <group>
-      {out > 0.001 && (
+      {MOUNTED && (
         <pointLight
           position={[x, y, z]}
           intensity={GAIN.bedside * out * gain}
@@ -282,14 +295,11 @@ function ReadingLight({
     PLAN.bed.headZ + 0.36,
   ];
 
-  const lensMat = useMemo(
-    () => emissive(colour, GAIN.readingEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const lensMat = useEmissiveMaterial(colour, GAIN.readingEmissive * glow);
 
   return (
     <group>
-      {out > 0.001 && (
+      {MOUNTED && (
         <Spot
           position={headPos}
           target={target}
@@ -330,10 +340,7 @@ function WardrobeLight({ state, gain }: { state: LightState; gain: number }) {
   const bays = 3;
   const bayW = (x1 - x0) / bays;
 
-  const stripMat = useMemo(
-    () => emissive(colour, GAIN.wardrobeEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const stripMat = useEmissiveMaterial(colour, GAIN.wardrobeEmissive * glow);
 
   return (
     <group>
@@ -343,7 +350,7 @@ function WardrobeLight({ state, gain }: { state: LightState; gain: number }) {
           <group key={`wl-${i}`}>
             {/* Outer bays only: the middle one sat between two others washing
                 the same back panel from 40 cm away. */}
-            {out > 0.001 && i !== 1 && (
+            {MOUNTED && i !== 1 && (
               <rectAreaLight
                 position={[cx, height - 0.09, depth * 0.55]}
                 rotation={[-Math.PI / 2, 0, 0]}
@@ -382,10 +389,7 @@ function PathLight({ state, gain }: { state: LightState; gain: number }) {
   const glow = apertureBrightness(state);
   const { x, headZ, width, length } = PLAN.bed;
 
-  const stripMat = useMemo(
-    () => emissive(colour, GAIN.nightEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const stripMat = useEmissiveMaterial(colour, GAIN.nightEmissive * glow);
 
   // Under the bed on both long sides, and along the wardrobe plinth.
   const strips: {
@@ -417,7 +421,7 @@ function PathLight({ state, gain }: { state: LightState; gain: number }) {
           {/* The two bed strips carry the light. The wardrobe plinth keeps its
               glow but not its own source — it is 0.05 m off a floor already
               lit by the two beside it. */}
-          {out > 0.001 && i < 2 && (
+          {MOUNTED && i < 2 && (
             <rectAreaLight
               position={s.pos}
               rotation={s.rot}
@@ -513,10 +517,7 @@ function HeadboardWash({ state, gain }: { state: LightState; gain: number }) {
   const { x } = PLAN.bed;
   const H = HEADBOARD;
 
-  const strip = useMemo(
-    () => emissive(colour, GAIN.headboardEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const strip = useEmissiveMaterial(colour, GAIN.headboardEmissive * glow);
 
   // One run, matching the one panel. It was three while the headboard had
   // wings; carrying that over would have lit wall the headboard no longer
@@ -530,7 +531,7 @@ function HeadboardWash({ state, gain }: { state: LightState; gain: number }) {
       {runs.map((r, i) =>
         r.w <= 0.05 ? null : (
           <group key={`hw-${i}`}>
-            {out > 0.001 && (
+            {MOUNTED && (
               <rectAreaLight
                 position={[r.cx, r.top - 0.04, H.stripZ]}
                 rotation={[Math.PI / 2, 0, 0]}

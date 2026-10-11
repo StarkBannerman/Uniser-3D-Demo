@@ -177,6 +177,27 @@ const output = (s: LightState) => (s.on ? lightOutput(s.level) : 0);
 /** How bright the fitting *looks*, which falls away far more slowly than output. */
 const aperture = (s: LightState) => (s.on ? Math.pow(s.level / 100, 0.42) : 0);
 
+/**
+ * Lights stay mounted, and are driven to zero instead of being removed.
+ *
+ * three.js bakes the number of each kind of light into every material's shader
+ * as a `#define`, so adding or removing one light recompiles every material in
+ * the scene. During a scene fade the channels cross zero at different moments,
+ * which means the count changes several times per transition and each
+ * combination is a variant the driver has not seen.
+ *
+ * Measured on the bedroom before this: pressing Reading compiled 38 shader
+ * programs and froze the worst frame for 2684 ms. Pressing it a second time
+ * still compiled 12 and still froze for 2400 — caching does not save you,
+ * because the intermediate combinations are combinatorial.
+ *
+ * Mounted throughout, the same transition compiles nothing and its worst frame
+ * is 183 ms, which is the ordinary frame time. A light at zero intensity still
+ * costs its per-fragment evaluation, so this is paid for by keeping the counts
+ * low rather than by switching them off.
+ */
+const MOUNTED = true;
+
 /** One material per call site, written in place rather than rebuilt per frame. */
 function useFace(colour: THREE.Color, intensity: number) {
   const mat = useMemo(() => emissive("#ffffff", 0), []);
@@ -214,7 +235,7 @@ function Cove({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
     <group>
       {runs.map((r, i) => (
         <group key={i}>
-          {r.lit && out > 0.001 && (
+          {r.lit && MOUNTED && (
             <rectAreaLight
               position={r.pos}
               rotation={[Math.PI / 2, 0, r.along === "x" ? 0 : Math.PI / 2]}
@@ -267,7 +288,7 @@ function Decorative({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
        * is the easiest of the three to miss because nothing about it is visible
        * until the shape of the pool on the desk is wrong.
        */}
-      {out > 0.001 && (
+      {MOUNTED && (
         <rectAreaLight
           position={[p.x, p.y - 0.055, p.z]}
           rotation={[-Math.PI / 2, 0, 0]}
@@ -320,7 +341,7 @@ function Decorative({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
          * the cone opens up and the decay steepens, which is what a shade on a
          * desk actually does to the light leaving it.
          */}
-        {out > 0.001 && (
+        {MOUNTED && (
           <Spot
             position={[d.x - 0.85, d.h + 0.46, d.z - 0.2]}
             target={[d.x - 0.5, d.h, d.z + 0.12]}
@@ -371,7 +392,7 @@ function Heads({
           <primitive object={face} attach="material" />
         </mesh>
       ))}
-      {out > 0.001 &&
+      {MOUNTED &&
         lit.map((h) => (
           <Spot
             key={`s${h.x}-${h.z}`}
@@ -465,7 +486,7 @@ function Accent({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
              * Both were a light aimed at the room instead of at the thing it
              * is named after.
              */}
-            {out > 0.001 &&
+            {MOUNTED &&
               Array.from({ length: unit.bays }, (_, b) => (
                 <rectAreaLight
                   key={`l${b}`}
@@ -477,7 +498,7 @@ function Accent({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
                   color={colour}
                 />
               ))}
-            {out > 0.001 && (
+            {MOUNTED && (
               <rectAreaLight
                 position={[cx, (bottom + top) / 2, 0.42]}
                 rotation={[0, Math.PI, 0]}
@@ -491,7 +512,7 @@ function Accent({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
         );
       })}
 
-      {out > 0.001 && (
+      {MOUNTED && (
         <Spot
           position={[p.artHead.x, CX.h - 0.06, p.artHead.z]}
           target={[p.art.x, p.art.cy, 0.14]}
@@ -545,7 +566,7 @@ function FeatureColour({ state, GAIN }: { state: LightState; GAIN: typeof BASE }
        * So the main one now faces the wall and grazes the stone, and a second,
        * much weaker one throws the spill the room was getting before.
        */}
-      {out > 0.001 && (
+      {MOUNTED && (
         <>
           <rectAreaLight
             position={[(m.x0 + m.x1) / 2, (m.y0 + m.y1) / 2, 0.52]}
@@ -571,7 +592,7 @@ function FeatureColour({ state, GAIN }: { state: LightState; GAIN: typeof BASE }
         <planeGeometry args={[desk.w - 1.2, 0.12]} />
         <primitive object={face} attach="material" />
       </mesh>
-      {out > 0.001 && (
+      {MOUNTED && (
         <rectAreaLight
           position={[desk.x, 0.1, desk.z + desk.d / 2 - 0.06]}
           rotation={[-Math.PI / 2, 0, 0]}

@@ -20,6 +20,7 @@ import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLigh
 import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { emissive } from "./materials";
+import { useEmissiveMaterial } from "./lightMaterials";
 import { Spot } from "./Spot";
 import {
   LR,
@@ -95,6 +96,27 @@ function colourOf(state: LightState): THREE.Color {
 }
 
 const output = (s: LightState) => (s.on ? lightOutput(s.level) : 0);
+/**
+ * Lights stay mounted, and are driven to zero instead of being removed.
+ *
+ * three.js bakes the number of each kind of light into every material's shader
+ * as a `#define`, so adding or removing one light recompiles every material in
+ * the scene. During a scene fade the channels cross zero at different moments,
+ * which means the count changes several times per transition and each
+ * combination is a variant the driver has not seen.
+ *
+ * Measured on the bedroom before this: pressing Reading compiled 38 shader
+ * programs and froze the worst frame for 2684 ms. Pressing it a second time
+ * still compiled 12 and still froze for 2400 — caching does not save you,
+ * because the intermediate combinations are combinatorial.
+ *
+ * Mounted throughout, the same transition compiles nothing and its worst frame
+ * is 183 ms, which is the ordinary frame time. A light at zero intensity still
+ * costs its per-fragment evaluation, so this is paid for by keeping the counts
+ * low rather than by switching them off.
+ */
+const MOUNTED = true;
+
 /** Aperture brightness is compressed far less than luminous output — a dimmed
  *  fixture still looks like a lit object. */
 const aperture = (s: LightState) => (s.on ? Math.pow(s.level / 100, 0.42) : 0);
@@ -107,10 +129,7 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
   const glow = aperture(state);
   const inset = LR.soffit.depth - 0.07;
 
-  const mat = useMemo(
-    () => emissive(colour, GAIN.coveEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const mat = useEmissiveMaterial(colour, GAIN.coveEmissive * glow);
 
   const segments = [
     { pos: [LR.w / 2, LR_COVE_Y, inset], along: "x", len: LR.w - 1.1 },
@@ -123,7 +142,7 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
     <group>
       {segments.map((s, i) => (
         <group key={`cove-${i}`}>
-          {out > 0.001 && (
+          {MOUNTED && (
             <rectAreaLight
               position={s.pos as unknown as [number, number, number]}
               rotation={[Math.PI / 2, 0, s.along === "x" ? 0 : Math.PI / 2]}
@@ -166,16 +185,13 @@ function Downlights({
   const out = output(state);
   const glow = aperture(state);
 
-  const lens = useMemo(
-    () => emissive(colour, GAIN.downlightEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const lens = useEmissiveMaterial(colour, GAIN.downlightEmissive * glow);
 
   return (
     <group>
       {positions.map((p, i) => (
         <group key={`dl-${p.x}-${p.z}`}>
-          {out > 0.001 && (
+          {MOUNTED && (
             <Spot
               position={[p.x, LR.h - 0.04, p.z]}
               target={aim(p)}
@@ -214,10 +230,7 @@ function NicheAccent({ state, gain }: { state: LightState; gain: number }) {
   const n = LR_PLAN.niche;
   const bayH = (n.y1 - n.y0) / n.bays;
 
-  const strip = useMemo(
-    () => emissive(colour, GAIN.accentEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const strip = useEmissiveMaterial(colour, GAIN.accentEmissive * glow);
 
   return (
     <group>
@@ -225,7 +238,7 @@ function NicheAccent({ state, gain }: { state: LightState; gain: number }) {
         const y = n.y0 + (i + 1) * bayH - 0.05;
         return (
           <group key={`niche-${i}`}>
-            {out > 0.001 && (
+            {MOUNTED && (
               <rectAreaLight
                 position={[(n.x0 + n.x1) / 2, y - 0.02, 0.16]}
                 rotation={[Math.PI, 0, 0]}
@@ -288,7 +301,7 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
           </mesh>
           {/* Two of the seven carry the actual light. Seven point lights in one
               cluster costs real frame time and looks no different. */}
-          {out > 0.001 && (i === 0 || i === 3) && (
+          {MOUNTED && (i === 0 || i === 3) && (
             <pointLight
               position={[x + g.dx, g.y, z + g.dz]}
               intensity={GAIN.decorative * out * gain}
@@ -316,16 +329,13 @@ function ColourWash({ state, gain }: { state: LightState; gain: number }) {
   const glow = aperture(state);
   const inset = LR.soffit.depth - 0.07;
 
-  const mat = useMemo(
-    () => emissive(colour, GAIN.rgbEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const mat = useEmissiveMaterial(colour, GAIN.rgbEmissive * glow);
 
   return (
     <group>
       {/* Ceiling edge on the glazing side — the run that reads first, because
           it is the longest thing in the frame. */}
-      {out > 0.001 && (
+      {MOUNTED && (
         <rectAreaLight
           position={[LR.w - inset - 0.06, LR_COVE_Y + 0.02, LR.d / 2]}
           rotation={[Math.PI / 2, 0, Math.PI / 2]}
@@ -348,7 +358,7 @@ function ColourWash({ state, gain }: { state: LightState; gain: number }) {
         <planeGeometry args={[LR_TV.w + 0.22, LR_TV.h + 0.2]} />
         <primitive object={mat} attach="material" />
       </mesh>
-      {out > 0.001 && (
+      {MOUNTED && (
         <pointLight
           position={[LR_TV.x, LR_TV.y, 0.45]}
           intensity={5 * out * gain}

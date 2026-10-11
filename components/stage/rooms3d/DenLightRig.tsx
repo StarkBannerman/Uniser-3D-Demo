@@ -19,6 +19,7 @@ import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLigh
 import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { emissive } from "./materials";
+import { useEmissiveMaterial } from "./lightMaterials";
 import { Spot } from "./Spot";
 import { DN, DN_COVE_Y, DN_PLAN, DN_WINDOW } from "./Den3D";
 
@@ -54,6 +55,27 @@ export const DN_DOWNLIGHTS = [
   { x: 5.0, z: 8.9 },
 ] as const;
 
+/**
+ * Lights stay mounted, and are driven to zero instead of being removed.
+ *
+ * three.js bakes the number of each kind of light into every material's shader
+ * as a `#define`, so adding or removing one light recompiles every material in
+ * the scene. During a scene fade the channels cross zero at different moments,
+ * which means the count changes several times per transition and each
+ * combination is a variant the driver has not seen.
+ *
+ * Measured on the bedroom before this: pressing Reading compiled 38 shader
+ * programs and froze the worst frame for 2684 ms. Pressing it a second time
+ * still compiled 12 and still froze for 2400 — caching does not save you,
+ * because the intermediate combinations are combinatorial.
+ *
+ * Mounted throughout, the same transition compiles nothing and its worst frame
+ * is 183 ms, which is the ordinary frame time. A light at zero intensity still
+ * costs its per-fragment evaluation, so this is paid for by keeping the counts
+ * low rather than by switching them off.
+ */
+const MOUNTED = true;
+
 /** Accent heads in the soffit, grazing the artwork on the left wall. */
 export const DN_ART_HEADS = [
   { x: DN.soffit.depth + 0.12, z: DN_PLAN.art.z - 0.55 },
@@ -78,14 +100,8 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
   const out = output(state);
   const glow = aperture(state);
   const inset = DN.soffit.depth - 0.07;
-  const mat = useMemo(
-    () => emissive(colour, GAIN.coveEmissive * glow),
-    [colour.getHex(), glow],
-  );
-  const spill = useMemo(
-    () => emissive(colour, GAIN.coveSpill * glow),
-    [colour.getHex(), glow],
-  );
+  const mat = useEmissiveMaterial(colour, GAIN.coveEmissive * glow);
+  const spill = useEmissiveMaterial(colour, GAIN.coveSpill * glow);
   /**
    * Runs almost the full length of each wall.
    *
@@ -105,7 +121,7 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
     <group>
       {segments.map((s, i) => (
         <group key={`cove-${i}`}>
-          {out > 0.001 && (
+          {MOUNTED && (
             <rectAreaLight
               position={s.pos as unknown as [number, number, number]}
               rotation={[Math.PI / 2, 0, s.along === "x" ? 0 : Math.PI / 2]}
@@ -162,16 +178,13 @@ function Downlights({
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
-  const lens = useMemo(
-    () => emissive(colour, GAIN.downlightEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const lens = useEmissiveMaterial(colour, GAIN.downlightEmissive * glow);
 
   return (
     <group>
       {positions.map((p, i) => (
         <group key={`dl-${p.x}-${p.z}`}>
-          {out > 0.001 && (
+          {MOUNTED && (
             <Spot
               position={[p.x, DN.h - 0.04, p.z]}
               target={aim(p)}
@@ -201,10 +214,7 @@ function ShelfAccent({ state, gain }: { state: LightState; gain: number }) {
   const glow = aperture(state);
   const sh = DN_PLAN.shelves;
   const bayH = (sh.y1 - sh.y0) / sh.bays;
-  const strip = useMemo(
-    () => emissive(colour, GAIN.accentEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const strip = useEmissiveMaterial(colour, GAIN.accentEmissive * glow);
 
   return (
     <group>
@@ -212,7 +222,7 @@ function ShelfAccent({ state, gain }: { state: LightState; gain: number }) {
         const y = sh.y0 + (i + 1) * bayH - 0.05;
         return (
           <group key={`shelf-${i}`}>
-            {out > 0.001 && (
+            {MOUNTED && (
               <rectAreaLight
                 position={[0.2, y - 0.02, (sh.z0 + sh.z1) / 2]}
                 rotation={[Math.PI, 0, 0]}
@@ -246,10 +256,7 @@ function ColourLayer({ state, gain }: { state: LightState; gain: number }) {
   const glow = aperture(state);
   const sc = DN_PLAN.screen;
   const co = DN_PLAN.console;
-  const mat = useMemo(
-    () => emissive(colour, GAIN.rgbEmissive * glow),
-    [colour.getHex(), glow],
-  );
+  const mat = useEmissiveMaterial(colour, GAIN.rgbEmissive * glow);
   const height = DN.h - DN.soffit.drop - 0.5;
 
   return (
@@ -263,7 +270,7 @@ function ColourLayer({ state, gain }: { state: LightState; gain: number }) {
             <planeGeometry args={[0.07, height]} />
             <primitive object={mat} attach="material" />
           </mesh>
-          {out > 0.001 && (
+          {MOUNTED && (
             <rectAreaLight
               position={[
                 b.along === "z" ? b.x + 0.05 : b.x,
@@ -282,7 +289,7 @@ function ColourLayer({ state, gain }: { state: LightState; gain: number }) {
 
       {/* Bias light behind the screen: the one piece of colour in this room
           that is a technique rather than an effect. */}
-      {out > 0.001 && (
+      {MOUNTED && (
         <rectAreaLight
           position={[sc.x, sc.y1 - sc.drop / 2, 0.2]}
           width={sc.w + 0.5}
@@ -297,7 +304,7 @@ function ColourLayer({ state, gain }: { state: LightState; gain: number }) {
         <planeGeometry args={[co.w - 0.1, 0.06]} />
         <primitive object={mat} attach="material" />
       </mesh>
-      {out > 0.001 && (
+      {MOUNTED && (
         <rectAreaLight
           position={[co.x, 0.09, co.d + 0.1]}
           rotation={[Math.PI, 0, 0]}

@@ -119,6 +119,27 @@ function useEmissiveFace(colour: THREE.Color, intensity: number) {
 /* ------------------------------------------------------------------ */
 
 /**
+ * Lights stay mounted, and are driven to zero instead of being removed.
+ *
+ * three.js bakes the number of each kind of light into every material's shader
+ * as a `#define`, so adding or removing one light recompiles every material in
+ * the scene. During a scene fade the channels cross zero at different moments,
+ * which means the count changes several times per transition and each
+ * combination is a variant the driver has not seen.
+ *
+ * Measured on the bedroom before this: pressing Reading compiled 38 shader
+ * programs and froze the worst frame for 2684 ms. Pressing it a second time
+ * still compiled 12 and still froze for 2400 — caching does not save you,
+ * because the intermediate combinations are combinatorial.
+ *
+ * Mounted throughout, the same transition compiles nothing and its worst frame
+ * is 183 ms, which is the ordinary frame time. A light at zero intensity still
+ * costs its per-fragment evaluation, so this is paid for by keeping the counts
+ * low rather than by switching them off.
+ */
+const MOUNTED = true;
+
+/**
  * Perimeter strip washing the ceiling.
  *
  * Four visible runs, two area lights. The long runs down each side do
@@ -150,7 +171,7 @@ function Cove({ state }: { state: LightState }) {
     <group>
       {runs.map((r, i) => (
         <group key={i}>
-          {r.lit && out > 0.001 && (
+          {r.lit && MOUNTED && (
             <rectAreaLight
               position={r.pos}
               rotation={[Math.PI / 2, 0, r.along === "x" ? 0 : Math.PI / 2]}
@@ -196,7 +217,7 @@ function Feature({ state }: { state: LightState }) {
 
   return (
     <group>
-      {out > 0.001 && (
+      {MOUNTED && (
         <rectAreaLight
           position={[p.x, p.y - 0.06, cz]}
           rotation={[-Math.PI / 2, 0, Math.PI / 2]}
@@ -261,7 +282,7 @@ function Downlights({
           <primitive object={face} attach="material" />
         </mesh>
       ))}
-      {out > 0.001 &&
+      {MOUNTED &&
         lit.map((h) => (
           <Spot
             key={`s${h.x}-${h.z}`}
@@ -299,7 +320,7 @@ function VideoConference({ state }: { state: LightState }) {
 
   return (
     <group>
-      {out > 0.001 && (
+      {MOUNTED && (
         <rectAreaLight
           position={[v.x, v.y, v.z]}
           rotation={[0, Math.PI, 0]}

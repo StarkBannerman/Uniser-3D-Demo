@@ -123,6 +123,27 @@ function useFace(colour: THREE.Color, intensity: number) {
 /* ------------------------------------------------------------------ */
 
 /**
+ * Lights stay mounted, and are driven to zero instead of being removed.
+ *
+ * three.js bakes the number of each kind of light into every material's shader
+ * as a `#define`, so adding or removing one light recompiles every material in
+ * the scene. During a scene fade the channels cross zero at different moments,
+ * which means the count changes several times per transition and each
+ * combination is a variant the driver has not seen.
+ *
+ * Measured on the bedroom before this: pressing Reading compiled 38 shader
+ * programs and froze the worst frame for 2684 ms. Pressing it a second time
+ * still compiled 12 and still froze for 2400 — caching does not save you,
+ * because the intermediate combinations are combinatorial.
+ *
+ * Mounted throughout, the same transition compiles nothing and its worst frame
+ * is 183 ms, which is the ordinary frame time. A light at zero intensity still
+ * costs its per-fragment evaluation, so this is paid for by keeping the counts
+ * low rather than by switching them off.
+ */
+const MOUNTED = true;
+
+/**
  * Perimeter strip washing the soffit.
  *
  * All four runs carry a light, including the two short ones. The boardroom
@@ -154,7 +175,7 @@ function Cove({ state }: { state: LightState }) {
             <primitive object={face} attach="material" />
           </mesh>
           {/* Aimed at the soffit above it: -Z rotated to point straight up. */}
-          {out > 0.001 && (
+          {MOUNTED && (
             <rectAreaLight
               position={[r.pos[0], r.pos[1] + 0.04, r.pos[2]]}
               rotation={[Math.PI / 2, 0, r.along === "x" ? 0 : Math.PI / 2]}
@@ -213,7 +234,7 @@ function Linear({ state }: { state: LightState }) {
               <primitive object={face} attach="material" />
             </mesh>
             {/* Aimed at the floor: -Z turned to point down. */}
-            {out > 0.001 && (
+            {MOUNTED && (
               <rectAreaLight
                 position={[r.x, r.y - 0.02, cz]}
                 rotation={[-Math.PI / 2, 0, 0]}
@@ -240,7 +261,7 @@ function Linear({ state }: { state: LightState }) {
                 is the most expensive thing in any of these rooms; two of these
                 at 1.3x put the same light on the ceiling as four at 0.62, for
                 half the shader cost. */}
-            {out > 0.001 && i % 2 === 0 && (
+            {MOUNTED && i % 2 === 0 && (
               <rectAreaLight
                 position={[r.x, r.y + 0.09, cz]}
                 rotation={[Math.PI / 2, 0, 0]}
@@ -296,7 +317,7 @@ function Downlights({
           <primitive object={face} attach="material" />
         </mesh>
       ))}
-      {out > 0.001 &&
+      {MOUNTED &&
         lit.map((h, i) => (
           <Spot
             key={i}
@@ -361,7 +382,7 @@ function Task({ state }: { state: LightState }) {
             <planeGeometry args={[0.26, 0.03]} />
             <primitive object={face} attach="material" />
           </mesh>
-          {out > 0.001 && p.lit && (
+          {MOUNTED && p.lit && (
             <Spot
               position={[p.x, b.h + 0.42, p.z]}
               target={[p.x, b.h, p.z]}
@@ -399,7 +420,7 @@ function Break({ state }: { state: LightState }) {
             <circleGeometry args={[0.155, 18]} />
             <primitive object={face} attach="material" />
           </mesh>
-          {out > 0.001 && i % 2 === 0 && (
+          {MOUNTED && i % 2 === 0 && (
             <Spot
               position={[c.x - 0.35, 1.93, z]}
               target={[c.x - 0.2, c.h, z]}
@@ -415,7 +436,7 @@ function Break({ state }: { state: LightState }) {
       ))}
       {/* A soft wash over the lounge, so the seating is not lit only by the
           counter four metres away. */}
-      {out > 0.001 && (
+      {MOUNTED && (
         <Spot
           position={[l.x, WS.h - 0.3, l.z]}
           target={[l.x, 0.4, l.z]}

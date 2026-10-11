@@ -598,9 +598,10 @@ function Glazing({ sheer, blackout, view }: { sheer: number; blackout: number; v
        * you see out of an upper floor.
        *
        * The width that buys back is made up by repeating horizontally rather
-       * than by stretching, so the towers keep their proportions. This texture
-       * instance belongs to this room — `makeCityTexture` builds a new canvas
-       * per call — so setting `repeat` on it cannot reach the other rooms.
+       * than by stretching, so the towers keep their proportions. Setting
+       * `repeat` here is safe because `makeCityTexture` caches the drawn
+       * canvas and hands every caller its own `CanvasTexture` over it — the
+       * expensive part is shared, the tiling is not.
        */}
       <mesh position={[-22, 1.6, -3.3]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[34, 11]} />
