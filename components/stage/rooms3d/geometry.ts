@@ -1049,3 +1049,74 @@ export function makeFabricNormal(
   t.anisotropy = 4;
   return t;
 }
+
+/**
+ * A hotel's mark, drawn to a canvas.
+ *
+ * Invented, and deliberately so: the demo is shown to prospects who are not
+ * this hotel, and a real chain's name on a reception wall is both a trademark
+ * problem and a distraction from the lighting. "The Meridian" is generic in
+ * the way a plan's placeholder should be — it reads as a five-star lobby
+ * without being anybody's.
+ *
+ * Drawn rather than loaded so the demo still works offline, and in brass on
+ * near-black because that is what the surface behind it is.
+ */
+export function makeLogoTexture(
+  name = "THE MERIDIAN",
+  sub = "HOTEL & RESIDENCES",
+): THREE.CanvasTexture {
+  const w = 1024;
+  const h = 512;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d")!;
+
+  g.fillStyle = "#0e0b08";
+  g.fillRect(0, 0, w, h);
+
+  const brass = "#c9a362";
+  g.strokeStyle = brass;
+  g.fillStyle = brass;
+
+  // A monogram: two interlocking arcs over a bar, which is about as much
+  // device as a wordmark of this kind ever carries.
+  const cx = w / 2;
+  const cy = 170;
+  g.lineWidth = 7;
+  g.beginPath();
+  g.arc(cx - 26, cy, 52, Math.PI * 0.75, Math.PI * 2.05);
+  g.stroke();
+  g.beginPath();
+  g.arc(cx + 26, cy, 52, Math.PI * 0.95, Math.PI * 2.25);
+  g.stroke();
+  g.beginPath();
+  g.moveTo(cx - 74, cy + 70);
+  g.lineTo(cx + 74, cy + 70);
+  g.stroke();
+
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  // Wide tracking is the single strongest signal of a luxury wordmark, and
+  // canvas has no letter-spacing, so the glyphs are placed one at a time.
+  const track = (text: string, y: number, size: number, spacing: number) => {
+    g.font = `300 ${size}px Georgia, "Times New Roman", serif`;
+    const widths = [...text].map((ch) => g.measureText(ch).width + spacing);
+    const total = widths.reduce((a, b) => a + b, 0) - spacing;
+    let x = cx - total / 2;
+    [...text].forEach((ch, i) => {
+      g.fillText(ch, x + widths[i] / 2 - spacing / 2, y);
+      x += widths[i];
+    });
+  };
+  track(name, 330, 86, 20);
+  g.globalAlpha = 0.72;
+  track(sub, 410, 30, 13);
+  g.globalAlpha = 1;
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}

@@ -29,6 +29,13 @@ const DOORS: { segment: Segment; title: string; lead: string; blurb: string }[] 
       "Scenes a family actually presses — waking, watching, winding down — with curtains, climate and media on the same button as the light.",
   },
   {
+    segment: "hospitality",
+    title: "Commercial",
+    lead: "Hospitality and public spaces",
+    blurb:
+      "Hotel lobbies, reception and lounge — seven lighting layers over one double-height room, scheduled around the clock, with the arrival moment on a single button.",
+  },
+  {
     segment: "commercial",
     title: "Office",
     lead: "Workplaces",

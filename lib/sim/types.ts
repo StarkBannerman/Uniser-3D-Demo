@@ -6,7 +6,17 @@
  * demo space or product means adding a config file, not writing components.
  */
 
-export type Segment = "commercial" | "residential";
+/**
+ * Which door a visit comes in through.
+ *
+ * "commercial" is the workplace: offices, boardrooms, executive cabins.
+ * "hospitality" is separate rather than a category inside it, because the two
+ * are sold in different meetings to different buyers — a hotel group is not
+ * shopping for a boardroom, and putting the lobby in the same row as the
+ * workspace made the switcher a list to scan rather than a door to walk
+ * through.
+ */
+export type Segment = "commercial" | "hospitality" | "residential";
 
 export type SubsystemId =
   | "lighting"

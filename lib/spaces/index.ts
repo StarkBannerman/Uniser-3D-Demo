@@ -14,6 +14,7 @@ import { livingRoomIllustrated } from "./residential/living-room-illustrated";
 import { boardroom } from "./commercial/boardroom";
 import { cxoCabin } from "./commercial/cxo-cabin";
 import { workspace } from "./commercial/workspace";
+import { hotelLobby } from "./hospitality/hotel-lobby";
 
 export const spaces: Space[] = [
   masterBedroom,
@@ -22,6 +23,7 @@ export const spaces: Space[] = [
   workspace,
   boardroom,
   cxoCabin,
+  hotelLobby,
   kitchen,
   livingRoomIllustrated,
 ];

@@ -98,16 +98,44 @@ const FRAME_CAP = { high: 30, low: 20 } as const;
  * the right speed, because the rotation is driven by elapsed time rather than
  * by frame count, and halves the cost of sitting on a desk doing nothing.
  */
-type Motion = "still" | "fan" | "transition";
+type Motion = "still" | "ambient" | "transition";
+
+/**
+ * Things that move without being a device.
+ *
+ * A fan is a device, so the pump can see it in the store. A cascading water
+ * wall is not — it is a shader with a clock in it, and nothing in the
+ * simulation changes while it runs, so `visualSignature` reports the room as
+ * clean and the frame is never drawn. The water would sit there frozen.
+ *
+ * A room therefore registers its own continuous motion while it has any, and
+ * takes the same reduced rate a turning fan does. The set is keyed so two
+ * rooms mounting and unmounting cannot leave it stuck on.
+ */
+const CONTINUOUS = new Set<string>();
+
+export function useContinuousMotion(key: string, active: boolean) {
+  useLayoutEffect(() => {
+    if (!active) {
+      CONTINUOUS.delete(key);
+      return;
+    }
+    CONTINUOUS.add(key);
+    return () => {
+      CONTINUOUS.delete(key);
+    };
+  }, [key, active]);
+}
 
 function motionNow(): Motion {
   if (hasActiveTweens()) return "transition";
+  if (CONTINUOUS.size > 0) return "ambient";
   const { space, states } = useSim.getState();
   if (space) {
     for (const device of space.devices) {
       if (device.kind !== "fan") continue;
       const state = states[device.id] as FanState | undefined;
-      if (state?.on && state.speed > 0) return "fan";
+      if (state?.on && state.speed > 0) return "ambient";
     }
   }
   return "still";
@@ -176,7 +204,7 @@ function RenderPump({ fps }: { fps: number }) {
         if (next !== signature) {
           signature = next;
           draw = true;
-        } else if (motion === "fan") {
+        } else if (motion === "ambient") {
           draw = true;
           gap = minDelta * 2;
         }
