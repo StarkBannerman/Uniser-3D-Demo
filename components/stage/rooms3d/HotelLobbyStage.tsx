@@ -106,9 +106,23 @@ export function HotelLobbyStage() {
    */
   const skyStep = Math.round(clamp01(daylight) * 8) / 8;
 
-  const ambient = space
+  const base = space
     ? roomAmbience(space, states, clockMin)
     : { level: 0, color: [255, 245, 230] as [number, number, number], lux: 0 };
+  /**
+   * A floor under the fill, as the den has.
+   *
+   * Night runs the general layer at eighteen per cent, and the bounce the
+   * ambience model derives from that is small enough that the navy rug and
+   * the dark half of the floor fell to black — the room lost its pattern and
+   * its material and read as an empty shape. A lobby at two in the morning is
+   * dim; it is not featureless, because a 400 m² marble floor bounces
+   * whatever the reception desk and the cove are still doing.
+   *
+   * It costs nothing in the scenes that are genuinely lit, where the derived
+   * level is well above it.
+   */
+  const ambient = { ...base, level: Math.max(base.level, 0.2) };
 
   const audioLevel = music?.on ? music.volume / 100 : 0;
 

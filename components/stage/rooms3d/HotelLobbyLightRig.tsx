@@ -73,6 +73,10 @@ const GAIN = {
  */
 const MOUNTED = true;
 
+/** Seven flutes at 140 mm centres — see the slot run in `Accent`. */
+const SLOT_PITCH = 7 * (0.085 + 0.055);
+const SLOTS = 9;
+
 function colourOf(state: LightState): THREE.Color {
   if (state.sat > 0) {
     const c = new THREE.Color(rgbToCss(cctToRgb(state.cct)));
@@ -435,7 +439,11 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
     globeMat.emissiveIntensity = GAIN.decorativeGlobe * 0.45 * glow;
     // The core carries most of the brightness, which is why the shell can
     // stay glassy instead of being driven to white to be seen.
-    coreMat.color.copy(colour).multiplyScalar(0.35 + 2.9 * glow);
+    // Strictly proportional. The 0.35 floor this used to carry left one
+    // filament visibly burning in Cleaning, where the decorative circuit is
+    // switched off — a lit lamp on a dead circuit is the one lighting fault
+    // a client always spots.
+    coreMat.color.copy(colour).multiplyScalar(3.1 * glow);
   });
 
   useLayoutEffect(() => {
@@ -627,16 +635,24 @@ function Accent({ state, gain }: { state: LightState; gain: number }) {
         escaping between its panels: the slots are the fitting, the wall is
         what you see.
       */}
-      {[0, 1, 2, 3, 4].map((i) => {
-        const span = w.z1 - w.z0 - 1.2;
-        const z = w.z0 + 0.6 + (span / 4) * i;
+      {/*
+        Evenly spaced, and on the grid the wall is actually built to.
+
+        The flutes behind this wall sit at 140 mm centres, so a run of LED
+        slots at some arbitrary division of the panel width lines up with
+        nothing — it reads as decoration applied to joinery rather than as
+        joinery. Nine slots at seven flutes apiece is 980 mm, which divides
+        the 8.6 m panel evenly and lands every slot on a flute line.
+      */}
+      {Array.from({ length: SLOTS }, (_, i) => {
+        const z = (w.z0 + w.z1) / 2 + (i - (SLOTS - 1) / 2) * SLOT_PITCH;
         return (
           <mesh
             key={`slot-${i}`}
             position={[w.x + 0.33, (w.y0 + w.y1) / 2, z]}
             rotation={[0, Math.PI / 2, 0]}
           >
-            <planeGeometry args={[0.055, w.y1 - w.y0 - 0.5]} />
+            <planeGeometry args={[0.05, w.y1 - w.y0 - 0.44]} />
             <primitive object={strip} attach="material" />
           </mesh>
         );
@@ -829,7 +845,18 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
          * steeply across the floor instead of raking the back wall in a hard
          * diagonal band.
          */
-        intensity={3.8 * strength}
+        /**
+         * Two and a half, not three and eight.
+         *
+         * The sun reaches the first four metres of floor inside the glass and
+         * nothing else, so it is the term that sets the exposure *at the
+         * façade* while contributing little in the middle of the room — which
+         * is precisely the complaint: a white band along the window with a
+         * correctly exposed lobby behind it. The area light on the glazing
+         * plane falls off with distance and does the general filling, so it
+         * takes the level back.
+         */
+        intensity={1.9 * strength}
         color={new THREE.Color("#fff1da")}
         castShadow
         shadow-mapSize={[2048, 2048]}
@@ -860,8 +887,18 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
         this project has got this axis wrong, which is why the sign is now
         worked out in the comment rather than in somebody's head.
       */}
+      {/*
+        Set a metre back from the glass, not 200 mm.
+
+        A 119 m² source half a metre from the floor slab beside it delivers
+        far more there than it does eight metres in, and measured that left
+        23 per cent of the floor by the window clipped to white while the
+        middle of the room sat correctly at 163. Moving the source inboard
+        flattens that falloff across the bay — the far end of the room barely
+        notices a metre, and the near end notices it a great deal.
+      */}
       <rectAreaLight
-        position={[f.x - 0.2, (f.y0 + f.y1) / 2, (f.z0 + f.z1) / 2]}
+        position={[f.x - 1.1, (f.y0 + f.y1) / 2, (f.z0 + f.z1) / 2]}
         rotation={[0, Math.PI / 2, 0]}
         width={f.z1 - f.z0}
         height={f.y1 - f.y0}
@@ -876,7 +913,7 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
          * wall to wall. Twelve puts the floor at about 200 with the glazing
          * brighter still, which is what a daylit room looks like.
          */
-        intensity={11 * strength}
+        intensity={9.5 * strength}
         color={new THREE.Color("#d5e4f6")}
       />
     </group>

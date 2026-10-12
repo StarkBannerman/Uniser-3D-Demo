@@ -29,10 +29,12 @@ import type { ShadeState } from "@/lib/sim/types";
 import { RoundedBox } from "@react-three/drei";
 import {
   makeArtTexture,
+  makeContactShadow,
   makeFabricNormal,
   makeLobbyRugTexture,
   makeLogoTexture,
   makeMarbleTexture,
+  makeRugSlab,
   sweepProfile,
 } from "./geometry";
 import { useContinuousMotion } from "../Stage3D";
@@ -173,11 +175,24 @@ const M = {
   /** Polished large-format marble. */
   floor: new THREE.MeshPhysicalMaterial({
     color: "#c6bdae",
-    roughness: 0.2,
+    roughness: 0.24,
     metalness: 0.02,
-    clearcoat: 0.6,
-    clearcoatRoughness: 0.1,
-    envMapIntensity: 1.4,
+    // Was 0.6. A clearcoat is a second specular lobe on top of the first,
+    // and on the four metres of floor the sun actually lands on it was that
+    // lobe, not the diffuse, that clipped to white.
+    /**
+     * The last of the clipping at the window was the clearcoat lobe.
+     *
+     * Measured, the floor beside the glazing was 17 per cent clipped while
+     * the middle of the room sat correctly — and the clipped pixels came back
+     * neutral white against warm marble, which is the signature of a specular
+     * highlight rather than an over-lit diffuse. Spreading the lobe (rougher)
+     * and weakening it puts the same energy over ten times the area, and
+     * polished stone still reads as polished.
+     */
+    clearcoat: 0.16,
+    clearcoatRoughness: 0.3,
+    envMapIntensity: 1.0,
   }),
   ceiling: new THREE.MeshStandardMaterial({ color: "#efe9df", roughness: 0.95 }),
   soffit: new THREE.MeshStandardMaterial({ color: "#e7e0d4", roughness: 0.92 }),
@@ -201,6 +216,20 @@ const M = {
     color: "#2e2a26",
     roughness: 0.13,
     metalness: 0.06,
+  }),
+  /**
+   * The reception feature wall: dark stone with no veining in it.
+   *
+   * It shared `marble` with the desk and the tables, and `makeMarbleTexture`
+   * draws its veins as a branching random walk — which on a nine-metre
+   * vertical panel came out as a scatter of pale diagonal scratches. Veining
+   * is right on a half-metre table top and wrong on a wall that is meant to
+   * be a quiet dark ground for a brass wordmark and a run of LED slots.
+   */
+  featureWall: new THREE.MeshStandardMaterial({
+    color: "#26231f",
+    roughness: 0.3,
+    metalness: 0.05,
   }),
   brass: new THREE.MeshStandardMaterial({
     color: "#b89258",
@@ -831,14 +860,17 @@ function Reception() {
       {/* The feature wall: a dark inset panel standing proud of the flutes. */}
       <mesh position={[w.x + 0.09, (w.y0 + w.y1) / 2, (w.z0 + w.z1) / 2]} receiveShadow>
         <boxGeometry args={[0.18, w.y1 - w.y0, w.z1 - w.z0]} />
-        <primitive object={M.marble} attach="material" />
+        <primitive object={M.featureWall} attach="material" />
       </mesh>
       {/* The mark, sized as signage: legible across a lobby, not a billboard. */}
+      {/* Toward the far end of the panel, because from this camera the near
+          end is cropped by the edge of the frame and the "T" of THE went with
+          it. 1.5 m along puts the whole wordmark in shot. */}
       <mesh
-        position={[w.x + 0.185, (w.y0 + w.y1) / 2 + 0.25, (w.z0 + w.z1) / 2]}
+        position={[w.x + 0.185, (w.y0 + w.y1) / 2 + 0.25, (w.z0 + w.z1) / 2 - 1.5]}
         rotation={[0, Math.PI / 2, 0]}
       >
-        <planeGeometry args={[4.4, 2.2]} />
+        <planeGeometry args={[4.8, 2.4]} />
         <primitive object={logoMat} attach="material" />
       </mesh>
 
@@ -962,11 +994,29 @@ const SOFA_PROFILE: readonly (readonly [number, number])[] = [
   [-0.34, 0.09],
 ];
 
+/**
+ * One seat cushion in cross-section: a plump pad with a soft front roll,
+ * closed so the sweep has no open underside.
+ */
+const CUSHION_PROFILE: readonly (readonly [number, number])[] = [
+  [-0.04, 0.575],
+  [-0.06, 0.63],
+  [-0.03, 0.685],
+  [0.06, 0.712],
+  [0.26, 0.714],
+  [0.37, 0.7],
+  [0.43, 0.663],
+  [0.44, 0.618],
+  [0.39, 0.578],
+  [0.2, 0.566],
+  [-0.04, 0.575],
+];
+
 function CurvedSofa({
   radius,
   from,
   to,
-  cushions = 7,
+  cushions = 4,
   seat = M.boucleSeat,
   back = M.boucle,
 }: {
@@ -984,35 +1034,46 @@ function CurvedSofa({
     [radius, from, to],
   );
 
+  /**
+   * Three or four long cushions that bend with the sofa, not eight blocks.
+   *
+   * A straight pad on a curve has to be short or its corners lift off the
+   * seat, which is why the first pass used eight of them — and eight short
+   * pads on a three-metre arc is a row of bricks. Sweeping each cushion
+   * through its own slice of the arc lets it be a metre and a half long and
+   * still sit flat, so the seat reads as upholstery with seams in it rather
+   * than as separate objects.
+   *
+   * The gap between them is 0.9 degrees — about 45 mm at this radius — which
+   * is a seam you can see and not a hole you can see through, with the shell
+   * directly behind it either way.
+   */
   const span = (to - from) / cushions;
-  const width = 2 * (radius + 0.1) * Math.sin(span / 2) - 0.035;
+  const gap = 0.016;
+  const pads = useMemo(
+    () =>
+      Array.from({ length: cushions }, (_, i) =>
+        sweepProfile(
+          CUSHION_PROFILE,
+          radius,
+          from + span * i + gap,
+          from + span * (i + 1) - gap,
+          26,
+        ),
+      ),
+    [cushions, radius, from, span],
+  );
 
   return (
     <group>
       <mesh geometry={shell} castShadow receiveShadow>
         <primitive object={back} attach="material" />
       </mesh>
-      {Array.from({ length: cushions }, (_, i) => {
-        const a = from + span * (i + 0.5);
-        return (
-          <group
-            key={i}
-            position={[Math.cos(a) * (radius + 0.08), 0, Math.sin(a) * (radius + 0.08)]}
-            rotation={[0, -a + Math.PI / 2, 0]}
-          >
-            <RoundedBox
-              args={[width, 0.17, 0.64]}
-              radius={0.07}
-              smoothness={4}
-              position={[0, 0.63, 0.02]}
-              castShadow
-              receiveShadow
-            >
-              <primitive object={seat} attach="material" />
-            </RoundedBox>
-          </group>
-        );
-      })}
+      {pads.map((geo, i) => (
+        <mesh key={i} geometry={geo} castShadow receiveShadow>
+          <primitive object={seat} attach="material" />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -1124,6 +1185,51 @@ function SideTable({ h = 0.56 }: { h?: number }) {
 }
 
 /**
+ * A rug: a bevelled slab lying on its own contact shadow.
+ *
+ * Both halves matter. The bevel is what stops an 11 mm slab reading as a
+ * plinth — the eye judges "is this on the floor" from the edge, and a 90
+ * degree corner says block while a chamfer meeting the floor says textile.
+ * The shadow is what stops it reading as a pattern printed on the marble: at
+ * this thickness nothing in the renderer will find that shadow on its own,
+ * because the shadow maps have nothing like the resolution and the ambient
+ * occlusion pass works at a far larger radius.
+ */
+function Rug({ width, depth }: { width: number; depth: number }) {
+  const slab = useMemo(() => makeRugSlab(width, depth), [width, depth]);
+  const shadow = useMemo(() => {
+    const map = makeContactShadow();
+    return new THREE.MeshBasicMaterial({
+      map,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+      // It lies in the floor plane, so it has to win the depth fight with it.
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+  }, []);
+
+  return (
+    <group>
+      <mesh position={[0, 0.0015, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+        <planeGeometry args={[width * 1.32, depth * 1.32]} />
+        <primitive object={shadow} attach="material" />
+      </mesh>
+      <mesh
+        geometry={slab}
+        position={[0, 0.0055, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+      >
+        <primitive object={M.rug} attach="material" />
+      </mesh>
+    </group>
+  );
+}
+
+/**
  * The main lounge group.
  *
  * Laid out inside one rotated group, with the rug turned with it. Everything
@@ -1142,10 +1248,9 @@ function Lounge() {
 
   return (
     <group position={[x, 0, z]} rotation={[0, 0.22, 0]}>
-      <mesh position={[0, 0.008, 0.2]} receiveShadow>
-        <boxGeometry args={[8.6, 0.016, 6.8]} />
-        <primitive object={M.rug} attach="material" />
-      </mesh>
+      <group position={[0, 0, 0.2]}>
+        <Rug width={8.6} depth={6.8} />
+      </group>
 
       {/*
         The sectional, on the far side of the group facing the camera.
@@ -1155,7 +1260,7 @@ function Lounge() {
         wall of upholstered backs across the middle of the picture.
       */}
       <group position={[-0.6, 0, -2.5]}>
-        <CurvedSofa radius={2.9} from={Math.PI * 0.2} to={Math.PI * 0.8} cushions={8} />
+        <CurvedSofa radius={2.9} from={Math.PI * 0.2} to={Math.PI * 0.8} cushions={4} />
         {pillows.map((p, i) => {
           const a = Math.PI * p.a;
           /**
@@ -1246,12 +1351,9 @@ function Lounge2() {
   const { x, z } = HL_PLAN.lounge2;
   return (
     <group position={[x, 0, z]} rotation={[0, -0.5, 0]}>
-      <mesh position={[0, 0.008, 0]} receiveShadow>
-        <boxGeometry args={[4.8, 0.016, 4.4]} />
-        <primitive object={M.rug} attach="material" />
-      </mesh>
+      <Rug width={4.8} depth={4.4} />
       <group position={[0, 0, -1.7]}>
-        <CurvedSofa radius={2.2} from={Math.PI * 0.22} to={Math.PI * 0.78} cushions={6} />
+        <CurvedSofa radius={2.2} from={Math.PI * 0.22} to={Math.PI * 0.78} cushions={3} />
       </group>
       <group position={[0.1, 0, 0.5]}>
         <CoffeeTable r={0.46} h={0.36} />
@@ -1387,6 +1489,9 @@ const WATER_FRAG = /* glsl */ `
   }
 `;
 
+/** What an unlit cascade reflects: the room, which is cool and dark. */
+const SLATE = new THREE.Color("#2b3a42");
+
 export function WaterWall({
   colour,
   level,
@@ -1414,7 +1519,17 @@ export function WaterWall({
   );
 
   useLayoutEffect(() => {
-    (mat.uniforms.uColor.value as THREE.Color).copy(colour);
+    /**
+     * Off is wet stone, not dim amber.
+     *
+     * The floor under `uLevel` keeps the wall from being a black hole, but it
+     * was applying that floor to the *channel's* colour — and with the
+     * feature circuit off the channel still reports its last colour
+     * temperature, so an unlit cascade came back as warm brown stripes.
+     * Unlit water is lit by the room, and what it reflects is a cool slate.
+     */
+    const lit = Math.min(level / 0.12, 1);
+    (mat.uniforms.uColor.value as THREE.Color).copy(SLATE).lerp(colour, lit);
     /**
      * Never quite zero.
      *
@@ -1632,10 +1747,23 @@ function skyCanvas(step: number): HTMLCanvasElement {
   const mix = (a: number[], b: number[], t: number) =>
     `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(",")})`;
 
-  // Night -> dusk by 0.18, dusk -> day above it. The horizon warms long
-  // before the zenith does, which is what makes a dusk sky read as dusk.
-  const duskT = Math.min(d / 0.18, 1);
-  const dayT = Math.max(0, (d - 0.18) / 0.82);
+  /**
+   * Night to dusk by 0.05, dusk to day by 0.35.
+   *
+   * The first ramp put dusk at 0.18 and then crawled to day across the whole
+   * remaining range, and the result was a Morning scene with a midnight sky
+   * in the window. It was wrong about what the number means: `daylight` is
+   * lux normalised against 45,000, and at seven in the morning this site is
+   * already at 9,000 — a bright overcast day to the eye, not twilight.
+   * Measured, 07:00 lands at 0.20 and the old curve had it eight per cent of
+   * the way from night to day.
+   *
+   * Lux also rises far faster than brightness is perceived, so full daylight
+   * colour by 0.35 is what matches the eye. The band below 0.05 is the only
+   * part of the day that is genuinely dark.
+   */
+  const duskT = Math.min(d / 0.05, 1);
+  const dayT = Math.min(Math.max(0, (d - 0.05) / 0.3), 1);
   /**
    * Daytime has to look like daytime from inside.
    *
@@ -1648,18 +1776,88 @@ function skyCanvas(step: number): HTMLCanvasElement {
    * they stay under 240 so the ACES curve still has somewhere to go — which
    * is the difference between bright and clipped.
    */
-  const zenith = mix([10, 15, 34], duskT < 1 ? [30, 40, 86] : [96, 152, 226], duskT < 1 ? duskT : dayT);
-  const horizon = mix([34, 28, 46], duskT < 1 ? [226, 132, 72] : [222, 236, 247], duskT < 1 ? duskT : dayT);
+  /**
+   * Three stops, chained — which is what this was always meant to be.
+   *
+   * It read `mix(night, duskT < 1 ? dusk : day, t)`, so above the dusk
+   * threshold it interpolated *from night straight to day* and the dusk
+   * colours were only ever reachable below it. The horizon therefore had no
+   * orange in it at any hour that was not nearly dark: measured, Morning came
+   * back as rgb(105,116,131), a flat grey-blue, which is precisely the
+   * complaint. Night to dusk, then dusk to day, and the middle of the ramp is
+   * a sunrise again.
+   */
+  const NIGHT_TOP = [10, 15, 34];
+  const DUSK_TOP = [30, 40, 86];
+  const DAY_TOP = [96, 152, 226];
+  const NIGHT_LOW = [34, 28, 46];
+  const DUSK_LOW = [226, 132, 72];
+  const DAY_LOW = [222, 236, 247];
+  const zenith =
+    duskT < 1 ? mix(NIGHT_TOP, DUSK_TOP, duskT) : mix(DUSK_TOP, DAY_TOP, dayT);
+  /**
+   * The horizon warms long before the zenith does, and cools long after.
+   *
+   * Running both ends off the same `dayT` gives a sky that goes from orange
+   * to white in one step, and a morning then reads as a flat overcast. Easing
+   * the horizon term keeps peach in the bottom of the sky while the top is
+   * already blue — which is what the brief means by "pale blue and peach",
+   * and what a sunrise actually looks like.
+   */
+  const horizonT = Math.pow(dayT, 1.7);
+  const horizon =
+    duskT < 1 ? mix(NIGHT_LOW, DUSK_LOW, duskT) : mix(DUSK_LOW, DAY_LOW, horizonT);
 
-  const sky = g.createLinearGradient(0, 0, 0, h * 0.74);
+  // The warm end of the gradient has to reach the part of the sky the window
+  // frames. At 0.74 the peach sat below the sill and the visible band was all
+  // zenith blue washed toward white.
+  const sky = g.createLinearGradient(0, 0, 0, h * 0.54);
   sky.addColorStop(0, zenith);
   sky.addColorStop(1, horizon);
   g.fillStyle = sky;
   g.fillRect(0, 0, w, h);
 
   const night = 1 - Math.min(d / 0.3, 1);
+
+  /**
+   * A low sun, which is most of what says "early".
+   *
+   * Drawn into the sky rather than moved in the scene: the directional light
+   * is fixed, and a glow low on the horizon reads as a morning far more
+   * strongly than the sun's actual angle does from inside a lobby. It fades
+   * out as the day climbs, so noon has none.
+   */
+  const sunStrength = duskT < 1 ? duskT : Math.max(0, 1 - dayT * 1.05);
+  if (sunStrength > 0.02) {
+    /**
+     * A band along the whole horizon, not a disc in one place.
+     *
+     * The texture wraps twice around a 50 m cylinder, so a radial sun at a
+     * fixed u lands at two bearings out of three hundred and sixty degrees —
+     * and the odds of either being the one the camera looks through are
+     * poor. The warm light at dawn is along the horizon everywhere anyway;
+     * the disc is the extra on top of it, kept for the bearings it does hit.
+     */
+    const band = g.createLinearGradient(0, h * 0.7 - h * 0.3, 0, h * 0.72);
+    band.addColorStop(0, "rgba(255,172,104,0)");
+    // Strong, because ACES is about to take most of it away: a pale sky sits
+    // on the shoulder of the curve where saturation compresses hardest, and
+    // a wash that looks right on the canvas comes back as neutral grey.
+    band.addColorStop(1, `rgba(255,162,92,${0.9 * sunStrength})`);
+    g.fillStyle = band;
+    g.fillRect(0, 0, w, h * 0.72);
+
+    for (const u of [0.3, 0.8]) {
+      const sg = g.createRadialGradient(w * u, h * 0.66, 0, w * u, h * 0.66, h * 0.55);
+      sg.addColorStop(0, `rgba(255,214,166,${0.4 * sunStrength})`);
+      sg.addColorStop(1, "rgba(255,200,145,0)");
+      g.fillStyle = sg;
+      g.fillRect(0, 0, w, h);
+    }
+  }
+
   // Stars, before anything stands in front of them.
-  if (night > 0.2) {
+  if (night > 0.45) {
     g.fillStyle = `rgba(255,255,240,${0.5 * night})`;
     for (let i = 0; i < 260; i++) {
       const r = rnd() * 1.5 + 0.4;
@@ -1684,7 +1882,7 @@ function skyCanvas(step: number): HTMLCanvasElement {
   g.globalAlpha = 1;
 
   // Lit windows on the far towers, at night only.
-  if (night > 0.15) {
+  if (night > 0.4) {
     g.fillStyle = `rgba(255,226,170,${0.65 * night})`;
     for (let i = 0; i < 520; i++) {
       const x = rnd() * w;

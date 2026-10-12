@@ -99,7 +99,7 @@ export const hotelLobby: Space = {
        * reads as a colour cast, with the coffer going orange against a window
        * full of sky. Morning and Day need the cove to agree with the daylight.
        */
-      tunable: { minK: 2200, maxK: 4200 },
+      tunable: { minK: 2200, maxK: 4600 },
       fixtures: 110, // metres of run
       wattsEach: 9,
       lumensEach: 950,
@@ -428,7 +428,10 @@ export const hotelLobby: Space = {
          * look designed.
          */
         "hl-accent": { on: true, level: 62, cct: 2700, sat: 0 },
-        "hl-feature": { on: true, level: 40, cct: 4200, hue: 208, sat: 52 },
+        // Thirty per cent and a deeper blue. At forty and half-saturated the
+        // cascade was the brightest thing in a scene whose whole point is
+        // that the room has gone quiet.
+        "hl-feature": { on: true, level: 30, cct: 3600, hue: 216, sat: 80 },
         "hl-facade": { on: true, level: 55, cct: 2400, sat: 0 },
         "hl-blinds": { sheer: 0, blackout: 0 },
         "hl-ac": { on: true, setpointC: 25, mode: "cool", fan: 1 },
@@ -489,8 +492,17 @@ export const hotelLobby: Space = {
       fadeMs: 900,
       targets: {
         "hl-general": { on: true, level: 100, cct: 5000, sat: 0 },
-        "hl-cove": { on: true, level: 40, cct: 3500, sat: 0 },
-        "hl-arch": { on: true, level: 30, cct: 4000, sat: 0 },
+        /**
+         * Neutral white and high, where it was warm and low.
+         *
+         * Cleaning is the one scene with no mood in it: the night crew need
+         * to see the floor, and every shadow the room's designed lighting
+         * casts is somewhere dirt hides. So the cove goes to the top of its
+         * range in colour and well up in level — the point is to fill the
+         * shadows the downlights leave, which is what makes the scene flat.
+         */
+        "hl-cove": { on: true, level: 78, cct: 4500, sat: 0 },
+        "hl-arch": { on: true, level: 30, cct: 4500, sat: 0 },
         "hl-decor": { on: false, sat: 0 },
         "hl-accent": { on: false, sat: 0 },
         "hl-feature": { on: false, sat: 0 },
@@ -658,7 +670,7 @@ export const hotelLobby: Space = {
         "hl-arch": { on: true, level: 38, cct: 2500, fadeMs: 9000, sat: 0 },
         "hl-decor": { on: true, level: 45, cct: 2000, fadeMs: 9000, sat: 0 },
         "hl-accent": { on: true, level: 62, cct: 2700, fadeMs: 9000, sat: 0 },
-        "hl-feature": { on: true, level: 40, cct: 4200, hue: 208, sat: 52, fadeMs: 9000 },
+        "hl-feature": { on: true, level: 30, cct: 3600, hue: 216, sat: 80, fadeMs: 9000 },
         "hl-facade": { on: true, level: 55, cct: 2400, fadeMs: 9000, sat: 0 },
         "hl-music": { on: true, source: "Lobby Ambient", volume: 12 },
       },

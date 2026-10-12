@@ -1068,10 +1068,7 @@ export function makeFabricNormal(
  * standing proud of a dark panel actually does — a flat fill reads as a
  * printed sign, and a printed sign is not what a lobby has.
  */
-export function makeLogoTexture(
-  name = "THE MERIDIAN",
-  sub = "HOTEL & RESIDENCES",
-): THREE.CanvasTexture {
+export function makeLogoTexture(name = "THE MERIDIAN"): THREE.CanvasTexture {
   const w = 2560;
   const h = 1280;
   const c = document.createElement("canvas");
@@ -1137,10 +1134,24 @@ export function makeLogoTexture(
     glyphs.forEach((gl) => g.fillText(gl.ch, gl.cx - size * 0.012, y - size * 0.016));
     g.globalAlpha = 1;
   };
-  track(name, 790, 196, 46);
-  g.globalAlpha = 0.78;
-  track(sub, 960, 64, 30);
-  g.globalAlpha = 1;
+  /**
+   * The wordmark only, and larger.
+   *
+   * There was a "HOTEL & RESIDENCES" line under it at 64 px, which on a
+   * 4.8 m sign is 110 mm of letter — about five pixels tall on screen from
+   * where the camera stands. No amount of texture resolution fixes that,
+   * because the limit is the frame, not the map: five pixels cannot hold a
+   * serif. It is gone, and the name is 40 per cent bigger for the space.
+   */
+  /**
+   * 215 px, not 272.
+   *
+   * Georgia's uppercase advance is about 0.68 em, so "THE MERIDIAN" at 272
+   * with 64 px of tracking measures roughly 2,730 px — on a 2,560 px canvas,
+   * which clipped the T and the N straight off the ends. 215 and 42 comes to
+   * about 2,170 and leaves a margin either side.
+   */
+  track(name, 800, 215, 42);
 
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -1179,7 +1190,7 @@ export function makeLobbyRugTexture(seed = 5521): THREE.CanvasTexture {
   };
 
   // Ground, with a slow teal drift through it so it is never one value.
-  g.fillStyle = "#15303e";
+  g.fillStyle = "#1c3c4c";
   g.fillRect(0, 0, n, n);
   for (let i = 0; i < 18; i++) {
     const x = rnd() * n;
@@ -1317,4 +1328,99 @@ export function sweepProfile(
   g.setIndex(index);
   g.computeVertexNormals();
   return g;
+}
+
+/**
+ * A thin slab with a softly bevelled edge — a rug, essentially.
+ *
+ * A box reads as a plinth at any thickness, because what the eye uses to
+ * judge "is this lying on the floor" is the edge: a 90 degree corner says
+ * "block", a chamfer that meets the floor says "textile". `ExtrudeGeometry`
+ * with a bevel gives exactly that, and the whole thing stays 11 mm thick.
+ *
+ * Built in the XY plane and tipped flat by the caller, so the UVs come out
+ * running along the rug rather than around its edge.
+ */
+export function makeRugSlab(
+  width: number,
+  depth: number,
+  thickness = 0.011,
+  bevel = 0.045,
+): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  const w = width / 2 - bevel;
+  const d = depth / 2 - bevel;
+  shape.moveTo(-w, -d);
+  shape.lineTo(w, -d);
+  shape.lineTo(w, d);
+  shape.lineTo(-w, d);
+  shape.closePath();
+
+  const g = new THREE.ExtrudeGeometry(shape, {
+    depth: Math.max(0.001, thickness - bevel * 0.2),
+    bevelEnabled: true,
+    bevelThickness: bevel * 0.2,
+    bevelSize: bevel,
+    bevelSegments: 3,
+    curveSegments: 1,
+  });
+  g.center();
+
+  // ExtrudeGeometry's UVs run in world units; remap to 0..1 over the face so
+  // one pattern covers the rug exactly once.
+  const pos = g.attributes.position;
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    uv[i * 2] = pos.getX(i) / width + 0.5;
+    uv[i * 2 + 1] = pos.getY(i) / depth + 0.5;
+  }
+  g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * A painted contact shadow: dark along a rectangle's edge, fading outward.
+ *
+ * An 11 mm rug casts a shadow a centimetre wide, which no shadow map in this
+ * project has the resolution to find and which screen-space AO at these
+ * radii will also miss. Without one the rug looks printed on the floor.
+ *
+ * The blur is built from concentric strokes rather than `ctx.filter`, which
+ * is not reliable across the browsers this demo gets opened in.
+ */
+export function makeContactShadow(
+  /** Rug footprint as a fraction of the texture, 0..0.5 from the centre. */
+  inset = 0.12,
+  steps = 26,
+): THREE.CanvasTexture {
+  const n = 512;
+  const c = document.createElement("canvas");
+  c.width = n;
+  c.height = n;
+  const g = c.getContext("2d")!;
+  g.clearRect(0, 0, n, n);
+
+  const x0 = inset * n;
+  const y0 = inset * n;
+  const w = n - 2 * x0;
+  const h = n - 2 * y0;
+
+  // Darkest right at the edge, falling off over the inset.
+  for (let i = steps; i >= 1; i--) {
+    const t = i / steps;
+    const grow = t * inset * n;
+    g.strokeStyle = `rgba(0,0,0,${0.055 * (1 - t) ** 1.6})`;
+    g.lineWidth = (inset * n) / steps + 1.5;
+    g.strokeRect(x0 - grow, y0 - grow, w + grow * 2, h + grow * 2);
+  }
+  // A solid core under the rug itself, so the floor beneath is not brighter
+  // than the floor beside it.
+  g.fillStyle = "rgba(0,0,0,0.3)";
+  g.fillRect(x0, y0, w, h);
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
 }
