@@ -456,31 +456,40 @@ export function AppPanel({ view }: { view: AppView }) {
               {space.scenes.map((scene) => {
                 const active = scene.id === activeSceneId;
                 const running = Boolean(sequence && sequence.sceneId === scene.id);
+                /**
+                 * One scene at a time, and the rest go quiet until it lands.
+                 *
+                 * This reverses an earlier decision, which was that a scene
+                 * press is always safe — it sets every device, so unlike a
+                 * half-moved slider it cannot leave the room in a state no
+                 * scene describes, and `applyScene` already cancels whatever
+                 * is in flight. All true, and it still read as ambiguous: a
+                 * room mid-fade with six live buttons does not look like a
+                 * room that is doing something.
+                 *
+                 * The button that was pressed stays lit and keeps its
+                 * progress, so what is disabled is only the thing you should
+                 * not be pressing yet.
+                 */
+                const owns = running || (settling && !sequence && active);
+                const blocked = (settling || Boolean(sequence)) && !owns;
                 return (
                   <button
                     key={scene.id}
                     type="button"
                     onClick={() => applyScene(scene.id)}
                     aria-pressed={active}
-                    /**
-                     * Live even while another scene is running.
-                     *
-                     * The lock exists so a half-pressed control cannot leave
-                     * the room in a state no scene describes — and a scene
-                     * press cannot do that, because it sets every device.
-                     * `applyScene` already cancels whatever sequence is in
-                     * flight before it starts.
-                     *
-                     * Presentation takes twenty seconds end to end. Making a
-                     * presenter watch all of it before they can move on is the
-                     * lock protecting the demo from the person giving it. The
-                     * Controls tab stays locked, which is where the original
-                     * concern actually lives.
-                     */
-                    className={`relative overflow-hidden rounded-xl border px-2.5 py-2.5 text-left transition-colors ${
+                    disabled={blocked}
+                    className={`relative overflow-hidden rounded-xl border px-2.5 py-2.5 text-left transition-[color,background-color,border-color,opacity] ${
                       active
                         ? "border-brass-600/70 bg-brass-600/15 text-brass-300"
-                        : "border-shell-800 bg-shell-850/60 text-shell-300 hover:border-shell-700"
+                        : "border-shell-800 bg-shell-850/60 text-shell-300"
+                    } ${
+                      blocked
+                        ? "cursor-not-allowed opacity-40"
+                        : active
+                          ? ""
+                          : "hover:border-shell-700"
                     }`}
                   >
                     {/* Progress sits on the button that was pressed, rather
