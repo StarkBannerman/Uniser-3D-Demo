@@ -31,7 +31,7 @@ import * as THREE from "three";
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
 import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
-import { useEmissiveMaterial } from "./lightMaterials";
+import { useEmissiveMaterial, useShadeMaterial } from "./lightMaterials";
 import { Spot } from "./Spot";
 import { COFFER, HL, HL_PLAN, LAMPS, WaterWall } from "./HotelLobby3D";
 
@@ -278,10 +278,28 @@ function Architectural({ state, gain }: { state: LightState; gain: number }) {
     <group>
       {grooves.map((y, i) => (
         <group key={`gr-${i}`}>
-          <mesh position={[0.075, y, HL.d / 2]} rotation={[0, Math.PI / 2, 0]}>
-            <planeGeometry args={[HL.d - 0.6, 0.045]} />
-            <primitive object={mat} attach="material" />
-          </mesh>
+          {/*
+            Two runs, not one.
+
+            A single 23 m line passed straight behind the reception feature
+            wall, which stands 180 mm proud of the flutes — so the middle
+            third of every groove was occluded and the three lines appeared to
+            start and stop in different places depending on what was in front
+            of them. Split at the wall, they read as a set.
+          */}
+          {[
+            { z0: 0.4, z1: HL_PLAN.deskWall.z0 - 0.3 },
+            { z0: HL_PLAN.deskWall.z1 + 0.3, z1: HL.d - 0.4 },
+          ].map((r, k) => (
+            <mesh
+              key={k}
+              position={[0.075, y, (r.z0 + r.z1) / 2]}
+              rotation={[0, Math.PI / 2, 0]}
+            >
+              <planeGeometry args={[r.z1 - r.z0, 0.045]} />
+              <primitive object={mat} attach="material" />
+            </mesh>
+          ))}
           {/* One of the three carries the light — a wall washed from three
               identical area sources is indistinguishable from one washed from
               a single wider one, and costs three times as much. */}
@@ -348,43 +366,76 @@ export const GLOBES = Array.from({ length: 54 }, (_, i) => {
   // A spiral rather than a scatter: the cluster has to read as designed.
   const t = i / 53;
   const turn = i * 2.39996;
-  const radius = 0.35 + Math.sqrt(t) * 1.55 * (0.82 + a * 0.36);
+  const radius = 0.35 + Math.sqrt(t) * 2.15 * (0.8 + a * 0.4);
   return {
     dx: Math.cos(turn) * radius,
     dz: Math.sin(turn) * radius,
-    // Deepest in the middle, shortening outward — the classic cluster form.
-    y: 5.42 - (1.0 - t) * 2.35 - b * 0.55,
-    r: 0.1 + c * 0.075,
+    /**
+     * Wider and much deeper than the first pass.
+     *
+     * At a 1.9 m spread over a 2.3 m drop the cluster was a dense ball — the
+     * reference's is nearly three metres across and falls through three, and
+     * the depth is what makes it read as a constellation rather than a bunch
+     * of grapes. The globe sizes vary by two to one for the same reason:
+     * identical spheres at identical spacing read as a diagram.
+     */
+    y: 5.46 - (1.0 - t) * 3.15 - b * 0.7,
+    r: 0.075 + c * 0.095,
   };
 });
 
 function Decorative({ state, gain }: { state: LightState; gain: number }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   const cords = useRef<THREE.InstancedMesh>(null);
+  const cores = useRef<THREE.InstancedMesh>(null);
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
   const { x, z } = HL_PLAN.chandelier;
 
+  /**
+   * Glass outside, filament inside.
+   *
+   * A single emissive sphere is a glowing ball, and fifty-four glowing balls
+   * is a string of fairy lights. What a hand-blown globe pendant actually
+   * shows is two things at once: a faint amber *shell* that catches the room
+   * on its curve, and a small bright *core* burning behind it. Two instanced
+   * meshes give both, and the core is what reads as a filament.
+   *
+   * `transmission` would be the physically right way to do the shell and is
+   * deliberately not used: it makes three.js render the entire scene a second
+   * time into a transmission buffer, every frame, and this is the largest
+   * room in the project. A low-opacity physical material with a clearcoat is
+   * indistinguishable at this size and costs one blend.
+   */
   const globeMat = useMemo(
     () =>
-      new THREE.MeshStandardMaterial({
-        // Amber smoked glass: it keeps a body colour when the channel is off
-        // instead of vanishing, which is what a real glass globe does.
-        color: "#5a4128",
+      new THREE.MeshPhysicalMaterial({
+        color: "#d9b47e",
         emissive: new THREE.Color("#ffffff"),
         emissiveIntensity: 0,
-        roughness: 0.2,
+        roughness: 0.06,
         metalness: 0,
+        clearcoat: 1,
+        clearcoatRoughness: 0.04,
+        ior: 1.46,
         transparent: true,
-        opacity: 0.88,
+        opacity: 0.42,
+        envMapIntensity: 1.8,
         toneMapped: false,
       }),
     [],
   );
+  const coreMat = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: "#ffffff", toneMapped: false }),
+    [],
+  );
   useLayoutEffect(() => {
     globeMat.emissive.copy(colour);
-    globeMat.emissiveIntensity = GAIN.decorativeGlobe * glow;
+    globeMat.emissiveIntensity = GAIN.decorativeGlobe * 0.45 * glow;
+    // The core carries most of the brightness, which is why the shell can
+    // stay glassy instead of being driven to white to be seen.
+    coreMat.color.copy(colour).multiplyScalar(0.35 + 2.9 * glow);
   });
 
   useLayoutEffect(() => {
@@ -393,12 +444,15 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const sc = new THREE.Vector3();
+    const core = cores.current;
     GLOBES.forEach((g, i) => {
       sc.setScalar(g.r);
       m.compose(new THREE.Vector3(x + g.dx, g.y, z + g.dz), q, sc);
       mesh.setMatrixAt(i, m);
+      core?.setMatrixAt(i, m);
     });
     mesh.instanceMatrix.needsUpdate = true;
+    if (core) core.instanceMatrix.needsUpdate = true;
 
     const cord = cords.current;
     if (!cord) return;
@@ -412,13 +466,25 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
     cord.instanceMatrix.needsUpdate = true;
   }, [x, z]);
 
-  /** Table and floor lamps: shade apertures, lit from a shared pair of points. */
-  const shade = useEmissiveMaterial(colour, 2.6 * glow);
+  /**
+   * Shades are lit *through*, not lit up.
+   *
+   * `useEmissiveMaterial` gives an aperture — the right thing for a cove slot
+   * or a downlight lens, both of which really are holes with light behind
+   * them. A fabric shade is a translucent surface with a lamp inside, so it
+   * keeps a diffuse response as well, goes papery when something brighter is
+   * nearby, and is darker at the top than at the hem. `useShadeMaterial` is
+   * that, and it is why these stop looking like paper cones.
+   */
+  const shade = useShadeMaterial(colour, 2.2 * glow);
 
   return (
     <group>
       <instancedMesh ref={ref} args={[undefined, globeMat, GLOBES.length]}>
-        <sphereGeometry args={[1, 14, 12]} />
+        <sphereGeometry args={[1, 16, 12]} />
+      </instancedMesh>
+      <instancedMesh ref={cores} args={[undefined, coreMat, GLOBES.length]}>
+        <sphereGeometry args={[0.3, 10, 8]} />
       </instancedMesh>
       {/* The drops.
 
@@ -469,12 +535,16 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
             <circleGeometry args={[0.2, 16]} />
             <primitive object={shade} attach="material" />
           </mesh>
-          {MOUNTED && (i === 0 || i === 3) && (
+          {/* Three of the seven carry a light, placed just under the shade
+              so the spill lands on the table rather than on the ceiling.
+              Seven point lights in one room is seven per-fragment
+              evaluations everywhere, for a difference nobody can see. */}
+          {MOUNTED && (i === 0 || i === 3 || i === 4) && (
             <pointLight
-              position={[0, l.y, 0]}
-              intensity={GAIN.decorative * 0.35 * out * gain}
-              distance={6}
-              decay={1.7}
+              position={[0, l.y - 0.12, 0]}
+              intensity={GAIN.decorative * 0.42 * out * gain}
+              distance={5.5}
+              decay={1.8}
               color={colour}
             />
           )}
@@ -633,9 +703,12 @@ function Feature({ state, gain }: { state: LightState; gain: number }) {
       {/* The cascade itself. It lives with the lighting rather than with the
           joinery because it *is* the fitting — the water is the aperture. */}
       <WaterWall colour={colour} level={glow} />
+      {/* Same axis, same mistake: unrotated, this emitted along -Z — into
+          the back wall it is mounted on. The room is at +Z of it. */}
       {MOUNTED && (
         <rectAreaLight
           position={[(w.x0 + w.x1) / 2, (w.y0 + w.y1) / 2, w.z + 0.1]}
+          rotation={[0, Math.PI, 0]}
           width={w.x1 - w.x0}
           height={w.y1 - w.y0}
           intensity={GAIN.feature * out * gain}
@@ -731,26 +804,79 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
 
   return (
     <group>
+      {/*
+        Four times the first pass, and still only the sun.
+
+        A 408 m² room with twenty-four metres of glazing on one side is lit by
+        the sky at noon, not by its ceiling — that is the whole argument for
+        daylight harvesting, and the room has to show it or Morning and Day
+        are just Evening with a cooler white in them. The directional carries
+        the shadows (`rectAreaLight` casts none in three.js), so without it a
+        harvested room has no shadows at all and reads completely flat.
+      */}
       <directionalLight
-        position={[HL.w + 18, 13, HL.d / 2 - 5]}
-        intensity={2.1 * strength}
+        position={[HL.w + 14, 22, HL.d / 2 - 5]}
+        /**
+         * Four and a half, not eight and a half.
+         *
+         * The sun lights the inside and the outside alike, and the outside is
+         * pale stone two metres from the glass — so the figure that made the
+         * floor read as daylit also made the canopy the brightest object in
+         * the frame. The interior gets its level back from the area light on
+         * the glazing plane, which only reaches inward.
+         *
+         * Raised to 22 m as well, so the shaft through the façade falls
+         * steeply across the floor instead of raking the back wall in a hard
+         * diagonal band.
+         */
+        intensity={3.8 * strength}
         color={new THREE.Color("#fff1da")}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0012}
-        shadow-camera-left={-16}
-        shadow-camera-right={16}
-        shadow-camera-top={16}
-        shadow-camera-bottom={-16}
+        // Tighter than the room, because resolution is the budget: 2048 px
+        // over a 32 m box is 6 cm a texel and every shadow edge is a
+        // staircase.
+        shadow-camera-left={-13}
+        shadow-camera-right={13}
+        shadow-camera-top={13}
+        shadow-camera-bottom={-13}
         shadow-camera-near={1}
         shadow-camera-far={60}
       />
+      {/*
+        Facing into the room, which it was not.
+
+        `rectAreaLight` emits along its local -Z, and a Y rotation of -90
+        degrees sends that to +X — straight out of the building. So the sky
+        light was pouring onto the glass, the blinds, the canopy and the
+        driveway at an intensity meant to fill a 408 m² room, and none of it
+        was reaching the room: the window clipped to flat white at rgb(250,
+        251, 251) while the floor stayed dark, and every attempt to fix the
+        exterior by moving the backdrop around failed because the backdrop was
+        never what was white.
+
+        +90 degrees sends -Z to -X, into the lobby. This is the seventh time
+        this project has got this axis wrong, which is why the sign is now
+        worked out in the comment rather than in somebody's head.
+      */}
       <rectAreaLight
         position={[f.x - 0.2, (f.y0 + f.y1) / 2, (f.z0 + f.z1) / 2]}
-        rotation={[0, -Math.PI / 2, 0]}
+        rotation={[0, Math.PI / 2, 0]}
         width={f.z1 - f.z0}
         height={f.y1 - f.y0}
-        intensity={13 * strength}
+        /**
+         * Twelve, where it was fifty-eight.
+         *
+         * Both of those were measured — the first with the light facing out
+         * of the building, where almost none of it reached anything. Pointed
+         * the right way it is 119 m² of emitter, against the living room's
+         * 15.6, and a `rectAreaLight` delivers its intensity *times its
+         * area*. At the old figure the lobby came back at rgb(250, 250, 250)
+         * wall to wall. Twelve puts the floor at about 200 with the glazing
+         * brighter still, which is what a daylit room looks like.
+         */
+        intensity={11 * strength}
         color={new THREE.Color("#d5e4f6")}
       />
     </group>

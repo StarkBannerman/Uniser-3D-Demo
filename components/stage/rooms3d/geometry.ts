@@ -1059,15 +1059,21 @@ export function makeFabricNormal(
  * the way a plan's placeholder should be — it reads as a five-star lobby
  * without being anybody's.
  *
- * Drawn rather than loaded so the demo still works offline, and in brass on
- * near-black because that is what the surface behind it is.
+ * **Resolution is the whole job here.** At 1024 x 512 over a 3.5 m sign this
+ * was 290 pixels per metre; the camera sees that sign across ten metres of
+ * lobby in a 1500 px frame, so every letter landed on four or five pixels and
+ * came back as a smudge. At 2560 x 1280 with anisotropic filtering it is 730
+ * per metre and the serif reads. The glyphs are also drawn with a shadow
+ * behind them and a highlight above, which is what a solid brass letter
+ * standing proud of a dark panel actually does — a flat fill reads as a
+ * printed sign, and a printed sign is not what a lobby has.
  */
 export function makeLogoTexture(
   name = "THE MERIDIAN",
   sub = "HOTEL & RESIDENCES",
 ): THREE.CanvasTexture {
-  const w = 1024;
-  const h = 512;
+  const w = 2560;
+  const h = 1280;
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
@@ -1076,47 +1082,239 @@ export function makeLogoTexture(
   g.fillStyle = "#0e0b08";
   g.fillRect(0, 0, w, h);
 
-  const brass = "#c9a362";
-  g.strokeStyle = brass;
-  g.fillStyle = brass;
+  const brass = "#d8b273";
+  const brassDeep = "#8a6a34";
+  const cx = w / 2;
 
   // A monogram: two interlocking arcs over a bar, which is about as much
   // device as a wordmark of this kind ever carries.
-  const cx = w / 2;
-  const cy = 170;
-  g.lineWidth = 7;
-  g.beginPath();
-  g.arc(cx - 26, cy, 52, Math.PI * 0.75, Math.PI * 2.05);
-  g.stroke();
-  g.beginPath();
-  g.arc(cx + 26, cy, 52, Math.PI * 0.95, Math.PI * 2.25);
-  g.stroke();
-  g.beginPath();
-  g.moveTo(cx - 74, cy + 70);
-  g.lineTo(cx + 74, cy + 70);
-  g.stroke();
+  const cy = 390;
+  const arcs = (stroke: string, dx: number, dy: number, lw: number) => {
+    g.strokeStyle = stroke;
+    g.lineWidth = lw;
+    g.beginPath();
+    g.arc(cx - 62 + dx, cy + dy, 124, Math.PI * 0.75, Math.PI * 2.05);
+    g.stroke();
+    g.beginPath();
+    g.arc(cx + 62 + dx, cy + dy, 124, Math.PI * 0.95, Math.PI * 2.25);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(cx - 176 + dx, cy + 166 + dy);
+    g.lineTo(cx + 176 + dx, cy + 166 + dy);
+    g.stroke();
+  };
+  arcs(brassDeep, 5, 6, 15);
+  arcs(brass, 0, 0, 15);
 
   g.textAlign = "center";
   g.textBaseline = "middle";
-  // Wide tracking is the single strongest signal of a luxury wordmark, and
-  // canvas has no letter-spacing, so the glyphs are placed one at a time.
+  /**
+   * Letter-spaced by hand.
+   *
+   * Wide tracking is the single strongest signal of a luxury wordmark and
+   * canvas has no `letter-spacing`, so each glyph is placed individually. The
+   * same pass draws the drop shadow and the top highlight, which is what
+   * turns a flat fill into a letter with a thickness.
+   */
   const track = (text: string, y: number, size: number, spacing: number) => {
     g.font = `300 ${size}px Georgia, "Times New Roman", serif`;
     const widths = [...text].map((ch) => g.measureText(ch).width + spacing);
     const total = widths.reduce((a, b) => a + b, 0) - spacing;
     let x = cx - total / 2;
+    const glyphs: { ch: string; cx: number }[] = [];
     [...text].forEach((ch, i) => {
-      g.fillText(ch, x + widths[i] / 2 - spacing / 2, y);
+      glyphs.push({ ch, cx: x + widths[i] / 2 - spacing / 2 });
       x += widths[i];
     });
+    g.fillStyle = "#000000";
+    g.globalAlpha = 0.55;
+    glyphs.forEach((gl) => g.fillText(gl.ch, gl.cx + size * 0.035, y + size * 0.04));
+    g.globalAlpha = 1;
+    g.fillStyle = brass;
+    glyphs.forEach((gl) => g.fillText(gl.ch, gl.cx, y));
+    g.fillStyle = "#f3dcb4";
+    g.globalAlpha = 0.5;
+    glyphs.forEach((gl) => g.fillText(gl.ch, gl.cx - size * 0.012, y - size * 0.016));
+    g.globalAlpha = 1;
   };
-  track(name, 330, 86, 20);
-  g.globalAlpha = 0.72;
-  track(sub, 410, 30, 13);
+  track(name, 790, 196, 46);
+  g.globalAlpha = 0.78;
+  track(sub, 960, 64, 30);
   g.globalAlpha = 1;
 
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
+  // A sign seen at a grazing angle across a lobby is exactly the case
+  // anisotropic filtering exists for.
+  t.anisotropy = 16;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.generateMipmaps = true;
   return t;
+}
+
+/**
+ * A hand-drawn abstract rug: deep navy ground, gold and cream brushwork.
+ *
+ * `makeRugTexture` is a blotch field — soft radial gradients with no edges —
+ * which is right for a worn wool rug under a sofa and wrong for the one object
+ * in a hotel lobby that is supposed to be a *pattern*. Blown up to eight
+ * metres under a bright window it read as damp.
+ *
+ * So this draws strokes instead of stains. Every mark has an edge: long
+ * sweeping arcs laid down with a round cap, a few straight bands, and a fine
+ * warp-and-weft grid over the top at one-pixel width. The grid is what stops
+ * the flat areas being flat, and it is the detail that survives being seen
+ * from across a room when the blotches do not.
+ */
+export function makeLobbyRugTexture(seed = 5521): THREE.CanvasTexture {
+  const n = 1536;
+  const c = document.createElement("canvas");
+  c.width = n;
+  c.height = n;
+  const g = c.getContext("2d")!;
+  let s = seed;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+
+  // Ground, with a slow teal drift through it so it is never one value.
+  g.fillStyle = "#15303e";
+  g.fillRect(0, 0, n, n);
+  for (let i = 0; i < 18; i++) {
+    const x = rnd() * n;
+    const y = rnd() * n;
+    const r = 260 + rnd() * 420;
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, `rgba(26,78,92,${0.1 + rnd() * 0.16})`);
+    grd.addColorStop(1, "rgba(26,78,92,0)");
+    g.fillStyle = grd;
+    g.fillRect(0, 0, n, n);
+  }
+
+  const palette = ["#c9a362", "#e4dcc8", "#2f7f8c", "#8c7a4a"];
+
+  // Sweeping arcs: the motif. Round caps, because a brush has one.
+  g.lineCap = "round";
+  for (let i = 0; i < 26; i++) {
+    const cx = rnd() * n;
+    const cy = rnd() * n;
+    const r = 160 + rnd() * 520;
+    const a0 = rnd() * Math.PI * 2;
+    const a1 = a0 + 0.5 + rnd() * 1.9;
+    g.strokeStyle = palette[Math.floor(rnd() * palette.length)];
+    g.globalAlpha = 0.16 + rnd() * 0.44;
+    g.lineWidth = 3 + rnd() * 22;
+    g.beginPath();
+    g.arc(cx, cy, r, a0, a1);
+    g.stroke();
+  }
+
+  // A few straight bands crossing them, which is what keeps an abstract from
+  // reading as a scribble.
+  for (let i = 0; i < 7; i++) {
+    const x0 = rnd() * n;
+    const y0 = rnd() * n;
+    const a = rnd() * Math.PI;
+    const len = 300 + rnd() * 900;
+    g.strokeStyle = palette[Math.floor(rnd() * 2)];
+    g.globalAlpha = 0.2 + rnd() * 0.3;
+    g.lineWidth = 2 + rnd() * 9;
+    g.beginPath();
+    g.moveTo(x0, y0);
+    g.lineTo(x0 + Math.cos(a) * len, y0 + Math.sin(a) * len);
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+
+  // Warp and weft. One pixel, low alpha, both directions: this is the whole
+  // of "woven" at any distance you would actually look at a rug from.
+  g.globalAlpha = 0.07;
+  g.strokeStyle = "#000000";
+  g.lineWidth = 1;
+  for (let i = 0; i < n; i += 3) {
+    g.beginPath();
+    g.moveTo(i + 0.5, 0);
+    g.lineTo(i + 0.5, n);
+    g.stroke();
+  }
+  g.strokeStyle = "#ffffff";
+  g.globalAlpha = 0.05;
+  for (let i = 0; i < n; i += 3) {
+    g.beginPath();
+    g.moveTo(0, i + 0.5);
+    g.lineTo(n, i + 0.5);
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+/**
+ * A surface of revolution swept through part of a turn.
+ *
+ * Which is what a curved sofa is. Built from nine straight segments it reads
+ * as nine boxes on an arc no matter how much the corners are rounded, because
+ * the silhouette has nine corners in it — and a silhouette is what the eye
+ * uses to decide whether something is one object. Sweeping a cross-section
+ * instead gives a single continuous shell with a smooth outline, and costs
+ * one draw call rather than thirty-six.
+ *
+ * `profile` is [radial offset from `radius`, height], ordered along the
+ * cross-section. Normals are computed, so the profile only has to be right in
+ * two dimensions.
+ */
+export function sweepProfile(
+  profile: readonly (readonly [number, number])[],
+  radius: number,
+  from: number,
+  to: number,
+  segments = 84,
+): THREE.BufferGeometry {
+  const rows = profile.length;
+  const cols = segments + 1;
+  const pos = new Float32Array(rows * cols * 3);
+  const uv = new Float32Array(rows * cols * 2);
+
+  for (let j = 0; j < cols; j++) {
+    const t = j / segments;
+    const a = from + (to - from) * t;
+    const ca = Math.cos(a);
+    const sa = Math.sin(a);
+    for (let i = 0; i < rows; i++) {
+      const [dr, y] = profile[i];
+      const r = radius + dr;
+      const k = (i * cols + j) * 3;
+      pos[k] = ca * r;
+      pos[k + 1] = y;
+      pos[k + 2] = sa * r;
+      const m = (i * cols + j) * 2;
+      // Four repeats around the arc and one up the section, so a fabric
+      // normal map lands at a believable scale without further thought.
+      uv[m] = t * 4;
+      uv[m + 1] = i / (rows - 1);
+    }
+  }
+
+  const index: number[] = [];
+  for (let i = 0; i < rows - 1; i++) {
+    for (let j = 0; j < cols - 1; j++) {
+      const a = i * cols + j;
+      const b = a + 1;
+      const c = a + cols;
+      const d = c + 1;
+      index.push(a, c, b, b, c, d);
+    }
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  g.setIndex(index);
+  g.computeVertexNormals();
+  return g;
 }

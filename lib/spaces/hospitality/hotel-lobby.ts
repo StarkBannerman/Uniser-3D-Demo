@@ -90,7 +90,16 @@ export const hotelLobby: Space = {
       pitch:
         "A hundred and ten metres of concealed run along every step of the coffer. In a seven-metre room this is the layer that makes the ceiling a feature instead of a lid — it is the light you cannot see the source of, and the one guests describe as 'warm' without being able to say why.",
       dimmable: true,
-      tunable: { minK: 2200, maxK: 3500 },
+      /**
+       * Up to 4200 K, where a cove would normally stop at 3000.
+       *
+       * A cove is a warmth device nine hours out of ten, which is why the
+       * first pass capped it low. But this room has a daylit half to its day,
+       * and a 2800 K ceiling over a 4600 K floor does not read as warm — it
+       * reads as a colour cast, with the coffer going orange against a window
+       * full of sky. Morning and Day need the cove to agree with the daylight.
+       */
+      tunable: { minK: 2200, maxK: 4200 },
       fixtures: 110, // metres of run
       wattsEach: 9,
       lumensEach: 950,
@@ -106,7 +115,7 @@ export const hotelLobby: Space = {
       pitch:
         "Linear grooves down the panelled wall and uplight strips set into every column. Architectural lighting is lighting that draws the building rather than the room, and it is what keeps a lobby legible when the general layer is at fifteen per cent at two in the morning.",
       dimmable: true,
-      tunable: { minK: 2400, maxK: 4000 },
+      tunable: { minK: 2400, maxK: 4500 },
       fixtures: 26,
       wattsEach: 11,
       lumensEach: 700,
@@ -284,13 +293,15 @@ export const hotelLobby: Space = {
         "Neutral-cool 4200 K with the blinds open to the daylight, chandeliers down to a glow. Bright and awake without being an office.",
       fadeMs: 2200,
       targets: {
-        "hl-general": { on: true, level: 72, cct: 4200, sat: 0 },
-        "hl-cove": { on: true, level: 55, cct: 3200, sat: 0 },
-        "hl-arch": { on: true, level: 50, cct: 3400, sat: 0 },
+        "hl-general": { on: true, level: 85, cct: 4200, sat: 0 },
+        // Neutral, not amber: the ceiling has to agree with the sky in the
+        // window rather than fight it.
+        "hl-cove": { on: true, level: 48, cct: 4000, sat: 0 },
+        "hl-arch": { on: true, level: 52, cct: 4000, sat: 0 },
         // Low rather than off. A dark chandelier over a bright lobby reads as
-        // a fault; a chandelier at a quarter reads as morning.
-        "hl-decor": { on: true, level: 25, cct: 2700, sat: 0 },
-        "hl-accent": { on: true, level: 55, cct: 3500, sat: 0 },
+        // a fault; a chandelier at a fifth reads as morning.
+        "hl-decor": { on: true, level: 20, cct: 2700, sat: 0 },
+        "hl-accent": { on: true, level: 55, cct: 3800, sat: 0 },
         "hl-feature": { on: true, level: 45, cct: 5200, sat: 55, hue: 204 },
         "hl-facade": { on: false, sat: 0 },
         "hl-blinds": { sheer: 0, blackout: 0 },
@@ -308,16 +319,22 @@ export const hotelLobby: Space = {
         "Full neutral white with the daylight doing most of the work, decoratives minimal. The scene the room spends the most hours in and the one harvesting pays for.",
       fadeMs: 2400,
       targets: {
-        "hl-general": { on: true, level: 85, cct: 4600, sat: 0 },
-        "hl-cove": { on: true, level: 45, cct: 3400, sat: 0 },
-        "hl-arch": { on: true, level: 40, cct: 3600, sat: 0 },
-        "hl-decor": { on: true, level: 15, cct: 2800, sat: 0 },
-        "hl-accent": { on: true, level: 45, cct: 3800, sat: 0 },
+        "hl-general": { on: true, level: 88, cct: 4800, sat: 0 },
+        // Lower than Morning, not higher. At noon the sun is doing the work
+        // and a cove at 55 only lifts the ceiling — which had the lobby
+        // brighter overhead than underfoot, the opposite of a daylit room.
+        "hl-cove": { on: true, level: 38, cct: 4200, sat: 0 },
+        "hl-arch": { on: true, level: 46, cct: 4200, sat: 0 },
+        "hl-decor": { on: true, level: 12, cct: 2800, sat: 0 },
+        "hl-accent": { on: true, level: 45, cct: 4000, sat: 0 },
         "hl-feature": { on: true, level: 40, cct: 5600, sat: 52, hue: 204 },
         "hl-facade": { on: false, sat: 0 },
         // Half-drawn. Midday sun on west glazing is glare on the seating, and
         // the filter is what makes the lounge usable rather than photogenic.
-        "hl-blinds": { sheer: 55, blackout: 0 },
+        // A third rather than half. The filter is there for glare on the
+        // seating, and at 55 it was also taking the daylight out of the one
+        // scene whose whole point is that the daylight is doing the work.
+        "hl-blinds": { sheer: 32, blackout: 0 },
         "hl-ac": { on: true, setpointC: 22, mode: "cool", fan: 3 },
         "hl-music": { on: true, source: "Lobby Ambient", volume: 22 },
       },
@@ -582,11 +599,11 @@ export const hotelLobby: Space = {
       enabledByDefault: true,
       at: 6 * 60,
       targets: {
-        "hl-general": { on: true, level: 72, cct: 4200, fadeMs: 6000, sat: 0 },
-        "hl-cove": { on: true, level: 55, cct: 3200, fadeMs: 6000, sat: 0 },
-        "hl-arch": { on: true, level: 50, cct: 3400, fadeMs: 6000, sat: 0 },
-        "hl-decor": { on: true, level: 25, cct: 2700, fadeMs: 6000, sat: 0 },
-        "hl-accent": { on: true, level: 55, cct: 3500, fadeMs: 6000, sat: 0 },
+        "hl-general": { on: true, level: 85, cct: 4200, fadeMs: 6000, sat: 0 },
+        "hl-cove": { on: true, level: 62, cct: 4000, fadeMs: 6000, sat: 0 },
+        "hl-arch": { on: true, level: 52, cct: 4000, fadeMs: 6000, sat: 0 },
+        "hl-decor": { on: true, level: 20, cct: 2700, fadeMs: 6000, sat: 0 },
+        "hl-accent": { on: true, level: 55, cct: 3800, fadeMs: 6000, sat: 0 },
         "hl-facade": { on: false, sat: 0, fadeMs: 6000 },
         "hl-blinds": { sheer: 0, blackout: 0 },
         "hl-music": { on: true, source: "Lobby Ambient", volume: 18 },
@@ -601,9 +618,9 @@ export const hotelLobby: Space = {
       enabledByDefault: true,
       at: 10 * 60,
       targets: {
-        "hl-general": { on: true, level: 85, cct: 4600, fadeMs: 6000, sat: 0 },
-        "hl-cove": { on: true, level: 45, cct: 3400, fadeMs: 6000, sat: 0 },
-        "hl-decor": { on: true, level: 15, cct: 2800, fadeMs: 6000, sat: 0 },
+        "hl-general": { on: true, level: 88, cct: 4800, fadeMs: 6000, sat: 0 },
+        "hl-cove": { on: true, level: 38, cct: 4200, fadeMs: 6000, sat: 0 },
+        "hl-decor": { on: true, level: 12, cct: 2800, fadeMs: 6000, sat: 0 },
         "hl-blinds": { sheer: 55, blackout: 0 },
       },
     },

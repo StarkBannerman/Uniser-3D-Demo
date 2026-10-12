@@ -30,9 +30,10 @@ import { RoundedBox } from "@react-three/drei";
 import {
   makeArtTexture,
   makeFabricNormal,
+  makeLobbyRugTexture,
   makeLogoTexture,
   makeMarbleTexture,
-  makeRugTexture,
+  sweepProfile,
 } from "./geometry";
 import { useContinuousMotion } from "../Stage3D";
 
@@ -171,17 +172,21 @@ export const LAMPS: { x: number; z: number; y: number; kind: "table" | "floor" }
 const M = {
   /** Polished large-format marble. */
   floor: new THREE.MeshPhysicalMaterial({
-    color: "#b3a494",
-    roughness: 0.11,
+    color: "#c6bdae",
+    roughness: 0.2,
     metalness: 0.02,
-    clearcoat: 0.85,
-    clearcoatRoughness: 0.06,
-    envMapIntensity: 1.5,
+    clearcoat: 0.6,
+    clearcoatRoughness: 0.1,
+    envMapIntensity: 1.4,
   }),
   ceiling: new THREE.MeshStandardMaterial({ color: "#efe9df", roughness: 0.95 }),
   soffit: new THREE.MeshStandardMaterial({ color: "#e7e0d4", roughness: 0.92 }),
   /** The reveal inside each coffer step, where the cove sits. */
-  reveal: new THREE.MeshStandardMaterial({ color: "#d9d0c2", roughness: 0.9 }),
+  reveal: new THREE.MeshStandardMaterial({
+    color: "#d9d0c2",
+    roughness: 0.9,
+    side: THREE.DoubleSide,
+  }),
   wall: new THREE.MeshStandardMaterial({ color: "#cfc6b8", roughness: 0.93 }),
   /** Dark fluted wood on the reception wall. */
   wood: new THREE.MeshStandardMaterial({ color: "#5a4026", roughness: 0.55 }),
@@ -219,7 +224,10 @@ const M = {
 
   /* Upholstery. Three cloths, because a lounge with one is a waiting room. */
   boucle: new THREE.MeshPhysicalMaterial({
-    color: "#b9b1a1",
+    color: "#c2baa9",
+    // The sofa shell is a swept cross-section — an open sheet, not a solid —
+    // so the camera can legitimately see the far side of it through the arc.
+    side: THREE.DoubleSide,
     roughness: 0.97,
     metalness: 0,
     sheen: 1,
@@ -227,7 +235,7 @@ const M = {
     sheenColor: new THREE.Color("#ebe4d4"),
   }),
   boucleSeat: new THREE.MeshPhysicalMaterial({
-    color: "#c3bbaa",
+    color: "#ccc4b2",
     roughness: 0.96,
     metalness: 0,
     sheen: 1,
@@ -609,7 +617,23 @@ function Shell() {
         );
       })}
 
-      {/* The reveal at each step: four faces facing inward. */}
+      {/*
+        The reveal at each step: four faces, all turned into the room.
+
+        Two of them were turned out of it. `planeGeometry` faces +Z, so a
+        rotation of -90 degrees at the x0 edge pointed the surface at -X —
+        away from the room — and +90 at x1 pointed it at +X, also away. Both
+        were therefore back-face culled from any camera standing inside the
+        coffer, and what the camera saw through the gap was the sky: a dark
+        navy rectangle in the top right of every frame, which looked like a
+        hole in the building because it was one.
+
+        The returns are also DoubleSide. A reveal is modelled here as a single
+        plane standing in for a solid return, and the camera can legitimately
+        stand on either side of any of these four edges — beyond z1, for
+        instance, which is exactly where it does stand. Culling a stand-in for
+        a solid is how the fault appeared in the first place.
+      */}
       {COFFER.slice(1).map((c, i) => {
         const below = COFFER[i];
         const drop = c.y - below.y;
@@ -619,8 +643,8 @@ function Shell() {
             {[
               { pos: [(c.x0 + c.x1) / 2, mid, c.z0], rot: 0, len: c.x1 - c.x0 },
               { pos: [(c.x0 + c.x1) / 2, mid, c.z1], rot: Math.PI, len: c.x1 - c.x0 },
-              { pos: [c.x0, mid, (c.z0 + c.z1) / 2], rot: -Math.PI / 2, len: c.z1 - c.z0 },
-              { pos: [c.x1, mid, (c.z0 + c.z1) / 2], rot: Math.PI / 2, len: c.z1 - c.z0 },
+              { pos: [c.x0, mid, (c.z0 + c.z1) / 2], rot: Math.PI / 2, len: c.z1 - c.z0 },
+              { pos: [c.x1, mid, (c.z0 + c.z1) / 2], rot: -Math.PI / 2, len: c.z1 - c.z0 },
             ].map((f, j) => (
               <mesh
                 key={j}
@@ -635,6 +659,31 @@ function Shell() {
           </group>
         );
       })}
+
+      {/*
+        Solid wall around the glazed opening.
+
+        The façade runs y 0.05 to 5.45 and z 1.4 to 23.4 in a wall that is
+        5.6 m tall and 24 m long, so there was a 150 mm strip above its head
+        and a 1.4 m return at each end with nothing in them at all — the room
+        was open to the sky along its whole right-hand side. Invisible until
+        the camera is low enough to look along it, which is where it is going.
+      */}
+      {[
+        { pos: [HL.w, (HL_PLAN.facade.y1 + COFFER[0].y) / 2, HL.d / 2], size: [HL.d, COFFER[0].y - HL_PLAN.facade.y1] },
+        { pos: [HL.w, COFFER[0].y / 2, HL_PLAN.facade.z0 / 2], size: [HL_PLAN.facade.z0, COFFER[0].y] },
+        { pos: [HL.w, COFFER[0].y / 2, (HL_PLAN.facade.z1 + HL.d) / 2], size: [HL.d - HL_PLAN.facade.z1, COFFER[0].y] },
+      ].map((w, i) => (
+        <mesh
+          key={`gw-${i}`}
+          position={w.pos as [number, number, number]}
+          rotation={[0, -Math.PI / 2, 0]}
+          receiveShadow
+        >
+          <planeGeometry args={w.size as [number, number]} />
+          <primitive object={M.wall} attach="material" />
+        </mesh>
+      ))}
 
       {/* Back wall, behind the water feature. */}
       <mesh position={[HL.w / 2, COFFER[0].y / 2, 0]} receiveShadow>
@@ -763,7 +812,18 @@ function Reception() {
 
   const logoMat = useMemo(() => {
     const map = makeLogoTexture();
-    return new THREE.MeshStandardMaterial({ map, roughness: 0.45, metalness: 0.25 });
+    return new THREE.MeshStandardMaterial({
+      map,
+      roughness: 0.38,
+      metalness: 0.35,
+      // Lifted by its own map, so the letters hold up when the accent channel
+      // is low. Brass signage in a lobby is nearly always halo-lit from
+      // behind; the alternative is a sign that disappears every night at
+      // eleven, which is the one hour a reception desk must not disappear.
+      emissive: new THREE.Color("#ffffff"),
+      emissiveMap: map,
+      emissiveIntensity: 0.55,
+    });
   }, []);
 
   return (
@@ -778,7 +838,7 @@ function Reception() {
         position={[w.x + 0.185, (w.y0 + w.y1) / 2 + 0.25, (w.z0 + w.z1) / 2]}
         rotation={[0, Math.PI / 2, 0]}
       >
-        <planeGeometry args={[3.5, 1.75]} />
+        <planeGeometry args={[4.4, 2.2]} />
         <primitive object={logoMat} attach="material" />
       </mesh>
 
@@ -804,6 +864,53 @@ function Reception() {
         <primitive object={M.brass} attach="material" />
       </mesh>
 
+      {/*
+        What is on a reception desk.
+
+        A bare counter reads as a model of a reception desk. Three objects
+        settle it: a call bell near the front edge, a low arrangement of white
+        flowers, and a tablet on a stand turned toward where the guest stands.
+        They also give the lit countertop something to cast a shadow with,
+        which is most of what makes a lit edge visible at all.
+      */}
+      <group position={[d.x + 0.12, d.h + 0.05, mid - 1.5]}>
+        <mesh castShadow>
+          <cylinderGeometry args={[0.075, 0.085, 0.022, 20]} />
+          <primitive object={M.brass} attach="material" />
+        </mesh>
+        <mesh position={[0, 0.055, 0]} castShadow>
+          <sphereGeometry args={[0.055, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <primitive object={M.brass} attach="material" />
+        </mesh>
+      </group>
+      <group position={[d.x + 0.06, d.h + 0.05, mid + 1.1]}>
+        <mesh castShadow>
+          <cylinderGeometry args={[0.085, 0.1, 0.16, 18]} />
+          <primitive object={M.stone} attach="material" />
+        </mesh>
+        {[0, 1, 2, 3, 4, 5, 6].map((j) => (
+          <group key={j} rotation={[0, j * 0.9, 0.32 + (j % 3) * 0.12]}>
+            <mesh position={[0, 0.17, 0]} castShadow>
+              <cylinderGeometry args={[0.004, 0.005, 0.2, 6]} />
+              <primitive object={M.foliageDark} attach="material" />
+            </mesh>
+            <mesh position={[0, 0.28, 0]} scale={[1, 0.75, 1]} castShadow>
+              <sphereGeometry args={[0.038, 10, 8]} />
+              <primitive object={M.bloom} attach="material" />
+            </mesh>
+          </group>
+        ))}
+      </group>
+      <group position={[d.x + 0.16, d.h + 0.05, mid - 0.3]} rotation={[0, -0.35, 0]}>
+        <mesh position={[0, 0.095, 0]} rotation={[-0.42, 0, 0]} castShadow>
+          <boxGeometry args={[0.2, 0.28, 0.012]} />
+          <primitive object={M.marble} attach="material" />
+        </mesh>
+        <mesh position={[0, 0.012, 0.02]} castShadow>
+          <boxGeometry args={[0.12, 0.024, 0.09]} />
+          <primitive object={M.metal} attach="material" />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -813,25 +920,53 @@ function Reception() {
 /* ------------------------------------------------------------------ */
 
 /**
- * A curved sectional, built as segments on an arc.
+ * A curved sectional, swept rather than stacked.
  *
  * A lobby sofa is curved because a lobby has no walls to put a sofa against —
- * the seating has to make its own room, and an arc is how it does that. Built
- * from straight segments rotated onto the arc rather than from swept geometry:
- * at nine segments over 120 degrees the facets are under 14 degrees apart and
- * the rounded corners hide the joints, which is also how the real thing is
- * upholstered.
+ * the seating has to make its own room, and an arc is how it does that.
+ *
+ * The first build was nine straight segments rotated onto the arc, and it
+ * read as nine boxes however much the corners were rounded. The reason is
+ * silhouette: the eye decides whether something is one object from its
+ * outline, and that outline had nine corners in it. So the body is now a
+ * single swept cross-section — one continuous shell, one draw call — with
+ * separate seat cushions laid on top of it. The cushions are what give the
+ * gentle seams a real sofa has; the shell is what stops them being blocks.
  *
  * The arc opens toward the camera, so what is in frame is the seat, the
  * cushions and the inside of the back — never the outside of it. A sofa
  * photographed from behind is the commonest mistake in a rendered lounge, and
  * the brief calls it out by name.
  */
+const SOFA_PROFILE: readonly (readonly [number, number])[] = [
+  // Inner face, from the floor up the back.
+  [-0.34, 0.09],
+  [-0.34, 0.52],
+  [-0.34, 0.95],
+  [-0.31, 1.05],
+  [-0.22, 1.1],
+  [-0.13, 1.04],
+  // Front of the back, down to the seat.
+  [-0.11, 0.74],
+  [-0.05, 0.62],
+  // Seat, with a touch of fall toward the front.
+  [0.14, 0.58],
+  [0.33, 0.57],
+  // Front roll and skirt.
+  [0.45, 0.52],
+  [0.5, 0.37],
+  [0.49, 0.2],
+  [0.43, 0.12],
+  // Under, so there is no hole when the floor reflects it.
+  [0.3, 0.09],
+  [-0.34, 0.09],
+];
+
 function CurvedSofa({
   radius,
   from,
   to,
-  segments = 9,
+  cushions = 7,
   seat = M.boucleSeat,
   back = M.boucle,
 }: {
@@ -839,55 +974,41 @@ function CurvedSofa({
   /** Arc limits in radians, measured from +x in the XZ plane. */
   from: number;
   to: number;
-  segments?: number;
+  /** Seat pads laid on the shell; the seams between them are the point. */
+  cushions?: number;
   seat?: THREE.Material;
   back?: THREE.Material;
 }) {
-  const span = (to - from) / segments;
-  // Chord of one segment, plus a little so neighbours overlap rather than gap.
-  const width = 2 * radius * Math.sin(span / 2) + 0.06;
+  const shell = useMemo(
+    () => sweepProfile(SOFA_PROFILE, radius, from, to, 96),
+    [radius, from, to],
+  );
+
+  const span = (to - from) / cushions;
+  const width = 2 * (radius + 0.1) * Math.sin(span / 2) - 0.035;
 
   return (
     <group>
-      {Array.from({ length: segments }, (_, i) => {
+      <mesh geometry={shell} castShadow receiveShadow>
+        <primitive object={back} attach="material" />
+      </mesh>
+      {Array.from({ length: cushions }, (_, i) => {
         const a = from + span * (i + 0.5);
-        const x = Math.cos(a) * radius;
-        const z = Math.sin(a) * radius;
         return (
-          <group key={i} position={[x, 0, z]} rotation={[0, -a + Math.PI / 2, 0]}>
-            <mesh position={[0, 0.07, 0]} receiveShadow>
-              <boxGeometry args={[width, 0.14, 0.78]} />
-              <primitive object={M.metal} attach="material" />
-            </mesh>
+          <group
+            key={i}
+            position={[Math.cos(a) * (radius + 0.08), 0, Math.sin(a) * (radius + 0.08)]}
+            rotation={[0, -a + Math.PI / 2, 0]}
+          >
             <RoundedBox
-              args={[width, 0.3, 0.95]}
-              radius={0.05}
-              smoothness={3}
-              position={[0, 0.3, 0]}
-              castShadow
-              receiveShadow
-            >
-              <primitive object={back} attach="material" />
-            </RoundedBox>
-            <RoundedBox
-              args={[width - 0.04, 0.2, 0.86]}
-              radius={0.075}
-              smoothness={3}
-              position={[0, 0.54, 0.03]}
+              args={[width, 0.17, 0.64]}
+              radius={0.07}
+              smoothness={4}
+              position={[0, 0.63, 0.02]}
               castShadow
               receiveShadow
             >
               <primitive object={seat} attach="material" />
-            </RoundedBox>
-            <RoundedBox
-              args={[width - 0.04, 0.46, 0.22]}
-              radius={0.085}
-              smoothness={3}
-              position={[0, 0.82, -0.33]}
-              rotation={[0.12, 0, 0]}
-              castShadow
-            >
-              <primitive object={back} attach="material" />
             </RoundedBox>
           </group>
         );
@@ -1034,18 +1155,44 @@ function Lounge() {
         wall of upholstered backs across the middle of the picture.
       */}
       <group position={[-0.6, 0, -2.5]}>
-        <CurvedSofa radius={2.9} from={Math.PI * 0.2} to={Math.PI * 0.8} segments={9} />
+        <CurvedSofa radius={2.9} from={Math.PI * 0.2} to={Math.PI * 0.8} cushions={8} />
         {pillows.map((p, i) => {
           const a = Math.PI * p.a;
-          const r = 2.58;
+          /**
+           * 2.95, where it was 2.58.
+           *
+           * The swept shell puts the front face of the back at 2.79 and the
+           * seat from 3.04 outward, so at 2.58 every pillow was buried
+           * *inside* the back and the sofa came back from the rebuild
+           * completely bare. They lean against the back, so they sit just in
+           * front of it.
+           */
+          const r = 2.95;
           return (
             <group
               key={`pw-${i}`}
               position={[Math.cos(a) * r, 0.85, Math.sin(a) * r]}
-              rotation={[0.2, -a + Math.PI / 2, 0.22 * (i % 2 ? 1 : -1)]}
+              rotation={[0.26, -a + Math.PI / 2, 0.22 * (i % 2 ? 1 : -1)]}
             >
-              <RoundedBox args={[p.s, p.s, 0.18]} radius={0.08} smoothness={3} castShadow>
+              <RoundedBox args={[p.s, p.s, 0.19]} radius={0.085} smoothness={4} castShadow>
                 <primitive object={p.m} attach="material" />
+              </RoundedBox>
+            </group>
+          );
+        })}
+        {/* Back cushions: wide, soft and slightly proud of the shell, so the
+            back has a seam line rather than being one unbroken band. */}
+        {[0.27, 0.42, 0.57, 0.72].map((t, i) => {
+          const a = Math.PI * (0.2 + 0.6 * t);
+          const r = 2.88;
+          return (
+            <group
+              key={`bc-${i}`}
+              position={[Math.cos(a) * r, 0.85, Math.sin(a) * r]}
+              rotation={[0.14, -a + Math.PI / 2, 0]}
+            >
+              <RoundedBox args={[1.12, 0.44, 0.2]} radius={0.09} smoothness={4} castShadow>
+                <primitive object={M.boucle} attach="material" />
               </RoundedBox>
             </group>
           );
@@ -1065,8 +1212,8 @@ function Lounge() {
       <group position={[0.1, 0, 0.9]}>
         <CoffeeTable r={0.68} />
       </group>
-      <group position={[1.5, 0, 1.95]}>
-        <CoffeeTable r={0.5} h={0.36} styled={false} />
+      <group position={[1.5, 0, 1.95]} rotation={[0, 1.1, 0]}>
+        <CoffeeTable r={0.5} h={0.36} />
       </group>
 
       {/*
@@ -1104,7 +1251,7 @@ function Lounge2() {
         <primitive object={M.rug} attach="material" />
       </mesh>
       <group position={[0, 0, -1.7]}>
-        <CurvedSofa radius={2.2} from={Math.PI * 0.22} to={Math.PI * 0.78} segments={6} />
+        <CurvedSofa radius={2.2} from={Math.PI * 0.22} to={Math.PI * 0.78} cushions={6} />
       </group>
       <group position={[0.1, 0, 0.5]}>
         <CoffeeTable r={0.46} h={0.36} />
@@ -1195,6 +1342,12 @@ const WATER_FRAG = /* glsl */ `
     float speed = 0.5 + hash(col) * 1.1;
     float phase = hash(col + 17.0) * 10.0;
 
+    // A second, slower sheet behind the first. Water falling down glass is
+    // not one layer — it is a film with heavier runnels on top of it, and two
+    // scales moving at different speeds is the cheapest way to say "depth".
+    float back = fract(vUv.y * 0.55 - uTime * 0.21 + hash(col + 91.0) * 7.0);
+    float backStreak = smoothstep(0.0, 0.6, back) * (1.0 - smoothstep(0.55, 1.0, back));
+
     // Falling: a feature at constant phase satisfies y = const - t.
     // Long, soft streaks — 1.3 cycles over the wall rather than 2.4. Short
     // ones tile visibly and the whole surface reads as a barcode, which is
@@ -1207,11 +1360,30 @@ const WATER_FRAG = /* glsl */ `
     float rib = 0.82 + 0.18 * abs(sin(vUv.x * cols * 3.14159));
     float shimmer = 0.84 + 0.16 * sin(uTime * 4.0 + vUv.y * 46.0 + col * 2.1);
 
-    float v = (0.42 + streak * 0.85) * rib * shimmer;
+    float v = (0.34 + streak * 0.8 + backStreak * 0.3) * rib * shimmer;
     // Thin and bright at the lip, thick and dark into the basin.
-    v *= mix(0.55, 1.2, vUv.y);
+    v *= mix(0.6, 1.2, vUv.y);
 
-    gl_FragColor = vec4(uColor * v * uLevel, 1.0);
+    /**
+     * Sparkle: a few bright points per column, blinking out of phase.
+     *
+     * A sheet of falling water throws specular glints where a droplet breaks
+     * the surface, and they are the single detail that separates water from
+     * an animated gradient. Hashed per column and per band so they never form
+     * a row, and raised to a high power so each one is a point rather than a
+     * blob.
+     */
+    float band = floor(vUv.y * 60.0);
+    float twinkle = hash(col * 3.7 + band * 1.3);
+    float phaseT = fract(uTime * (0.35 + twinkle * 0.5) + twinkle * 6.0);
+    float spark = pow(max(0.0, 1.0 - abs(phaseT - 0.5) * 7.0), 7.0)
+                * step(0.86, twinkle);
+
+    // The pool at the base, where the sheet lands and the light pools with it.
+    float pool = smoothstep(0.1, 0.0, vUv.y) * 0.9;
+
+    vec3 c = uColor * (v + pool) + vec3(1.0) * spark * 0.9;
+    gl_FragColor = vec4(c * uLevel, 1.0);
   }
 `;
 
@@ -1315,13 +1487,54 @@ function Sculpture() {
   const bronze = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: "#7a5a33",
-        roughness: 0.35,
-        metalness: 0.75,
-        envMapIntensity: 1.4,
+        color: "#8a6338",
+        roughness: 0.16,
+        metalness: 0.9,
+        envMapIntensity: 1.8,
       }),
     [],
   );
+
+  /**
+   * A lathed form, not a stack of slabs.
+   *
+   * The first version was nine rotated boxes, which from across a lobby is a
+   * cairn. What makes a bronze read as *cast* is an unbroken curved
+   * silhouette with a highlight running down it — so this is a surface of
+   * revolution through a profile that swells, pinches and swells again, then
+   * sheared and twisted so it is not symmetrical about its own axis. 96
+   * radial segments is enough that the highlight is continuous, which is the
+   * entire job.
+   */
+  const form = useMemo(() => {
+    const points: THREE.Vector2[] = [];
+    const steps = 34;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      // Swell, waist, swell, taper — a vessel silhouette.
+      const r =
+        0.1 +
+        0.3 * Math.sin(Math.PI * Math.pow(t, 0.72)) +
+        0.12 * Math.sin(Math.PI * 2.6 * t + 0.6);
+      points.push(new THREE.Vector2(Math.max(0.035, r), t * 1.62));
+    }
+    const g = new THREE.LatheGeometry(points, 96);
+    // A shear and a twist, so it is sculpture rather than pottery.
+    const pos = g.attributes.position;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      const t = v.y / 1.62;
+      const a = t * 1.15;
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const nx = v.x * ca - v.z * sa + t * t * 0.22;
+      const nz = v.x * sa + v.z * ca;
+      pos.setXYZ(i, nx, v.y, nz * (1 - t * 0.28));
+    }
+    g.computeVertexNormals();
+    return g;
+  }, []);
 
   return (
     <group position={[x, 0, z]}>
@@ -1333,23 +1546,9 @@ function Sculpture() {
         <boxGeometry args={[1.02, 0.04, 1.02]} />
         <primitive object={M.brass} attach="material" />
       </mesh>
-      <group position={[0, 0.96, 0]}>
-        {Array.from({ length: 9 }, (_, i) => {
-          const t = i / 8;
-          const w = 0.52 - t * 0.3;
-          return (
-            <mesh
-              key={i}
-              position={[Math.sin(t * 3.1) * 0.12, 0.09 + t * 1.26, Math.cos(t * 2.3) * 0.08]}
-              rotation={[0, t * 2.2, Math.sin(t * 4.0) * 0.22]}
-              castShadow
-            >
-              <boxGeometry args={[w, 0.2, w * 0.42]} />
-              <primitive object={bronze} attach="material" />
-            </mesh>
-          );
-        })}
-      </group>
+      <mesh geometry={form} position={[0, 0.96, 0]} rotation={[0, 0.9, 0]} castShadow>
+        <primitive object={bronze} attach="material" />
+      </mesh>
     </group>
   );
 }
@@ -1437,8 +1636,20 @@ function skyCanvas(step: number): HTMLCanvasElement {
   // before the zenith does, which is what makes a dusk sky read as dusk.
   const duskT = Math.min(d / 0.18, 1);
   const dayT = Math.max(0, (d - 0.18) / 0.82);
-  const zenith = mix([10, 15, 34], duskT < 1 ? [30, 40, 86] : [112, 160, 216], duskT < 1 ? duskT : dayT);
-  const horizon = mix([34, 28, 46], duskT < 1 ? [226, 132, 72] : [196, 214, 234], duskT < 1 ? duskT : dayT);
+  /**
+   * Daytime has to look like daytime from inside.
+   *
+   * A sky is not the brightest thing a camera sees outdoors — it is three to
+   * five stops above a shaded interior, and the whole reason a lobby at noon
+   * reads as a lobby at noon is that the glass is *much* brighter than the
+   * marble. The first pass topped out at a mid blue that, through tinted
+   * glass and the tone map, came back as flat grey: not blown out, but not
+   * daylight either. These values are roughly a stop and a half higher, and
+   * they stay under 240 so the ACES curve still has somewhere to go — which
+   * is the difference between bright and clipped.
+   */
+  const zenith = mix([10, 15, 34], duskT < 1 ? [30, 40, 86] : [96, 152, 226], duskT < 1 ? duskT : dayT);
+  const horizon = mix([34, 28, 46], duskT < 1 ? [226, 132, 72] : [222, 236, 247], duskT < 1 ? duskT : dayT);
 
   const sky = g.createLinearGradient(0, 0, 0, h * 0.74);
   sky.addColorStop(0, zenith);
@@ -1483,7 +1694,9 @@ function skyCanvas(step: number): HTMLCanvasElement {
   }
 
   // Palm crowns along the driveway edge — the nearest band, and the darkest.
-  const crown = `rgba(14,24,18,${0.78 + night * 0.2})`;
+  // In daylight they are green rather than black: a silhouette is what a
+  // palm looks like against a sunset, not against a midday sky.
+  const crown = `rgba(${Math.round(14 + 32 * d)},${Math.round(24 + 70 * d)},${Math.round(18 + 30 * d)},${0.78 + night * 0.2})`;
   for (let i = 0; i < 26; i++) {
     const cx = rnd() * w;
     const cy = skyline - 30 - rnd() * 110;
@@ -1509,9 +1722,14 @@ function skyCanvas(step: number): HTMLCanvasElement {
     }
   }
 
-  // Ground.
-  g.fillStyle = `rgb(${Math.round(16 + 26 * d)},${Math.round(17 + 26 * d)},${Math.round(19 + 24 * d)})`;
+  // Ground: tarmac and planting beds, which at noon are a long way from
+  // black. A dark ground under a bright sky is a night image with a day sky
+  // pasted on it.
+  g.fillStyle = `rgb(${Math.round(16 + 96 * d)},${Math.round(17 + 98 * d)},${Math.round(19 + 86 * d)})`;
   g.fillRect(0, skyline, w, h - skyline);
+  // A planted verge along the kerb, so the driveway has landscape on it.
+  g.fillStyle = `rgb(${Math.round(14 + 54 * d)},${Math.round(24 + 92 * d)},${Math.round(18 + 48 * d)})`;
+  g.fillRect(0, skyline, w, 34 + 26 * d);
 
   SKY_CACHE.set(step, c);
   return c;
@@ -1542,13 +1760,28 @@ function Facade({
       new THREE.MeshBasicMaterial({
         map: new THREE.CanvasTexture(skyCanvas(skyStep)),
         toneMapped: false,
-        side: THREE.DoubleSide,
+        // Seen from inside the cylinder, so it is the inner face that draws.
+        side: THREE.BackSide,
       }),
     [skyStep],
   );
+
+  /** The ground outside, which has to get light and dark with the sky. */
+  const groundMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: "#2a2c2a", roughness: 0.92 }),
+    [],
+  );
+  useLayoutEffect(() => {
+    const d = Math.min(Math.max(skyStep, 0), 1);
+    groundMat.color.setRGB(0.07 + 0.3 * d, 0.075 + 0.33 * d, 0.07 + 0.26 * d);
+  }, [skyStep, groundMat]);
   useLayoutEffect(() => {
     const tex = new THREE.CanvasTexture(skyCanvas(skyStep));
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    // Twice around 314 m of circumference, which keeps the 2048 x 1024
+    // canvas at roughly its own aspect on a 70 m-tall cylinder.
+    tex.repeat.set(2, 1);
     const old = viewMat.map;
     viewMat.map = tex;
     viewMat.needsUpdate = true;
@@ -1575,34 +1808,86 @@ function Facade({
    * layer rather than eight pleated meshes travelling on a track.
    */
   const layers = [
-    { key: "sheer", pos: blinds.sheer, x: f.x - 0.16, colour: "#b8b2a6", opacity: 0.42 },
+    { key: "sheer", pos: blinds.sheer, x: f.x - 0.16, colour: "#8e8b82", opacity: 0.5 },
     { key: "blackout", pos: blinds.blackout, x: f.x - 0.3, colour: "#2b2822", opacity: 0.96 },
   ] as const;
 
   return (
     <group>
-      {/* The view, set well back so the mullions have something to move
-          against. 34 m out, which is where the driveway planting sits. */}
-      <mesh position={[f.x + 34, 7, (f.z0 + f.z1) / 2]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[132, 66]} />
+      {/*
+        A cyclorama, not a billboard.
+
+        A flat backdrop behind a window only works if you look at it square
+        on. Here the sightline leaves the glass at about forty degrees, so
+        rays through the upper half of the window travelled forty metres
+        sideways before they got anywhere near the plane — off its end, past
+        the camera's 80 m far clip, and out into nothing. Every attempt to fix
+        the white window by moving that plane around failed for the same
+        reason: it was never in the shot.
+
+        A 50 m cylinder cannot be missed. Every outward ray meets it at the
+        same distance, comfortably inside the far plane, and the texture wraps
+        twice around so the drawn skyline keeps a 2:1 aspect. Its height is
+        set so the drawn horizon lands at y = 0 — actual ground level — with
+        buildings and palms above it and open sky above them.
+
+        The ground disc is what the downward rays land on. Without it they
+        passed under the backdrop into nothing, which is the other way a
+        window goes white.
+      */}
+      <mesh position={[HL.w / 2, -0.03, HL.d / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[52, 48]} />
+        <primitive object={groundMat} attach="material" />
+      </mesh>
+      <mesh position={[HL.w / 2, 14, HL.d / 2]}>
+        <cylinderGeometry args={[50, 50, 70, 56, 1, true]} />
         <primitive object={viewMat} attach="material" />
       </mesh>
 
       {/* Driveway, canopy soffit and the kerb. */}
-      <mesh position={[f.x + 7, -0.02, (f.z0 + f.z1) / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[14, span + 10]} />
+      <mesh position={[f.x + 5, -0.015, (f.z0 + f.z1) / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[10, span + 14]} />
         <primitive object={M.tarmac} attach="material" />
       </mesh>
-      <mesh position={[f.x + 2.6, 5.9, (f.z0 + f.z1) / 2]} castShadow>
-        <boxGeometry args={[5.2, 0.3, span + 2]} />
-        <primitive object={M.soffit} attach="material" />
+      {/*
+        The entrance canopy, raised and pushed out.
+
+        It sat 2.6 m beyond the glass at 5.9 m, which from a camera at 1.5 m
+        put a pale soffit across the whole upper half of the window — and
+        under a directional sun it was the brightest surface in the frame by a
+        distance. That is what "blown-out window" actually was here: not the
+        sky, the canopy. Six and a half metres up and five out, in stone
+        rather than plaster, it reads as a porte-cochère and leaves the view
+        under it.
+      */}
+      <mesh position={[f.x + 5.0, 6.5, (f.z0 + f.z1) / 2]} castShadow>
+        <boxGeometry args={[4.4, 0.34, span + 2]} />
+        <primitive object={M.stone} attach="material" />
       </mesh>
-      {[0.25, 0.55, 0.85].map((t, i) => (
-        <mesh key={`cc-${i}`} position={[f.x + 4.6, 2.95, f.z0 + span * t]} castShadow>
-          <cylinderGeometry args={[0.26, 0.3, 5.9, 16]} />
+      {[0.22, 0.56, 0.9].map((t, i) => (
+        <mesh key={`cc-${i}`} position={[f.x + 6.6, 3.25, f.z0 + span * t]} castShadow>
+          <cylinderGeometry args={[0.24, 0.28, 6.5, 16]} />
           <primitive object={M.stone} attach="material" />
         </mesh>
       ))}
+
+      {/*
+        Landscaping along the drive: a raised kerb and a planted verge.
+
+        The brief wants the driveway and its planting legible through the
+        glass, and a canvas thirty-four metres away cannot do that — at eye
+        height the bottom two thirds of the window looks at the ground, not at
+        the backdrop. So the ground is real: kerb, bed, and the palms already
+        standing in it.
+      */}
+      <mesh position={[f.x + 9.6, 0.12, (f.z0 + f.z1) / 2]} receiveShadow>
+        <boxGeometry args={[0.4, 0.26, span + 10]} />
+        <primitive object={M.stone} attach="material" />
+      </mesh>
+      <mesh position={[f.x + 12.0, 0.14, (f.z0 + f.z1) / 2]} receiveShadow>
+        <boxGeometry args={[4.6, 0.3, span + 10]} />
+        <primitive object={M.foliageDark} attach="material" />
+      </mesh>
 
       {/* Glass. */}
       <mesh position={[f.x - 0.02, (f.y0 + f.y1) / 2, (f.z0 + f.z1) / 2]} rotation={[0, -Math.PI / 2, 0]}>
@@ -1860,7 +2145,7 @@ function Surfaces() {
      * also 1.2 m, so two tiles of the texture per slab keeps the veining from
      * repeating visibly down a twenty-four metre run.
      */
-    const floor = makeMarbleTexture("#b7a897", "#cbbda8", 9173);
+    const floor = makeMarbleTexture("#cfc6b6", "#a39d94", 9173);
     floor.repeat.set(HL.w / 2.4, HL.d / 2.4);
     M.floor.map = floor;
     M.floor.color.set("#ffffff");
@@ -1898,12 +2183,9 @@ function Surfaces() {
     apply(M.caramel, coarse, 3, 0.9);
     apply(M.leather, fine, 8, 0.45);
 
-    // Deep navy wool with an abstract pattern, tiled so the blotches read as
-    // pile rather than as spills.
-    const rug = makeRugTexture(4409, "#1f3a4a", 0.75);
-    rug.repeat.set(2, 1.6);
-    rug.wrapS = THREE.RepeatWrapping;
-    rug.wrapT = THREE.RepeatWrapping;
+    // One tile across the whole rug, not four. A pattern that repeats twice
+    // in eight metres is wallpaper; an eight-metre rug has one design on it.
+    const rug = makeLobbyRugTexture(5521);
     M.rug.map = rug;
     M.rug.color.set("#ffffff");
     M.rug.needsUpdate = true;

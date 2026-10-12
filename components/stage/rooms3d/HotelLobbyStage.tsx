@@ -32,11 +32,13 @@ import { HotelLobbyLightRig, type LobbyFixtures } from "./HotelLobbyLightRig";
  * metres up reads as an architect's model; the thing being sold here is what a
  * guest sees walking in, and a guest is 1.6 m tall.
  *
- * **Verticals straight.** The target is 0.6 m above the camera over a
- * seventeen-metre throw — about two degrees of pitch, which is below the angle
- * at which a seven-metre column visibly converges. Pitching up to get the
- * coffer in frame is what makes a render look like a phone photograph, and the
- * reference has dead-straight columns.
+ * **Verticals all but straight, and pitched down rather than up.** The target
+ * is 1.15 m *below* the camera over an eighteen-metre throw — three and a half
+ * degrees. It was two degrees the other way, which put the horizon below
+ * centre and handed the top 45 per cent of the frame to an empty ceiling.
+ * Tilting down raises the horizon and takes the ceiling to roughly a third,
+ * and three and a half degrees of convergence on a seven-metre column is not
+ * something the eye picks up. Any more and it is a phone photograph.
  *
  * **Diagonal, so the room has depth.** Square to the back wall, a 24 m room is
  * a corridor with a wall at the end of it. On the diagonal the reception desk
@@ -53,9 +55,9 @@ import { HotelLobbyLightRig, type LobbyFixtures } from "./HotelLobbyLightRig";
  * what a wall you are standing beside is supposed to do.
  */
 const CAMERA: CameraSpec = {
-  position: [5.6, 1.6, 22.4],
-  target: [7.6, 2.25, 4.0],
-  fov: 50,
+  position: [5.6, 1.5, 22.6],
+  target: [7.7, 0.35, 4.2],
+  fov: 48,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
