@@ -238,6 +238,65 @@ const M = {
 /* Shell                                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * One leaf, pointed at both ends, built once and shared.
+ *
+ * The plants in here were stacked spheres, which is the one piece of geometry
+ * in the room that reads as a placeholder — a plant is recognised by its
+ * leaves, and specifically by their taper. Same construction as the cabin and
+ * the workspace use, so there is one answer to this in the project rather
+ * than three.
+ */
+const LEAF_GEOM = (() => {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0);
+  shape.bezierCurveTo(0.38, 0.2, 0.32, 0.76, 0, 1);
+  shape.bezierCurveTo(-0.32, 0.76, -0.38, 0.2, 0, 0);
+  return new THREE.ShapeGeometry(shape, 12);
+})();
+
+const LEAF_COUNT = 32;
+const LEAVES = Array.from({ length: LEAF_COUNT }, (_, i) => {
+  const t = i / (LEAF_COUNT - 1);
+  const n = Math.sin(i * 12.9898) * 43758.5453;
+  const j = n - Math.floor(n);
+  return {
+    // 137.5 degrees: what real stems do, and the reason a plant never looks
+    // like it is in rows.
+    turn: i * 2.39996,
+    tilt: 1.3 - t * 0.95 + (j - 0.5) * 0.22,
+    roll: (j - 0.5) * 1.1,
+    len: (0.4 - t * 0.14) * (0.85 + j * 0.3),
+    y: 0.5 + t * 0.9,
+  };
+});
+
+/** A leafed specimen, scaled to whatever pot it is standing in. */
+function Foliage({ scale = 1 }: { scale?: number }) {
+  return (
+    <group scale={scale}>
+      {LEAVES.map((l, j) => (
+        <group key={j} position={[0, l.y, 0]} rotation={[0, l.turn, 0]}>
+          <group rotation={[0, 0, -l.tilt]}>
+            <mesh
+              geometry={LEAF_GEOM}
+              rotation={[0, l.roll, 0]}
+              scale={[l.len * 0.7, l.len, 1]}
+              castShadow
+            >
+              <primitive object={M.foliage} attach="material" />
+            </mesh>
+          </group>
+        </group>
+      ))}
+      <mesh position={[0, 0.82, 0]}>
+        <cylinderGeometry args={[0.012, 0.016, 0.7, 8]} />
+        <primitive object={M.foliage} attach="material" />
+      </mesh>
+    </group>
+  );
+}
+
 function Shell() {
   const { w, d, h, soffit } = DN;
   const soffitY = h - soffit.drop / 2;
@@ -463,10 +522,9 @@ function DisplayWall({ deskOn }: { deskOn: boolean }) {
                   <cylinderGeometry args={[0.07, 0.09, 0.16, 16]} />
                   <primitive object={M.pot} attach="material" />
                 </mesh>
-                <mesh position={[0, 0.16, 0]} castShadow>
-                  <sphereGeometry args={[0.15, 12, 10]} />
-                  <primitive object={M.foliage} attach="material" />
-                </mesh>
+                <group position={[0, 0.07, 0]}>
+                  <Foliage scale={0.42} />
+                </group>
               </group>
             )}
           </group>
@@ -1144,21 +1202,7 @@ function Seating() {
             <cylinderGeometry args={[0.22, 0.17, 0.4, 18]} />
             <primitive object={M.pot} attach="material" />
           </mesh>
-          {Array.from({ length: 8 }, (_, j) => (
-            <mesh
-              key={`lf-${j}`}
-              position={[
-                Math.sin(j * 1.8 + i) * 0.2,
-                0.62 + (j % 4) * 0.2,
-                Math.cos(j * 1.8 + i) * 0.2,
-              ]}
-              rotation={[Math.sin(j) * 0.55, j * 1.8, Math.cos(j) * 0.55]}
-              castShadow
-            >
-              <sphereGeometry args={[0.22, 10, 6]} />
-              <primitive object={M.foliage} attach="material" />
-            </mesh>
-          ))}
+          <Foliage scale={1.15} />
         </group>
       ))}
     </group>

@@ -252,13 +252,21 @@ export const den: Space = {
       blurb: "Screen up, desk awake, cool neutral light on the work zone, curtains open.",
       fadeMs: 1400,
       targets: {
-        // Colour left unset so circadian tuning owns it. Work at nine in the
-        // morning should be cooler than Work at nine at night, from one button.
-        "dn-general": { on: true, level: 92 },
-        "dn-cove": { on: true, level: 70 },
+        /**
+         * Colour pinned, where it used to be left to circadian tuning.
+         *
+         * Letting the hour own it is the better idea in a bedroom and the
+         * wrong one here: this is the scene somebody works in, the brief asks
+         * for neutral-cool, and a Work button that is amber at nine in the
+         * evening does not read as a work button whatever the theory says.
+         */
+        "dn-general": { on: true, level: 92, cct: 4600 },
+        "dn-cove": { on: true, level: 70, cct: 4000 },
         "dn-accent": { on: true, level: 55, cct: 3500 },
         "dn-rgb": { on: false },
-        "dn-curtain": { sheer: 100, blackout: 0 },
+        // Open, not merely unblacked. A work scene in a room with a window
+        // should be using the window.
+        "dn-curtain": { sheer: 0, blackout: 0 },
         "dn-av": { on: false, screen: 0 },
         "dn-audio": { on: false },
         "dn-desk": { on: true, source: "Desktop" },
@@ -278,12 +286,17 @@ export const den: Space = {
         "dn-accent": { on: true, level: 75, cct: 2700 },
         "dn-rgb": { on: true, level: 28, cct: 2700, sat: 0 },
         "dn-curtain": { sheer: 100, blackout: 0 },
-        // Screen down and something playing. A media room at rest is not a
-        // media room with a blank wall — the client's own sheet shows the
-        // screen lit in its hero image, and it is the one thing in here a
-        // client looks at first.
-        "dn-av": { on: true, source: "Streaming", screen: 100, volume: 22 },
-        "dn-audio": { on: true, source: "Projector", volume: 26 },
+        /**
+         * Screen up, which reverses the note that used to sit here.
+         *
+         * The argument for leaving it down was that a media room at rest with
+         * a blank wall is a wasted hero shot, and that is true. But Relax is
+         * the scene for the room *not* being a cinema — the cove and the shelf
+         * accents are the subject, and a lit screen takes the eye off every
+         * one of them. Movie is two buttons away and does it properly.
+         */
+        "dn-av": { on: false, screen: 0 },
+        "dn-audio": { on: true, source: "Streaming", volume: 18 },
         "dn-desk": { on: false },
         "dn-ac": { on: true, setpointC: 24, fan: 1 },
       },
@@ -393,7 +406,15 @@ export const den: Space = {
       fadeMs: 3000,
       targets: {
         "dn-general": { on: false },
-        "dn-cove": { on: false },
+        /**
+         * Not quite off: three per cent of warm cove, as a way out of the room.
+         *
+         * Everything else goes. A media room with every circuit dead is a
+         * black rectangle, which demonstrates nothing and makes the next
+         * person reach for a wall switch — and a trace of cove is what a real
+         * installation leaves on for exactly that reason.
+         */
+        "dn-cove": { on: true, level: 3, cct: 2200 },
         "dn-accent": { on: false },
         "dn-rgb": { on: false },
         "dn-av": { on: false, screen: 0 },

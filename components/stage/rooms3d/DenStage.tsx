@@ -35,32 +35,23 @@ import { makeCityTexture } from "./geometry";
  */
 const CAMERA: CameraSpec = {
   /**
-   * The room's right-hand side, looking across at the screen — the client's
-   * sheet's viewpoint.
+   * The back-left corner, looking diagonally across at the screen.
    *
-   * Standing on the left put the display wall a metre and a half from the lens,
-   * so it raked across half the frame and the seating filled the rest. From
-   * here that same wall is seen end-on and compresses into the left quarter of
-   * the picture, which is the weight it should carry: the screen is the
-   * subject, the shelving is context.
+   * It stood on the right-hand side before, square to the screen wall, and the
+   * sectional's back filled the bottom four tenths of every frame — you were
+   * looking at a sofa with a room behind it. From here the shelving runs away
+   * down the left, the screen wall sits ahead and right, and the sectional is
+   * seen from its side at four and a half metres, which is far enough to read
+   * as furniture in a room rather than as an obstacle.
    *
-   *   shelves 0.03    screen    0.52
-   *   poster  0.12    lounge    0.74
-   *   slats   0.17    speakers  0.31 / 0.75
-   *   desk    0.24    curtains  0.89
-   *
-   * Not hard into the corner, though: at x = 5.9 the camera sits 1.7 m off the
-   * curtain wall and the drapes swallow the right third of the frame. 5.2 puts
-   * them 2.4 m away, where they read as the edge of the room rather than as
-   * the subject, and a 50 degree lens buys the screen back the width that
-   * costs — 27 per cent, against the sheet's 29.
+   * Slightly elevated, at 2.05 of a 3.0 m ceiling. High enough to see the
+   * coffee table's top and the rug under the seating — both of which a
+   * seated-height camera hides behind the sofa — and not so high that it reads
+   * as a security camera.
    */
-  // Slightly above standing eye level and looking a little down — a 3/4 hero
-  // angle rather than a level security-camera view. Enough tilt to see the rug
-  // and the tops of the seating, not enough to converge the verticals.
-  position: [5.2, 1.78, 8.6],
-  target: [3.7, 1.05, 0.74],
-  fov: 50,
+  position: [1.15, 2.05, 8.3],
+  target: [4.3, 1.0, 1.05],
+  fov: 55,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
@@ -110,9 +101,20 @@ export function DenStage() {
   const skyStep = Math.round(Math.min(Math.max(daylight, 0), 1) * 8) / 8;
   const view = useMemo(() => makeCityTexture(skyStep), [skyStep]);
 
-  const ambient = space
+  const base = space
     ? roomAmbience(space, states, clockMin)
     : { level: 0, color: [255, 245, 230] as [number, number, number], lux: 0 };
+  /**
+   * A floor under the fill, because this room is graded for a dark room.
+   *
+   * A media room *should* be dark, and this one was tuned in one — on a good
+   * panel in a dim office it reads beautifully. On a laptop in a bright room,
+   * or compressed down a screenshare, the bottom two stops disappear entirely
+   * and the furniture goes with them. The floor costs nothing in the scenes
+   * that are genuinely lit and keeps the room legible in the ones that are
+   * not, which is where it is actually being sold.
+   */
+  const ambient = { ...base, level: Math.max(base.level, 0.085) };
 
   const screen = av?.screen ?? 0;
 
