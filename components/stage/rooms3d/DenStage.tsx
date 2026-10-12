@@ -35,23 +35,27 @@ import { makeCityTexture } from "./geometry";
  */
 const CAMERA: CameraSpec = {
   /**
-   * The back-left corner, looking diagonally across at the screen.
+   * Beside the seating, three-quarters on, level with the coffee table.
    *
-   * It stood on the right-hand side before, square to the screen wall, and the
-   * sectional's back filled the bottom four tenths of every frame — you were
-   * looking at a sofa with a room behind it. From here the shelving runs away
-   * down the left, the screen wall sits ahead and right, and the sectional is
-   * seen from its side at four and a half metres, which is far enough to read
-   * as furniture in a room rather than as an obstacle.
+   * Two cameras before this one looked at the back of the sofa, because a sofa
+   * squared up to a screen has no other side to be seen from — its front faces
+   * the screen, so the only viewpoint that sees the seats is between the two,
+   * with the screen behind the lens. The sectional is turned 57 degrees off
+   * the screen for that reason; see `DN_PLAN.seating`.
    *
-   * Slightly elevated, at 2.05 of a 3.0 m ceiling. High enough to see the
-   * coffee table's top and the rug under the seating — both of which a
-   * seated-height camera hides behind the sofa — and not so high that it reads
-   * as a security camera.
+   * From here the frame holds the seats and cushions 21 degrees left of
+   * centre, the coffee table in front of them, the screen wall 21 right, and
+   * the lounge chair and curtains on the right beyond it. The shelving sits
+   * just past the left edge at this focal length, which is the one thing the
+   * brief asked for that would not fit — pulling it in costs a 60 degree lens
+   * and the bowed verticals that come with it.
+   *
+   * 1.42 m: seated eye height, so the room is seen from where somebody using
+   * it would see it, and low enough that the coffee table has a top.
    */
-  position: [1.15, 2.05, 8.3],
-  target: [4.3, 1.0, 1.05],
-  fov: 55,
+  position: [6.9, 1.42, 5.6],
+  target: [3.07, 1.0, 2.39],
+  fov: 52,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };

@@ -77,7 +77,21 @@ export const DN_PLAN = {
     { x: 5.88, z: 0.05, along: "x" as const },
   ],
   /** Seating group origin and rotation. */
-  seating: { x: 3.7, z: 4.5, rot: 0.1 },
+  /**
+   * Turned 57 degrees off the screen, and that is a deliberate cost.
+   *
+   * A sofa that squares up to the screen can only ever be photographed from
+   * behind: its front faces the screen, so any camera that sees the seats is
+   * standing between the two, with the screen behind the lens. The two things
+   * cannot both be in frame while the seating is square.
+   *
+   * So it opens toward the room's right-hand corner instead. That is how a
+   * real media room with a lounge chair and a window on that side gets laid
+   * out anyway — you sit across the corner, not in a cinema row — and it is
+   * what lets one frame hold the seats, the coffee table and the screen wall
+   * at once.
+   */
+  seating: { x: 3.7, z: 4.5, rot: -1.0 },
   /** Lounge chair and its ottoman, by the curtains. */
   lounge: { x: 5.9, z: 3.6 },
 } as const;
@@ -205,22 +219,43 @@ const M = {
     roughness: 0.16,
     metalness: 0.08,
   }),
+  /**
+   * Charcoal velvet, and the sheen is doing nearly all of the work.
+   *
+   * Velvet is a cut pile: the fibres stand off the backing, so it is far more
+   * retroreflective than a woven cloth, and it is the bright rim along every
+   * fold — not the colour — that reads as velvet rather than as painted board.
+   * Low sheen roughness for a tight rim; a broad one reads as wool.
+   */
+  /** The inside of the curtain pocket: dark, so the tracks vanish into it. */
+  pocket: new THREE.MeshStandardMaterial({ color: "#14130f", roughness: 0.95 }),
   drape: new THREE.MeshPhysicalMaterial({
-    color: "#3f3a35",
-    roughness: 0.92,
+    color: "#8e8880",
+    roughness: 0.86,
     metalness: 0,
-    sheen: 0.6,
-    sheenRoughness: 0.75,
-    sheenColor: new THREE.Color("#8a8076"),
+    sheen: 1,
+    sheenRoughness: 0.3,
+    sheenColor: new THREE.Color("#cfc3b2"),
     side: THREE.DoubleSide,
   }),
+  /**
+   * Voile, as plain alpha rather than `transmission`.
+   *
+   * A transmissive material makes three.js render the whole scene a second
+   * time into a transmission buffer. The boardroom measured 5.6 fps against 39
+   * for the same room the moment its blinds came down, and this room has three
+   * times the geometry. Against a bright window seen from inside a dark room
+   * the two are not tellable apart: both give a pale veil with the city
+   * reading through it, and one of them costs an extra full-scene pass.
+   */
   sheer: new THREE.MeshPhysicalMaterial({
-    color: "#b9b6b0",
-    roughness: 0.6,
+    color: "#cfccc6",
+    roughness: 0.68,
     transparent: true,
-    opacity: 0.55,
-    transmission: 0.45,
-    thickness: 0.02,
+    opacity: 0.42,
+    sheen: 0.8,
+    sheenRoughness: 0.6,
+    sheenColor: new THREE.Color("#ffffff"),
     side: THREE.DoubleSide,
   }),
   glass: new THREE.MeshPhysicalMaterial({
@@ -840,6 +875,38 @@ export interface DenCurtains {
 const PANELS = 6;
 const PANEL_OVERLAP = 0.05;
 
+/**
+ * Curtain geometry, built once per shape it is actually asked for.
+ *
+ * `makeCurtainGeometry` extrudes a folded panel, and this was calling it
+ * twelve times inside the render — so every frame of a curtain travelling
+ * rebuilt twelve buffer geometries and threw twelve away. That is the same
+ * family of fault as rebuilding a material during a fade, which measured as a
+ * three and a half second freeze elsewhere in this project.
+ *
+ * Gather is quantised to fiftieths before it is used as a key. The eye cannot
+ * see a two per cent step in a fold while fabric is moving, and it caps the
+ * cache at about fifty shapes per panel size instead of one per frame.
+ */
+const CURTAIN_CACHE = new Map<string, THREE.BufferGeometry>();
+
+function curtainGeometry(gather: number, length: number, height: number) {
+  const step = Math.round(gather * 50) / 50;
+  const key = `${step}|${length.toFixed(3)}|${height.toFixed(3)}`;
+  let geo = CURTAIN_CACHE.get(key);
+  if (!geo) {
+    geo = makeCurtainGeometry({
+      length,
+      height,
+      folds: 11,
+      foldDepth: 0.14,
+      gather: step,
+    });
+    CURTAIN_CACHE.set(key, geo);
+  }
+  return geo;
+}
+
 function Glazing({
   sheer,
   blackout,
@@ -848,6 +915,15 @@ function Glazing({
   const span = DN_WINDOW.z1 - DN_WINDOW.z0;
   const height = DN_WINDOW.y1 - DN_WINDOW.y0;
   const seg = span / PANELS;
+  /**
+   * Floor to pocket, not window to window.
+   *
+   * These used to run the glazed opening exactly, which left them hanging six
+   * centimetres clear of the floor and stopping half a metre below the
+   * ceiling — a blind's proportions on a curtain's fabric. Hems touch the
+   * floor and the heading disappears into the pocket, which is the whole look.
+   */
+  const drop = DN.h - 0.19;
   const viewMat = useMemo(
     () =>
       new THREE.MeshBasicMaterial({ map: view, toneMapped: false, side: THREE.DoubleSide }),
@@ -888,21 +964,31 @@ function Glazing({
           <primitive object={M.metal} attach="material" />
         </mesh>
       ))}
-      <mesh position={[DN.w - 0.27, DN_WINDOW.y1 + 0.04, DN.d / 2]}>
-        <boxGeometry args={[0.24, 0.04, span + 0.2]} />
-        <primitive object={M.metal} attach="material" />
+      {/**
+       * A recessed pocket, not a rail on a bracket.
+       *
+       * Both tracks run inside it, so what you see is fabric coming out of a
+       * shadow line in the ceiling rather than hardware. It is the single
+       * detail that separates a specified curtain from a fitted one, and it
+       * costs three boxes: a face, a return, and the dark void behind them
+       * that the tracks live in.
+       */}
+      <mesh position={[DN.w - 0.46, DN.h - 0.09, DN.d / 2]}>
+        <boxGeometry args={[0.06, 0.18, span + 0.5]} />
+        <primitive object={M.joinery} attach="material" />
+      </mesh>
+      <mesh position={[DN.w - 0.25, DN.h - 0.015, DN.d / 2]}>
+        <boxGeometry args={[0.46, 0.03, span + 0.5]} />
+        <primitive object={M.joinery} attach="material" />
+      </mesh>
+      <mesh position={[DN.w - 0.25, DN.h - 0.1, DN.d / 2]}>
+        <boxGeometry args={[0.42, 0.2, span + 0.48]} />
+        <primitive object={M.pocket} attach="material" />
       </mesh>
 
       {layers.map((layer) => {
         const gather = 1 - Math.max(0, Math.min(1, layer.pos / 100));
         return Array.from({ length: PANELS }, (_, i) => {
-          const geo = makeCurtainGeometry({
-            length: seg + PANEL_OVERLAP,
-            height,
-            folds: 9,
-            foldDepth: 0.11,
-            gather,
-          });
           const toStart = i < PANELS / 2;
           const z = toStart
             ? DN_WINDOW.z0 + i * seg - PANEL_OVERLAP / 2
@@ -910,9 +996,9 @@ function Glazing({
           return (
             <mesh
               key={`${layer.key}-${i}`}
-              geometry={geo}
+              geometry={curtainGeometry(gather, seg + PANEL_OVERLAP, drop)}
               material={layer.mat}
-              position={[layer.x, DN_WINDOW.y0, z]}
+              position={[layer.x, 0.01, z]}
               scale={[1, 1, toStart ? 1 : -1]}
               castShadow={layer.key === "blackout"}
             />

@@ -266,7 +266,14 @@ export const den: Space = {
         "dn-rgb": { on: false },
         // Open, not merely unblacked. A work scene in a room with a window
         // should be using the window.
-        "dn-curtain": { sheer: 0, blackout: 0 },
+        /**
+         * Sheer across, blackout open.
+         *
+         * "Curtains open" on a work scene does not mean bare glass: a voile is
+         * what makes a desk beside a window usable, because it kills the glare
+         * without killing the daylight. The blackout is what opens.
+         */
+        "dn-curtain": { sheer: 100, blackout: 0 },
         "dn-av": { on: false, screen: 0 },
         "dn-audio": { on: false },
         "dn-desk": { on: true, source: "Desktop" },
@@ -285,7 +292,8 @@ export const den: Space = {
         "dn-cove": { on: true, level: 55, cct: 2400 },
         "dn-accent": { on: true, level: 75, cct: 2700 },
         "dn-rgb": { on: true, level: 28, cct: 2700, sat: 0 },
-        "dn-curtain": { sheer: 100, blackout: 0 },
+        // Sheer across, blackout half drawn — softer, and still a window.
+        "dn-curtain": { sheer: 100, blackout: 50 },
         /**
          * Screen up, which reverses the note that used to sit here.
          *
@@ -420,6 +428,8 @@ export const den: Space = {
         "dn-av": { on: false, screen: 0 },
         "dn-audio": { on: false },
         "dn-desk": { on: false },
+        // Closed. A room left for the night closes its curtains.
+        "dn-curtain": { sheer: 100, blackout: 100 },
         "dn-ac": { on: false },
       },
     },
