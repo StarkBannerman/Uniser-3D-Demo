@@ -126,6 +126,10 @@ export function LivingRoomStage() {
         audioLevel={audio?.on ? audio.volume / 100 : 0}
         fanRadiansPerSecond={fanSpin}
         ac={{ on: Boolean(climate?.on), fan: climate?.fan ?? 0 }}
+        houseLevel={Math.max(
+          fixtures.downlights.on ? fixtures.downlights.level / 100 : 0,
+          fixtures.cove.on ? fixtures.cove.level / 100 : 0,
+        )}
       />
       <LivingRoomLightRig
         fixtures={fixtures}

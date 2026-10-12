@@ -29,6 +29,7 @@ import {
   LR_PLAN,
   LR_TV,
   LR_WINDOW,
+  LR_WINDOW_CZ,
 } from "./LivingRoom3D";
 
 const GAIN = {
@@ -39,6 +40,8 @@ const GAIN = {
   /** Grazing heads down the wall, plus the strips inside the niches. */
   accentGraze: 24,
   accentStrip: 18,
+  /** The line under the floating console, washing the boards it stands over. */
+  accentUnder: 26,
   accentEmissive: 3,
   /** Decorative globes: a lamp is read through its shade, not past it. */
   decorative: 5,
@@ -258,6 +261,29 @@ function NicheAccent({ state, gain }: { state: LightState; gain: number }) {
           </group>
         );
       })}
+
+      {/*
+        Under the floating console.
+
+        The console is cantilevered with a 270 mm gap beneath it, and a gap you
+        cannot see into is just a dark line. Aimed straight down so it washes
+        the boards rather than throwing light back into the room — the console
+        should look lifted, not backlit.
+      */}
+      {MOUNTED && (
+        <rectAreaLight
+          position={[LR_TV.x, 0.255, 0.3]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          width={3.6}
+          height={0.3}
+          intensity={GAIN.accentUnder * out * gain}
+          color={colour}
+        />
+      )}
+      <mesh position={[LR_TV.x, 0.268, 0.3]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[3.7, 0.3]} />
+        <primitive object={strip} attach="material" />
+      </mesh>
     </group>
   );
 }
@@ -278,8 +304,10 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
   const globe = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        // Smoked glass: it keeps a body colour when off instead of vanishing.
-        color: "#4a4038",
+        // Amber smoked glass: it keeps a body colour when off instead of
+        // vanishing, and the amber is what the fitting is actually made of
+        // rather than a tint the lamp is lending it.
+        color: "#5a4128",
         emissive: colour,
         emissiveIntensity: GAIN.decorativeGlobe * glow,
         roughness: 0.25,
@@ -353,17 +381,30 @@ function ColourWash({ state, gain }: { state: LightState; gain: number }) {
         <primitive object={mat} attach="material" />
       </mesh>
 
-      {/* Behind the television. */}
+      {/*
+        Bias lighting behind the television.
+ 
+        This was a point light 450 mm *in front* of the screen, which put a
+        bright coloured highlight in the middle of the picture — on a glossy
+        panel, exactly where the eye goes. It read as a rendering fault, and in
+        Party, with the set off, as a purple sun sitting in the black.
+ 
+        A strip behind a screen is behind it. The emissive halo spills around
+        the edges onto the slab, and the area light sits in the same plane
+        facing into the room: the screen's own front face points away from it,
+        so it cannot be lit by it, which is the whole physical point of bias
+        lighting and the reason it does not wash out the picture.
+      */}
       <mesh position={[LR_TV.x, LR_TV.y, 0.045]}>
-        <planeGeometry args={[LR_TV.w + 0.22, LR_TV.h + 0.2]} />
+        <planeGeometry args={[LR_TV.w + 0.56, LR_TV.h + 0.5]} />
         <primitive object={mat} attach="material" />
       </mesh>
       {MOUNTED && (
-        <pointLight
-          position={[LR_TV.x, LR_TV.y, 0.45]}
-          intensity={5 * out * gain}
-          distance={3.4}
-          decay={1.7}
+        <rectAreaLight
+          position={[LR_TV.x, LR_TV.y, 0.05]}
+          width={LR_TV.w + 0.56}
+          height={LR_TV.h + 0.5}
+          intensity={GAIN.rgb * 0.55 * out * gain}
           color={colour}
         />
       )}
@@ -404,7 +445,7 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
         shadow-camera-far={30}
       />
       <rectAreaLight
-        position={[LR.w - 0.14, (LR_WINDOW.y0 + LR_WINDOW.y1) / 2, LR.d / 2]}
+        position={[LR.w - 0.14, (LR_WINDOW.y0 + LR_WINDOW.y1) / 2, LR_WINDOW_CZ]}
         // Faces -x, into the room.
         rotation={[0, -Math.PI / 2, 0]}
         width={span}

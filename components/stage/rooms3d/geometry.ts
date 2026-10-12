@@ -832,7 +832,20 @@ export function makeParquetTexture(seed = 3307): THREE.CanvasTexture {
  * under furniture is the fastest way to make a room look untextured, and this
  * costs one canvas.
  */
-export function makeRugTexture(seed = 8821): THREE.CanvasTexture {
+export function makeRugTexture(
+  seed = 8821,
+  /** Ground colour. */
+  base = "#8d8679",
+  /**
+   * How far the blotches travel from it, 0..1.
+   *
+   * At full strength this is a dark, heavily mottled wool — right under the
+   * near-black joinery of a media room, and completely wrong in a pale living
+   * room, where it landed as a puddle of mud across the middle of the frame.
+   * The pattern was never the problem; its contrast was.
+   */
+  contrast = 1,
+): THREE.CanvasTexture {
   const n = 512;
   const c = document.createElement("canvas");
   c.width = n;
@@ -844,7 +857,7 @@ export function makeRugTexture(seed = 8821): THREE.CanvasTexture {
     return s / 233280;
   };
 
-  g.fillStyle = "#8d8679";
+  g.fillStyle = base;
   g.fillRect(0, 0, n, n);
   for (let i = 0; i < 260; i++) {
     const r = 10 + rnd() * 70;
@@ -852,7 +865,12 @@ export function makeRugTexture(seed = 8821): THREE.CanvasTexture {
     const y = rnd() * n;
     const dark = rnd() < 0.55;
     const grd = g.createRadialGradient(x, y, 0, x, y, r);
-    grd.addColorStop(0, dark ? `rgba(30,26,22,${0.14 + rnd() * 0.36})` : `rgba(208,199,182,${0.1 + rnd() * 0.3})`);
+    grd.addColorStop(
+      0,
+      dark
+        ? `rgba(30,26,22,${(0.14 + rnd() * 0.36) * contrast})`
+        : `rgba(208,199,182,${(0.1 + rnd() * 0.3) * contrast})`,
+    );
     grd.addColorStop(1, "rgba(0,0,0,0)");
     g.fillStyle = grd;
     g.beginPath();
@@ -860,7 +878,7 @@ export function makeRugTexture(seed = 8821): THREE.CanvasTexture {
     g.fill();
   }
   // A worn border, so it reads as a rug and not as a painted rectangle.
-  g.strokeStyle = "rgba(42,36,30,0.3)";
+  g.strokeStyle = `rgba(42,36,30,${0.3 * contrast})`;
   g.lineWidth = 16;
   g.strokeRect(22, 22, n - 44, n - 44);
 
@@ -926,4 +944,108 @@ export function makeArtTexture(seed = 11): THREE.CanvasTexture {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
   return tex;
+}
+
+/**
+ * A tangent-space normal map for woven upholstery.
+ *
+ * Sheen gets fabric most of the way — it is the pale fuzz along a grazing edge
+ * — but sheen is a lobe, not a surface, so a sofa with sheen alone still
+ * shades like a perfectly smooth object that happens to be fluffy. What is
+ * missing is the weave: bouclé and chenille are *bumpy* at a scale of two or
+ * three millimetres, and that bumpiness is what breaks up a highlight into the
+ * grain you recognise as cloth.
+ *
+ * Built as a height field first — a plain weave crossed with lumped noise, the
+ * lumps being the slubs that make bouclé bouclé — then differentiated into
+ * normals. Differentiating a height field is the only way to get a normal map
+ * that is internally consistent; painting RGB directly produces lighting that
+ * contradicts itself across a seam.
+ */
+export function makeFabricNormal(
+  /** Weave pitch in pixels. Smaller is a tighter, finer cloth. */
+  pitch = 7,
+  /** How lumpy: 0 is flat linen, 1 is heavy bouclé. */
+  slub = 0.55,
+  seed = 1777,
+): THREE.CanvasTexture {
+  const n = 512;
+  const c = document.createElement("canvas");
+  c.width = n;
+  c.height = n;
+  const g = c.getContext("2d")!;
+
+  let s = seed;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+
+  // Value noise on a coarse lattice, bilinearly interpolated — the slubs.
+  const lat = 32;
+  const grid = new Float32Array(lat * lat);
+  for (let i = 0; i < grid.length; i++) grid[i] = rnd();
+  const noise = (x: number, y: number) => {
+    const fx = (x / n) * lat;
+    const fy = (y / n) * lat;
+    const x0 = Math.floor(fx) % lat;
+    const y0 = Math.floor(fy) % lat;
+    const x1 = (x0 + 1) % lat;
+    const y1 = (y0 + 1) % lat;
+    const tx = fx - Math.floor(fx);
+    const ty = fy - Math.floor(fy);
+    // Smoothstep, so the lattice does not show as diamonds.
+    const sx = tx * tx * (3 - 2 * tx);
+    const sy = ty * ty * (3 - 2 * ty);
+    const a = grid[y0 * lat + x0] * (1 - sx) + grid[y0 * lat + x1] * sx;
+    const b = grid[y1 * lat + x0] * (1 - sx) + grid[y1 * lat + x1] * sx;
+    return a * (1 - sy) + b * sy;
+  };
+
+  const height = new Float32Array(n * n);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      // Plain weave: warp over weft, alternating every pitch.
+      const u = (x % pitch) / pitch;
+      const v = (y % pitch) / pitch;
+      const warpOver = (Math.floor(x / pitch) + Math.floor(y / pitch)) % 2 === 0;
+      const thread = warpOver ? Math.sin(v * Math.PI) : Math.sin(u * Math.PI);
+      height[y * n + x] = thread * (1 - slub) + noise(x, y) * slub * 1.6;
+    }
+  }
+
+  const img = g.createImageData(n, n);
+  // Sobel on the height field. The strength here is a slope scale: too high and
+  // the cloth reads as corrugated iron, which is a failure the bedroom already
+  // made once with duvet folds.
+  const strength = 2.6;
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const at = (dx: number, dy: number) =>
+        height[(((y + dy) % n) + n) % n * n + ((((x + dx) % n) + n) % n)];
+      const dX = at(1, 0) - at(-1, 0);
+      const dY = at(0, 1) - at(0, -1);
+      let nx = -dX * strength;
+      let ny = -dY * strength;
+      const nz = 1;
+      const len = Math.hypot(nx, ny, nz);
+      nx /= len;
+      ny /= len;
+      const i = (y * n + x) * 4;
+      img.data[i] = (nx * 0.5 + 0.5) * 255;
+      img.data[i + 1] = (ny * 0.5 + 0.5) * 255;
+      img.data[i + 2] = (nz / len) * 255;
+      img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+
+  const t = new THREE.CanvasTexture(c);
+  // A normal map is data, not colour. Through the sRGB decode it would read as
+  // a different vector field entirely — and a subtly wrong one, which is worse.
+  t.colorSpace = THREE.NoColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
 }
