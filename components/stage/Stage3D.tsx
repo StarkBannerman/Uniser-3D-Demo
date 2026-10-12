@@ -20,6 +20,9 @@
 import { Suspense, useLayoutEffect, type ReactNode, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useThree } from "@react-three/fiber";
+import { useSim } from "@/lib/sim/store";
+import { hasActiveTweens } from "@/lib/sim/tween";
+import type { AvState, FanState, LightState, ShadeState } from "@/lib/sim/types";
 import { Environment, Lightformer } from "@react-three/drei";
 import { EffectComposer, Bloom, N8AO, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
@@ -53,6 +56,145 @@ function detectQuality(): Quality {
   // not run this at full resolution with a second depth pass on top.
   if (touchOnly && (cores <= 6 || memory <= 4)) return "low";
   return cores <= 4 || memory <= 4 ? "low" : "high";
+}
+
+
+/**
+ * How often the room is allowed to redraw, and when it is allowed at all.
+ *
+ * This is the fix for "the whole device gets slow", which was not really a
+ * complaint about this app. React Three Fiber renders continuously at whatever
+ * rate the display allows unless you tell it otherwise, so a room nobody was
+ * touching held the GPU at full load for as long as the page stayed open. The
+ * device heats, it thermally throttles, and everything else on it slows down
+ * too — which is exactly what people were describing.
+ *
+ * A demo like this is static almost all the time. Between a salesperson
+ * pressing Relax and pressing Evening, nothing in the room changes and there
+ * is nothing to draw. So the canvas renders on demand, and something has to
+ * ask for frames:
+ *
+ *  - any change to simulation state marks the view dirty, which covers a
+ *    button press, a slider, the clock scrubber;
+ *  - while a fade, a curtain or a screen is actually travelling,
+ *    `hasActiveTweens` keeps asking;
+ *  - a ceiling fan asks for as long as its blades are turning, because that is
+ *    the one thing in these rooms that moves without the simulation changing.
+ *
+ * And it is capped. Thirty frames a second is more than this content needs —
+ * everything in it is a slow crossfade — and it halves the GPU load against an
+ * uncapped 60.
+ */
+const FRAME_CAP = { high: 30, low: 20 } as const;
+
+/**
+ * Nothing moving, a fan turning, or a real transition.
+ *
+ * The distinction earns its keep. A ceiling fan runs in most of the bedroom's
+ * scenes, so a room that is otherwise completely static never stops needing
+ * frames — and freezing the blades to save power looks broken, which is worse
+ * than the problem. But a room where the only moving thing is a fan does not
+ * need thirty frames a second either. Half rate keeps the blades turning at
+ * the right speed, because the rotation is driven by elapsed time rather than
+ * by frame count, and halves the cost of sitting on a desk doing nothing.
+ */
+type Motion = "still" | "fan" | "transition";
+
+function motionNow(): Motion {
+  if (hasActiveTweens()) return "transition";
+  const { space, states } = useSim.getState();
+  if (space) {
+    for (const device of space.devices) {
+      if (device.kind !== "fan") continue;
+      const state = states[device.id] as FanState | undefined;
+      if (state?.on && state.speed > 0) return "fan";
+    }
+  }
+  return "still";
+}
+
+/**
+ * What the room would actually look like, as a short string.
+ *
+ * Subscribing to the store and redrawing on any change does not work, and the
+ * reason is worth writing down: the simulation ticks sixty times a second
+ * whatever is happening — the clock advances, sensors drift, energy
+ * integrates — so *every* frame is a state change and the view is never
+ * clean. Measured, a boardroom with nothing moving still issued 6,080 draw
+ * calls a second, which is the whole problem this was meant to solve.
+ *
+ * So the test is what a person could see: every light's switch, level, colour
+ * and saturation, where the shades are, what the AV is doing, whether a fan is
+ * turning, and the clock to the minute because daylight follows it. Energy
+ * counters and sensor noise are not in here, because nothing in the picture
+ * changes when they do.
+ */
+function visualSignature(): string {
+  const { space, states, clockMin } = useSim.getState();
+  if (!space) return "";
+  const parts: string[] = [String(Math.round(clockMin))];
+  for (const device of space.devices) {
+    const state = states[device.id];
+    if (!state) continue;
+    if (device.kind === "light") {
+      const l = state as LightState;
+      parts.push(`${l.on ? 1 : 0}.${l.level.toFixed(1)}.${l.cct}.${l.hue}.${l.sat}`);
+    } else if (device.kind === "shade") {
+      const sh = state as ShadeState;
+      parts.push(`${sh.sheer.toFixed(1)}.${sh.blackout.toFixed(1)}`);
+    } else if (device.kind === "av") {
+      const a = state as AvState;
+      parts.push(`${a.on ? 1 : 0}.${a.source}.${a.screen.toFixed(1)}`);
+    } else if (device.kind === "fan") {
+      const f = state as FanState;
+      parts.push(`${f.on ? 1 : 0}.${f.speed}`);
+    }
+  }
+  return parts.join("|");
+}
+
+function RenderPump({ fps }: { fps: number }) {
+  const invalidate = useThree((s) => s.invalidate);
+
+  useLayoutEffect(() => {
+    let frame = 0;
+    let last = 0;
+    let signature = "";
+    const minDelta = 1000 / fps;
+
+    const step = (t: number) => {
+      const motion = motionNow();
+      let draw = false;
+      let gap = minDelta;
+
+      if (motion === "transition") {
+        draw = true;
+      } else {
+        // Nothing is tweening, so only a discrete change needs a frame — a
+        // toggle, a slider, the clock scrubber.
+        const next = visualSignature();
+        if (next !== signature) {
+          signature = next;
+          draw = true;
+        } else if (motion === "fan") {
+          draw = true;
+          gap = minDelta * 2;
+        }
+      }
+
+      if (draw && t - last >= gap) {
+        last = t;
+        if (motion === "transition") signature = visualSignature();
+        invalidate();
+      }
+      frame = requestAnimationFrame(step);
+    };
+
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [invalidate, fps]);
+
+  return null;
 }
 
 
@@ -205,6 +347,11 @@ export function Stage3D({
   const ground = fill.clone().multiplyScalar(0.45).offsetHSL(0.02, 0.05, -0.12);
   return (
     <Canvas
+      /**
+       * On demand, not continuously. See `RenderPump` — this one prop is the
+       * difference between a tablet idling and a tablet cooking.
+       */
+      frameloop="demand"
       shadows="soft"
       /**
        * Capped hard, because this is a per-pixel cost on every pass.
@@ -230,6 +377,7 @@ export function Stage3D({
       }}
     >
       <Suspense fallback={null}>
+        <RenderPump fps={FRAME_CAP[quality]} />
         <LockHorizontalFov fovAt16x9={camera.fov} />
         <ProceduralEnvironment />
         {/* The room's fill, scaled by how much light is actually in it. Props

@@ -24,7 +24,7 @@ import { Spot } from "./Spot";
 import { DN, DN_COVE_Y, DN_PLAN, DN_WINDOW } from "./Den3D";
 
 const GAIN = {
-  cove: 42,
+  cove: 75.6,
   coveEmissive: 5.4,
   /** The bleed beside the channel. Much weaker, much wider. */
   coveSpill: 0.9,
@@ -119,9 +119,15 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
 
   return (
     <group>
+      {/* Four visible runs, two area lights: the pair down the long walls
+          carry it at 1.8x and the ends are emissive only. Every light in a
+          scene is evaluated by every fragment and a RectAreaLight is the
+          dearest kind there is, so this room was paying for four washes of a
+          ceiling that two cover. The strips all stay — what you see of a cove
+          is the strip. */}
       {segments.map((s, i) => (
         <group key={`cove-${i}`}>
-          {MOUNTED && (
+          {MOUNTED && i % 2 === 0 && (
             <rectAreaLight
               position={s.pos as unknown as [number, number, number]}
               rotation={[Math.PI / 2, 0, s.along === "x" ? 0 : Math.PI / 2]}
@@ -261,6 +267,9 @@ function ColourLayer({ state, gain }: { state: LightState; gain: number }) {
 
   return (
     <group>
+      {/* Four battens, two of them carrying a light. These are decorative
+          colour on a wall, not a working layer, and the pair on the left wall
+          read the same whether both are sources or one is. */}
       {DN_PLAN.battens.map((b, i) => (
         <group key={`batten-${i}`}>
           <mesh
@@ -270,7 +279,7 @@ function ColourLayer({ state, gain }: { state: LightState; gain: number }) {
             <planeGeometry args={[0.07, height]} />
             <primitive object={mat} attach="material" />
           </mesh>
-          {MOUNTED && (
+          {MOUNTED && i % 2 === 0 && (
             <rectAreaLight
               position={[
                 b.along === "z" ? b.x + 0.05 : b.x,
