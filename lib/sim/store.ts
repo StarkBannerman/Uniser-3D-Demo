@@ -557,7 +557,26 @@ export const useSim = create<SimStore>((set, get) => ({
         sceneId,
         steps: scene.steps,
         index: 0,
-        fireAt: tweenNow() + (first.holdMs ?? 900),
+        /**
+         * The same test on stage zero.
+         *
+         * This pause covers the scene's own `targets`, not a step — so when
+         * those ask for nothing the room is not already doing, there is
+         * nothing to wait for either. It is the case you hit pressing a staged
+         * scene twice, where the whole base state is already set.
+         */
+        fireAt:
+          tweenNow() +
+          (Object.entries(scene.targets).every(([deviceId, raw]) => {
+            const current = states[deviceId];
+            if (!current) return true;
+            const { fadeMs: _perDevice, ...rest } = raw as StatePatch & {
+              fadeMs?: number;
+            };
+            return patchIsNoop(current, rest as StatePatch);
+          })
+            ? 0
+            : (first.holdMs ?? 900)),
         fadeMs: scene.fadeMs,
       };
       sequenceView = {
@@ -679,6 +698,25 @@ export const useSim = create<SimStore>((set, get) => ({
       const { sceneId, steps, index, fadeMs } = pendingSequence;
       const step = steps[index];
 
+      /**
+       * Does this stage have anything to do?
+       *
+       * Measured *before* the patch is applied, against the room as it stands.
+       * A stage commanding a state the devices are already in gets no pause
+       * after it — see `patchIsNoop` — which is what stops Movie-from-Gaming
+       * sitting under "Curtains close" with the curtains already shut.
+       *
+       * Setting the next stage's `fireAt` to the same instant means the
+       * `while` above picks it up on this very tick, so an empty stage never
+       * reaches the panel at all. It is skipped rather than flashed.
+       */
+      const empty = Object.entries(step.targets).every(([deviceId, raw]) => {
+        const current = states[deviceId];
+        if (!current) return true;
+        const { fadeMs: _perDevice, ...rest } = raw as StatePatch & { fadeMs?: number };
+        return patchIsNoop(current, rest as StatePatch);
+      });
+
       const touched: Set<string> = new Set(touchedProducts ?? state.touchedProductIds);
       const stepCommanded = { ...commanded };
       const stepCctLocked = { ...cctLocked };
@@ -711,8 +749,11 @@ export const useSim = create<SimStore>((set, get) => ({
           ...pendingSequence,
           index: index + 1,
           // Measured from when this stage was due, not from now — so one late
-          // frame does not stretch every hold after it.
-          fireAt: pendingSequence.fireAt + (steps[index + 1].holdMs ?? 900),
+          // frame does not stretch every hold after it. Zero when this stage
+          // had nothing to do, because the pause exists to cover its travel.
+          fireAt:
+            pendingSequence.fireAt +
+            (empty ? 0 : (steps[index + 1].holdMs ?? 900)),
         };
       }
     }
@@ -1003,51 +1044,98 @@ function patchDurationMs(
  * travel time depends on how far it has to go and a later stage may be starting
  * from where an earlier one left it.
  */
+/**
+ * Does this patch ask for anything the device is not already doing?
+ *
+ * Staged scenes schedule each stage's pause from a number the author wrote,
+ * and that number assumes the stage has work to do. Press Movie from Gaming,
+ * where the curtains are already shut and the screen already down, and the
+ * room still sat for 1.4 seconds under "Curtains close" and another 8.4 under
+ * "Screen descends" — fifteen seconds of a twenty second sequence spent
+ * waiting for motors that had nowhere to travel. That is what people were
+ * reporting as the loader lying to them.
+ *
+ * Duration alone is the wrong test. "Projector on" takes no time either, and
+ * it is a real change worth dwelling on. The test is whether the *values*
+ * differ: a stage that commands a state the device is already in has nothing
+ * to show, however long its motor would have taken.
+ *
+ * Numbers compare with a tolerance because shade and screen positions are
+ * tweened floats and land a hair off their target.
+ */
+function patchIsNoop(current: DeviceState, patch: StatePatch): boolean {
+  const now = current as unknown as Record<string, unknown>;
+  for (const [key, want] of Object.entries(patch as Record<string, unknown>)) {
+    if (want === undefined) continue;
+    const have = now[key];
+    if (typeof want === "number" && typeof have === "number") {
+      if (Math.abs(want - have) > 0.5) return false;
+    } else if (want !== have) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function sceneDurationMs(
   space: Space,
   states: Record<string, DeviceState>,
   scene: Scene,
 ): number {
-  const projected = new Map<string, Record<string, number>>();
+  /**
+   * What each device will be doing by the time a later stage runs.
+   *
+   * Every patched field is recorded, not just shade layers, because the
+   * no-op test below needs to know what stage three will find — and stage
+   * three finds whatever stages one and two left behind, not what the room
+   * looked like when the button was pressed.
+   */
+  const projected = new Map<string, Record<string, unknown>>();
 
-  const stageDuration = (
+  const stage = (
     targets: Record<string, StatePatch & { fadeMs?: number }>,
-  ): number => {
+  ): { longest: number; noop: boolean } => {
     let longest = 0;
+    let noop = true;
     for (const [deviceId, raw] of Object.entries(targets)) {
       const device = space.devices.find((d) => d.id === deviceId);
       const current = states[deviceId];
       if (!device || !current) continue;
 
       const { fadeMs: perDevice, ...rest } = raw as StatePatch & { fadeMs?: number };
-      const base = { ...(current as object), ...(projected.get(deviceId) ?? {}) };
+      const base = {
+        ...(current as object),
+        ...(projected.get(deviceId) ?? {}),
+      } as unknown as DeviceState;
+
+      if (!patchIsNoop(base, rest as StatePatch)) noop = false;
 
       longest = Math.max(
         longest,
-        patchDurationMs(
-          device,
-          base as unknown as DeviceState,
-          rest as StatePatch,
-          perDevice ?? scene.fadeMs,
-        ),
+        patchDurationMs(device, base, rest as StatePatch, perDevice ?? scene.fadeMs),
       );
 
-      if (device.kind === "shade") {
-        const next = { ...(projected.get(deviceId) ?? {}) };
-        for (const layer of device.layers) {
-          if (typeof rest[layer] === "number") next[layer] = rest[layer] as number;
-        }
-        projected.set(deviceId, next);
+      const next = { ...(projected.get(deviceId) ?? {}) };
+      for (const [k, v] of Object.entries(rest as Record<string, unknown>)) {
+        if (v !== undefined) next[k] = v;
       }
+      projected.set(deviceId, next);
     }
-    return longest;
+    return { longest, noop };
   };
 
-  let total = stageDuration(scene.targets);
+  const first = stage(scene.targets);
+  let total = first.longest;
   let offset = 0;
+  let previousWasNoop = first.noop;
   for (const step of scene.steps ?? []) {
-    offset += step.holdMs ?? 900;
-    total = Math.max(total, offset + stageDuration(step.targets));
+    // A stage that changes nothing is not waited for — see `patchIsNoop`. The
+    // hold belongs to the stage before it, so it is that one's emptiness that
+    // decides whether this pause happens at all.
+    offset += previousWasNoop ? 0 : (step.holdMs ?? 900);
+    const s = stage(step.targets);
+    total = Math.max(total, offset + s.longest);
+    previousWasNoop = s.noop;
   }
   return total;
 }
