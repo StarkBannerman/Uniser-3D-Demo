@@ -64,9 +64,10 @@ export const DN_PLAN = {
   /** Framed artwork on the left wall, beyond the shelving. */
   art: { z: 2.7, y: 1.6, w: 1.5, h: 1.95 },
   /** Work zone against the left wall, nearest the screen. */
-  desk: { z: 0.85, w: 1.7 },
+  /** Work zone in the back corner, clear of the camera's near field. */
+  desk: { z: 7.7, w: 1.7 },
   /** Slatted timber panel between the work zone and the shelving. */
-  slats: { z0: 1.5, z1: 2.2 },
+  slats: { z0: 5.4, z1: 6.1 },
   /** Acoustic panels flanking the screen, on the projection wall. */
   acoustic: [{ x0: 0.1, x1: 7.5 }],
   /** Vertical RGB battens: two on the left wall, two flanking the screen. */
@@ -78,22 +79,34 @@ export const DN_PLAN = {
   ],
   /** Seating group origin and rotation. */
   /**
-   * Turned 57 degrees off the screen, and that is a deliberate cost.
+   * Square to the screen, and set back 3.3 m from it.
    *
-   * A sofa that squares up to the screen can only ever be photographed from
-   * behind: its front faces the screen, so any camera that sees the seats is
-   * standing between the two, with the screen behind the lens. The two things
-   * cannot both be in frame while the seating is square.
+   * It was turned 57 degrees off for a pass, to let one frame hold the seats
+   * and the screen wall at once. That works and it is not what a media room
+   * is: the seats face what you are watching. The camera takes the oblique
+   * angle instead — see `DenStage` — which costs a wider lens and keeps the
+   * furniture honest.
    *
-   * So it opens toward the room's right-hand corner instead. That is how a
-   * real media room with a lounge chair and a window on that side gets laid
-   * out anyway — you sit across the corner, not in a cinema row — and it is
-   * what lets one frame hold the seats, the coffee table and the screen wall
-   * at once.
+   * The component is already modelled with its long side on local X, its back
+   * at local +z and the chaise returning left, so facing the screen is simply
+   * rotation zero.
    */
-  seating: { x: 3.7, z: 4.5, rot: -1.0 },
+  /**
+   * Square to the screen, and set back 3.3 m from it.
+   *
+   * It was turned 57 degrees off for a pass, to let one frame hold the seats
+   * and the screen wall at once. That works and it is not what a media room
+   * is: the seats face what you are watching. The camera takes the oblique
+   * angle instead — see `DenStage` — which costs a wider lens and keeps the
+   * furniture honest.
+   *
+   * The component is already modelled with its long side on local X, its back
+   * at local +z and the chaise returning left, so facing the screen is simply
+   * rotation zero.
+   */
+  seating: { x: 3.7, z: 3.3, rot: 0 },
   /** Lounge chair and its ottoman, by the curtains. */
-  lounge: { x: 5.9, z: 3.6 },
+  lounge: { x: 6.45, z: 3.15 },
 } as const;
 
 /* ------------------------------------------------------------------ */
@@ -1130,13 +1143,14 @@ function Seating() {
         {/* Round marble coffee table, with things actually on it.
             A bare table reads as a showroom; the sheet has books, a bowl and a
             tray, and it is that clutter that makes a room look occupied. */}
-        <group position={[0.1, 0, -0.9]}>
+        {/* ~1 m across and centred in front of the long side. */}
+        <group position={[0, 0, -1.15]}>
           <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.7, 0.7, 0.1, 36]} />
+            <cylinderGeometry args={[0.52, 0.52, 0.09, 36]} />
             <primitive object={M.marble} attach="material" />
           </mesh>
           <mesh position={[0, 0.17, 0]} castShadow>
-            <cylinderGeometry args={[0.32, 0.4, 0.34, 28]} />
+            <cylinderGeometry args={[0.24, 0.3, 0.34, 28]} />
             <primitive object={M.marble} attach="material" />
           </mesh>
           {/* A stack of three books, each a little off the one below. */}
@@ -1222,7 +1236,9 @@ function Seating() {
       </group>
 
       {/* Lounge chair and ottoman by the curtains. */}
-      <group position={[lo.x, 0, lo.z]} rotation={[0, -2.35, 0]}>
+      {/* Angled about 30 degrees off the screen rather than square to it, so
+          the camera sees its front quarter instead of its back. */}
+      <group position={[lo.x, 0, lo.z]} rotation={[0, -0.52, 0]}>
         <RoundedBox
           args={[0.82, 0.2, 0.78]}
           radius={0.075}

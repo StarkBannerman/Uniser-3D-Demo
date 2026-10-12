@@ -35,27 +35,27 @@ import { makeCityTexture } from "./geometry";
  */
 const CAMERA: CameraSpec = {
   /**
-   * Beside the seating, three-quarters on, level with the coffee table.
+   * Behind and left of the seating, elevated, looking down the room at the
+   * screen — and the reasoning is worth keeping, because three other cameras
+   * were tried first.
    *
-   * Two cameras before this one looked at the back of the sofa, because a sofa
-   * squared up to a screen has no other side to be seen from — its front faces
-   * the screen, so the only viewpoint that sees the seats is between the two,
-   * with the screen behind the lens. The sectional is turned 57 degrees off
-   * the screen for that reason; see `DN_PLAN.seating`.
+   * The seats face the screen, which is what a media room is for. That makes
+   * "see the seats and the screen wall together" geometrically impossible: a
+   * camera between the two sees the seats with the screen behind the lens, and
+   * from anywhere else the two sit about sixty degrees apart, so the frame's
+   * centre lands on the window wall between them. Measured on three positions,
+   * all three gave a picture of the curtains.
    *
-   * From here the frame holds the seats and cushions 21 degrees left of
-   * centre, the coffee table in front of them, the screen wall 21 right, and
-   * the lounge chair and curtains on the right beyond it. The shelving sits
-   * just past the left edge at this focal length, which is the one thing the
-   * brief asked for that would not fit — pulling it in costs a 60 degree lens
-   * and the bowed verticals that come with it.
-   *
-   * 1.42 m: seated eye height, so the room is seen from where somebody using
-   * it would see it, and low enough that the coffee table has a top.
+   * So this takes the shot a real media room is actually photographed from.
+   * The sectional is five metres away rather than in the lens, the chaise
+   * returns on the left so its seats and cushions are visible in profile
+   * rather than only its back, the coffee table and the pouf sit between it
+   * and the screen, and the screen wall — the thing the room exists for — is
+   * the subject.
    */
-  position: [6.9, 1.42, 5.6],
-  target: [3.07, 1.0, 2.39],
-  fov: 52,
+  position: [1.3, 2.0, 8.4],
+  target: [4.4, 1.0, 1.2],
+  fov: 55,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
