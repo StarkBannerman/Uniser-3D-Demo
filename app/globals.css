@@ -139,3 +139,18 @@ input[type="range"].u-slider:disabled {
     color: #000;
   }
 }
+
+/**
+ * Scene progress, as a keyframe rather than a React-driven width.
+ *
+ * The bar has to run for whatever the room's own hold is — 1.4 s for a simple
+ * fade, 20 s for a staged demonstration — and animating it from JavaScript
+ * would mean a state update per frame for a purely cosmetic line, on a page
+ * whose whole performance problem was drawing when it did not need to. The
+ * duration is set inline from the store's `busyMs`; the browser owns the rest,
+ * off the main thread.
+ */
+@keyframes scene-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}

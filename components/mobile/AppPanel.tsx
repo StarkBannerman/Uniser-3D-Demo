@@ -15,6 +15,7 @@
  * disagreement about *when*, not about what the state is — see the hook.
  */
 
+import { useEffect, useState } from "react";
 import { useSim, TOGGLE_FADE_MS } from "@/lib/sim/store";
 import type {
   ClimateDevice,
@@ -403,6 +404,23 @@ export function AppPanel({ view }: { view: AppView }) {
   const activeSceneId = useSim((s) => s.activeSceneId);
   const sequence = useSim((s) => s.sequence);
   const busy = useSim((s) => s.busy);
+  const settleMs = useSim((s) => s.settleMs);
+  const sceneRunId = useSim((s) => s.sceneRunId);
+
+  /**
+   * True from a scene press until the room has finished landing.
+   *
+   * Owned here rather than read off the store because the store's `busy` is an
+   * input lock with its own, shorter life — see `settleMs`. A timer started by
+   * the press is the only thing that reliably spans the whole fade.
+   */
+  const [settling, setSettling] = useState(false);
+  useEffect(() => {
+    if (sceneRunId === 0 || settleMs <= 0) return;
+    setSettling(true);
+    const timer = setTimeout(() => setSettling(false), settleMs);
+    return () => clearTimeout(timer);
+  }, [sceneRunId, settleMs]);
   const busyDevices = useSim((s) => s.busyDevices);
   const applyScene = useSim((s) => s.applyScene);
 
@@ -422,8 +440,8 @@ export function AppPanel({ view }: { view: AppView }) {
    */
   const status = sequence
     ? sequence.label
-    : busy
-      ? (space.scenes.find((s) => s.id === activeSceneId)?.name ?? null)
+    : settling
+      ? `Setting ${space.scenes.find((s) => s.id === activeSceneId)?.name ?? "the scene"}…`
       : null;
 
   return (
@@ -474,17 +492,35 @@ export function AppPanel({ view }: { view: AppView }) {
                         Along the bottom edge rather than filling the button: a
                         full-height fill put a hard vertical edge straight
                         through the scene's name, which read as a glitch. */}
-                    {running && (
+                    {(running || (settling && !sequence && active)) && (
                       <span
                         aria-hidden
                         className="absolute inset-x-0 bottom-0 h-[3px] bg-shell-800"
                       >
-                        <span
-                          className="block h-full rounded-r-full bg-brass-400 transition-[width] duration-500 ease-linear"
-                          style={{
-                            width: `${(sequence!.step / sequence!.total) * 100}%`,
-                          }}
-                        />
+                        {running ? (
+                          /* Staged: by stage, because the stages are the
+                             demonstration and a stage landing is the thing
+                             worth marking. */
+                          <span
+                            className="block h-full rounded-r-full bg-brass-400 transition-[width] duration-500 ease-linear"
+                            style={{
+                              width: `${(sequence!.step / sequence!.total) * 100}%`,
+                            }}
+                          />
+                        ) : (
+                          /* A single fade has no stages, so it runs on the
+                             clock — against the room's own hold, not a guess,
+                             so it finishes exactly when the room settles.
+                             Keyed on the press so pressing the same scene
+                             twice restarts it rather than leaving it full. */
+                          <span
+                            key={sceneRunId}
+                            className="block h-full rounded-r-full bg-brass-400"
+                            style={{
+                              animation: `scene-progress ${settleMs}ms linear forwards`,
+                            }}
+                          />
+                        )}
                       </span>
                     )}
                     <span className="relative flex flex-col items-start gap-1.5">

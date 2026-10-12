@@ -350,6 +350,24 @@ export interface SimStore {
    */
   busy: boolean;
   /**
+   * How long the room takes to settle after a scene, and which press started
+   * it. Deliberately *not* the input lock.
+   *
+   * They look like the same thing and are not. `busy` exists to stop a
+   * half-finished control leaving the room in a state no scene describes, and
+   * it is released the moment that stops being a risk — a rule firing
+   * mid-fade clears it, which is correct for a lock and wrong for a progress
+   * bar. Driving the bar from `busy` made it vanish at 1.4 s of a 2.5 s fade,
+   * measured, because daylight harvesting patched a light underneath it.
+   *
+   * So this is set once per press, from `sceneDurationMs` — the real settle
+   * time, the same figure the lock is sized from — and nothing clears it
+   * early. `sceneRunId` changes on every press so pressing the same scene
+   * twice restarts the animation rather than leaving it finished.
+   */
+  settleMs: number;
+  sceneRunId: number;
+  /**
    * Devices mid-travel, whose own controls are locked while they move.
    *
    * An array rather than a Set because Zustand compares selected slices by
@@ -394,6 +412,8 @@ export const useSim = create<SimStore>((set, get) => ({
   commanded: {},
   cctLocked: {},
   busy: false,
+  settleMs: 0,
+  sceneRunId: 0,
   busyDevices: [],
   sequence: null,
 
@@ -512,7 +532,8 @@ export const useSim = create<SimStore>((set, get) => ({
 
     // Measured before anything is applied, while `states` still holds the
     // positions every fade is starting from.
-    const locked = holdInput(sceneDurationMs(space, states, scene));
+    const holdMs = sceneDurationMs(space, states, scene);
+    const locked = holdInput(holdMs);
 
     const touched = new Set(get().touchedProductIds);
     const commanded = { ...get().commanded };
@@ -566,6 +587,11 @@ export const useSim = create<SimStore>((set, get) => ({
       commanded,
       cctLocked,
       busy: locked,
+      // Not gated on `locked`: a scene of pure dimmer fades holds no input at
+      // all and still takes two and a half seconds to land, which is exactly
+      // the case somebody needs telling about.
+      settleMs: holdMs,
+      sceneRunId: get().sceneRunId + 1,
       // A scene drives every fixture, so whatever one device was doing on its
       // own is now part of the scene and no longer needs a lock of its own.
       busyDevices: [],
