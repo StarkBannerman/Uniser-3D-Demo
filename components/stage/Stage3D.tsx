@@ -19,7 +19,9 @@
 
 import {
   Suspense,
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -53,6 +55,18 @@ import { ToneMappingMode } from "postprocessing";
  * accurate and late here.
  */
 export type Quality = "high" | "low";
+
+/**
+ * The tier, readable from inside a room.
+ *
+ * `Stage3D` has always chosen one and kept it to itself, which was fine while
+ * the only things that scaled with it were the composer's own props. A room
+ * that wants a genuinely expensive surface — a planar reflector renders the
+ * whole scene a second time — has to be able to ask, and ask once, because the
+ * answer never changes while the page is open.
+ */
+const QualityContext = createContext<Quality>("high");
+export const useQuality = () => useContext(QualityContext);
 
 /**
  * One device pixel ratio, for everybody.
@@ -678,6 +692,7 @@ export function Stage3D({
       }}
     >
       <Suspense fallback={null}>
+        <QualityContext.Provider value={quality}>
         <RenderPump fps={FRAME_CAP[quality]} />
         {perf && <PerfProbe />}
         <LockHorizontalFov fovAt16x9={camera.fov} />
@@ -724,6 +739,7 @@ export function Stage3D({
         </EffectComposer>
         {/* After the children, so the scene graph is populated when it runs. */}
         <ReadyGate onReady={setReady} />
+        </QualityContext.Provider>
       </Suspense>
     </Canvas>
       <RoomLoader name={roomName} gone={ready} />

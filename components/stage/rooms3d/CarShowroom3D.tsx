@@ -24,11 +24,12 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { MAX_BLADE_STEP_RAD } from "@/lib/sim/fan";
+import { MeshReflectorMaterial } from "@react-three/drei";
+import { useQuality } from "../Stage3D";
 import {
   CAR_SHAPES,
   makeBrandGraphic,
   makeCarBody,
-  makeMarbleTexture,
   makeWordmark,
 } from "./geometry";
 
@@ -44,148 +45,152 @@ import {
  * camera (d).
  */
 export const SH = {
-  w: 26,
-  d: 20,
-  h: 6.5,
+  w: 30,
+  d: 25,
+  h: 7,
 } as const;
 
 /** Where everything stands. Shared with the light rig. */
 export const SH_PLAN = {
-  /** The raised circular hero platform, and the coffer that sits over it. */
-  hero: { x: 11.5, z: 8.2, r: 3.4, h: 0.26 },
-  /** Ceiling coffer above it: a ring of spots inside a lit edge. */
-  coffer: { r: 4.2, y: 6.3, drop: 0.55 },
-  /**
-   * Backlit graphic panels, on the back wall rather than the left one.
-   *
-   * They started down the left wall, as the reference has them, and could not
-   * be seen: the camera stands four metres from that wall and looks down the
-   * room, so the wall is edge-on and every panel fell outside the left of the
-   * frame. The hotel lobby's reception wall taught the same lesson — a surface
-   * you are standing beside is not a surface you can photograph. On the back
-   * wall they are nearly face-on to the lens, which is the only orientation in
-   * which "large backlit brand graphics" means anything to someone looking at
-   * the picture.
-   */
+  /** The raised circular hero platform, 6 m across and only 150 mm proud. */
+  hero: { x: 13.5, z: 10.5, r: 3.0, h: 0.15 },
+  /** The ceiling ring above it: 8 m across, a slim raised disc. */
+  coffer: { r: 4.0, y: 6.6, drop: 0.3 },
+  /** Backlit graphic panels. On the back wall — see the note in `Graphics`. */
   graphics: [
-    { x: 4.4, w: 6.2, h: 3.2, y: 2.6, line: "DRIVEN BY A\nBRIGHTER\nTOMORROW" },
-    { x: 11.6, w: 5.4, h: 2.9, y: 2.5, line: "MORE THAN\nA CAR,\nA LIFESTYLE" },
+    { x: 5.4, w: 7.0, h: 3.4, y: 2.8, line: "DRIVEN BY A\nBRIGHTER TOMORROW" },
+    { x: 13.8, w: 6.0, h: 3.0, y: 2.6, line: "MORE THAN A CAR,\nA LIFESTYLE" },
   ],
-  /** Tall clad columns with vertical strips. */
+  /** Tall black columns with vertical strips. */
+  /**
+   * Clear of the sightline to the graphics.
+   *
+   * The first of these stood at x = 8.6, which from a camera at x = 7 is
+   * almost dead ahead — it ran straight down the middle of the left graphic
+   * panel and cut the tagline in half. A column is structure; it is allowed
+   * to be in the picture, and it is not allowed to be in front of the one
+   * thing on that wall worth reading.
+   */
   columns: [
-    { x: 7.4, z: 3.2 },
-    { x: 17.6, z: 10.6 },
-    { x: 17.6, z: 3.0 },
+    { x: 5.0, z: 3.4 },
+    { x: 20.6, z: 13.2 },
+    { x: 20.6, z: 4.2 },
   ],
-  /** Mezzanine, back right, over the lounge. */
-  mezz: { x0: 17.0, x1: SH.w, z0: 0, z1: 6.2, y: 3.5 },
-  /** Customer lounge on the floor below and forward of it. */
-  lounge: { x: 21.2, z: 12.6 },
+  /** Mezzanine, back right. */
+  mezz: { x0: 20.2, x1: SH.w, z0: 0, z1: 7.6, y: 3.6 },
+  /** Customer lounge on the floor, forward of it. */
+  lounge: { x: 23.6, z: 13.6 },
   /** Reception desk against the right wall. */
-  desk: { x: 24.3, z0: 7.4, z1: 13.2, h: 1.1, d: 0.9 },
-  /** RGB feature panels, far right beyond the mezzanine. */
-  rgbWall: { x: SH.w - 0.1, z0: 1.2, z1: 6.0, y0: 0.2, y1: 3.2 },
-  /** Dark slatted ceiling bay over the right-hand half. */
-  slats: { x0: 15.5, x1: SH.w, z0: 0.4, z1: 13.0, y: 6.3 },
+  desk: { x: 28.4, z0: 9.0, z1: 15.4, h: 1.08, d: 0.9 },
+  /** RGB feature panels beside the mezzanine. */
+  rgbWall: { x: SH.w - 0.1, z0: 1.4, z1: 7.2, y0: 0.2, y1: 3.4 },
+  /** Dark walnut slat bay over the right-hand ceiling. */
+  slats: { x0: 18.0, x1: SH.w, z0: 0.4, z1: 16.0, y: 6.8 },
 } as const;
 
 /**
  * The cars. Generic forms with no badge, grille or marque on any of them.
  *
  * `kind` picks a silhouette rather than a model: the proportions of a coupé,
- * a saloon and a boxy SUV are different enough to read across a room, and
+ * a saloon and a tall estate are different enough to read across a room, and
  * that is the whole requirement. Anything more specific would be somebody's
  * design.
  */
 export const SH_CARS = [
-  // Far enough back that its near end is four metres off the lens. At 13.4
-  // it filled the bottom-left quarter and ran off the edge of the frame,
-  // which is the "nothing large within two metres" fault in the brief.
-  { id: "coupe", kind: "coupe", x: 5.0, z: 11.4, rot: -0.5, colour: "#b9bfc6", hero: false },
-  { id: "sedan", kind: "saloon", x: 4.2, z: 8.0, rot: -0.2, colour: "#3a3e44", hero: false },
-  { id: "suv", kind: "suv", x: 11.5, z: 8.2, rot: 0.0, colour: "#2d4034", hero: true },
-  { id: "sport", kind: "coupe", x: 15.4, z: 12.9, rot: 2.5, colour: "#9e2116", hero: false },
-  { id: "white", kind: "saloon", x: 20.4, z: 4.6, rot: 1.9, colour: "#d8d8d6", hero: false },
-  { id: "black", kind: "saloon", x: 23.4, z: 6.4, rot: 2.2, colour: "#17191c", hero: false },
+  /**
+   * Left mid-ground, three-quarter on, and far enough right to be whole.
+   *
+   * At x = 8.0 its nose ran off the left edge of the frame — one of the faults
+   * the brief names. The camera stands at x = 7, so anything left of about
+   * x = 9.5 at this depth is partly outside the picture however far back it
+   * is. Ten metres along and nine back puts the whole car in shot with its
+   * three-quarter toward the lens.
+   */
+  { id: "coupe", kind: "coupe", x: 10.2, z: 15.4, rot: -0.95, colour: "#aeb4bb", hero: false },
+  { id: "sedan", kind: "saloon", x: 8.4, z: 8.2, rot: -0.5, colour: "#33373d", hero: false },
+  { id: "suv", kind: "suv", x: 13.5, z: 10.5, rot: 0.62, colour: "#28382d", hero: true },
+  { id: "sport", kind: "coupe", x: 18.6, z: 7.6, rot: 2.42, colour: "#8e1c13", hero: false },
+  { id: "white", kind: "saloon", x: 24.4, z: 4.2, rot: 2.0, colour: "#cfd0cf", hero: false },
+  { id: "black", kind: "saloon", x: 27.0, z: 6.6, rot: 2.3, colour: "#141619", hero: false },
 ] as const;
 
 /* ------------------------------------------------------------------ */
 /* Materials                                                          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * A dark room. Every architectural surface in here is charcoal or darker.
+ *
+ * This is the whole brief in one decision, and it is the opposite of what the
+ * first build did. A showroom reads as premium because of *contrast*: the
+ * paint on a car is the brightest thing in the frame and everything around it
+ * falls away. Pale walls and a pale ceiling make that impossible — they bounce
+ * the display lighting straight back, lift the floor, and leave the cars
+ * sitting in the same tone as the room. The first version shipped with cream
+ * walls and a 0.3 floor and read as a lit warehouse.
+ *
+ * The numbers are reflectances, not preferences. Charcoal paint is 0.08 to
+ * 0.12; dark terrazzo is 0.05 to 0.08 and earns all of its brightness from
+ * gloss. Keeping them there is what leaves headroom for a highlight.
+ */
 const M = {
-  /**
-   * Polished concrete, at concrete's reflectance.
-   *
-   * A showroom floor photographs pale because it is *reflective*, not because
-   * it is light — the brightness in a reference image is the cars and the
-   * ceiling coming back off it. Giving it a pale albedo as well is how the
-   * hotel lobby ended up looking like glare, so this stays at about 0.3 and
-   * earns its brightness from a low roughness instead.
-   */
+  /** Near-black polished terrazzo. The most important surface in the room. */
   floor: new THREE.MeshPhysicalMaterial({
-    color: "#6f7175",
-    roughness: 0.14,
-    metalness: 0.02,
-    clearcoat: 0.55,
-    clearcoatRoughness: 0.12,
-    envMapIntensity: 1.5,
-  }),
-  /** The turntable deck: polished, unmapped — see `HeroPlatform`. */
-  deck: new THREE.MeshPhysicalMaterial({
-    color: "#6b6d71",
+    color: "#17191c",
     roughness: 0.1,
-    metalness: 0.03,
-    clearcoat: 0.7,
-    clearcoatRoughness: 0.08,
+    metalness: 0.0,
+    clearcoat: 1,
+    clearcoatRoughness: 0.03,
     envMapIntensity: 1.6,
   }),
-  ceiling: new THREE.MeshStandardMaterial({ color: "#d9d6d0", roughness: 0.95 }),
-  coffer: new THREE.MeshStandardMaterial({ color: "#cfcbc3", roughness: 0.92 }),
-  wall: new THREE.MeshStandardMaterial({ color: "#b8b4ad", roughness: 0.93 }),
-  /** The dark wall behind the graphics, and the column cladding. */
-  dark: new THREE.MeshStandardMaterial({ color: "#26272a", roughness: 0.62 }),
-  darker: new THREE.MeshStandardMaterial({ color: "#161719", roughness: 0.7 }),
-  /** Dark wood slats on the right-hand ceiling bay. */
-  wood: new THREE.MeshStandardMaterial({ color: "#4a3522", roughness: 0.6 }),
-  /** Black track and spotlight bodies. */
+  /** The turntable deck: the same stone, unmapped — see `HeroPlatform`. */
+  deck: new THREE.MeshPhysicalMaterial({
+    color: "#15171a",
+    roughness: 0.08,
+    metalness: 0,
+    clearcoat: 1,
+    clearcoatRoughness: 0.03,
+    envMapIntensity: 1.7,
+  }),
+  /** Dark charcoal matte ceiling. */
+  ceiling: new THREE.MeshStandardMaterial({ color: "#1d1f22", roughness: 0.96 }),
+  coffer: new THREE.MeshStandardMaterial({ color: "#191b1e", roughness: 0.9 }),
+  /** Deep charcoal walls. */
+  wall: new THREE.MeshStandardMaterial({ color: "#232528", roughness: 0.94 }),
+  dark: new THREE.MeshStandardMaterial({ color: "#191b1e", roughness: 0.6 }),
+  darker: new THREE.MeshStandardMaterial({ color: "#0d0e10", roughness: 0.7 }),
+  /** Dark walnut on the slat bay. */
+  wood: new THREE.MeshStandardMaterial({ color: "#2f2016", roughness: 0.58 }),
   track: new THREE.MeshStandardMaterial({
-    color: "#17181a",
-    roughness: 0.45,
-    metalness: 0.4,
+    color: "#101113",
+    roughness: 0.42,
+    metalness: 0.45,
   }),
   /**
    * Alloy, not chrome.
    *
-   * A fully metallic surface shows only what it reflects, and the room's
-   * environment is a small procedural rig — so at metalness 0.95 the wheels
-   * came back as dark discs however bright the showroom was. Brushed alloy
-   * keeps a diffuse base for the spotlights to land on, which is also what a
-   * machined rim actually looks like.
+   * A fully metallic surface shows only what it reflects, and in a dark room
+   * that is almost nothing — at metalness 0.95 the wheels came back as black
+   * discs however bright the spotlights were. Brushed alloy keeps a diffuse
+   * base for the beams to land on, which is also what a machined rim is.
    */
   rim: new THREE.MeshStandardMaterial({
-    color: "#b4b8bd",
-    roughness: 0.34,
-    metalness: 0.62,
-    envMapIntensity: 1.6,
+    color: "#aeb3b8",
+    roughness: 0.32,
+    metalness: 0.6,
+    envMapIntensity: 1.8,
   }),
   chrome: new THREE.MeshStandardMaterial({
     color: "#b9bec4",
-    roughness: 0.18,
-    metalness: 0.95,
-    envMapIntensity: 1.8,
-  }),
-  brass: new THREE.MeshStandardMaterial({
-    color: "#b08d55",
-    roughness: 0.3,
-    metalness: 0.85,
-    envMapIntensity: 1.5,
+    roughness: 0.16,
+    metalness: 0.92,
+    envMapIntensity: 2.2,
   }),
   glass: new THREE.MeshPhysicalMaterial({
     color: "#ffffff",
     roughness: 0.04,
     transparent: true,
-    opacity: 0.1,
+    opacity: 0.08,
     side: THREE.DoubleSide,
   }),
 };
@@ -206,13 +211,53 @@ const M = {
 function Shell() {
   const c = SH_PLAN.coffer;
   const hero = SH_PLAN.hero;
+  const quality = useQuality();
 
   return (
     <group>
-      {/* Floor. */}
+      {/*
+        The floor, and on a capable machine a real one.
+
+        `MeshReflectorMaterial` renders the scene a second time into a mirror
+        buffer, which is genuinely expensive — but a showroom floor that does
+        not carry the cars and the LED lines back at you is not a showroom
+        floor, it is lino. So it is the one place in this project worth a
+        second pass, and it is gated: the high tier gets the reflector, and
+        everything else gets a very smooth physical material that picks up the
+        environment instead.
+
+        `mirror` is deliberately well under one. A mirror is a swimming pool;
+        polished terrazzo returns maybe a third of what lands on it and the
+        aggregate scatters the rest.
+      */}
       <mesh position={[SH.w / 2, 0, SH.d / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[SH.w, SH.d]} />
-        <primitive object={M.floor} attach="material" />
+        {quality === "high" ? (
+          <MeshReflectorMaterial
+            resolution={512}
+            mixBlur={1.2}
+            /**
+             * Under three, not over.
+             *
+             * `mixStrength` scales the reflection against the base colour, and
+             * at the higher figure the warm scenes came back with the whole
+             * lower half of the frame reading as an orange sheet rather than
+             * as a dark floor carrying warm highlights. Terrazzo reflects; it
+             * does not become the thing it reflects.
+             */
+            mixStrength={1.5}
+            blur={[400, 110]}
+            mirror={0.4}
+            depthScale={0.8}
+            minDepthThreshold={0.3}
+            maxDepthThreshold={1.3}
+            color="#15171a"
+            roughness={0.45}
+            metalness={0.1}
+          />
+        ) : (
+          <primitive object={M.floor} attach="material" />
+        )}
       </mesh>
 
       {/*
@@ -965,11 +1010,16 @@ function Planting() {
  */
 function Surfaces() {
   useLayoutEffect(() => {
-    // Large-format polished concrete: a wide, soft mottle rather than veins.
-    const floor = makeMarbleTexture("#6f7175", "#85878a", 7741);
-    floor.repeat.set(SH.w / 6, SH.d / 6);
-    M.floor.map = floor;
-    M.floor.color.set("#ffffff");
+    /**
+     * No map on the floor at all.
+     *
+     * It carried a marble texture, and on near-black terrazzo that is both
+     * invisible and actively harmful: a map multiplies the albedo, so its
+     * variation lands as mottling in the reflection rather than as aggregate.
+     * Fine aggregate at this scale is a roughness detail, not a colour one,
+     * and the reflector carries the look instead.
+     */
+    M.floor.map = null;
     M.floor.needsUpdate = true;
   }, []);
   return null;

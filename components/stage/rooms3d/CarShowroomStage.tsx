@@ -35,9 +35,9 @@ import { CarShowroomLightRig, type ShowroomFixtures } from "./CarShowroomLightRi
  * lounge and mezzanine open up to the right.
  */
 const CAMERA: CameraSpec = {
-  position: [6.4, 1.55, 18.2],
-  target: [12.4, 1.15, 3.4],
-  fov: 48,
+  position: [7.0, 1.7, 23.0],
+  target: [15.5, 1.45, 6.0],
+  fov: 45,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
