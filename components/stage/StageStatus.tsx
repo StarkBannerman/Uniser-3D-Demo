@@ -137,30 +137,25 @@ export function StageStatus() {
     return () => clearTimeout(timer);
   }, [sceneRunId, settleMs]);
 
-  const scene = sequence
-    ? space?.scenes.find((s) => s.id === sequence.sceneId)
-    : undefined;
-
   const showing = Boolean(sequence) || settling || Boolean(travelling);
   if (!space || !showing) return null;
 
   /**
-   * Stage zero is not step zero.
+   * The step counter alone, and only on a wide enough screen.
+   *
+   * The scene's name used to lead this. It is already lit in the scene pad
+   * beside the room, and repeating it in a chip this small crowded out the one
+   * thing shown nowhere else — which stage of a staged scene is running.
    *
    * `sequence.step` counts the stages in `steps`, and a scene's own `targets`
-   * run before the first of them — so the moment a staged scene is pressed it
-   * publishes step 0, and the band said "STEP 0 OF 4". Nobody counts from
-   * zero out loud. While stage zero is settling there is no step to name, so
-   * the counter simply waits for one.
+   * run before the first of them, so a staged scene publishes step 0 the
+   * moment it is pressed. Nobody counts from zero out loud; while stage zero
+   * settles there is no step to name and the counter waits for one.
    */
-  const eyebrow = [
-    scene?.name?.toUpperCase(),
+  const eyebrow =
     sequence && sequence.step > 0
-      ? `STEP ${sequence.step} OF ${sequence.total}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+      ? `${sequence.step}/${sequence.total}`
+      : null;
 
   /**
    * What is physically moving wins over what the scene calls this stage.
@@ -178,44 +173,40 @@ export function StageStatus() {
     (settling || sequence ? "Setting the scene" : null);
 
   return (
+    /**
+     * A chip, not a band.
+     *
+     * The first version was a full-width gradient scrim with two-line type and
+     * a progress bar across the bottom of the picture. It was legible from the
+     * back of a room, which was the point — and it also covered the bottom
+     * sixth of the render and read as the software telling you to wait.
+     *
+     * What a client actually needs is one short fact, placed where it does not
+     * sit on the furniture, that they can ignore. So: a single line in a small
+     * pill, bottom left, over a blur rather than a scrim. The progress bar is
+     * gone with it — the room itself is the progress indicator, and a bar
+     * beside a visibly moving blind is telling somebody something they can
+     * already see.
+     */
     <div
-      className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center gap-2 bg-gradient-to-t from-black/75 via-black/45 to-transparent px-4 pb-5 pt-14 sm:pb-7"
-      // Announced politely: a salesperson may be running this with a screen
-      // reader on a shared display, and it changes several times a scene.
+      className="pointer-events-none absolute bottom-3 left-3 z-20 flex items-center gap-2 rounded-full bg-black/45 px-3 py-1.5 backdrop-blur-sm ring-1 ring-white/10 sm:bottom-4 sm:left-4"
       role="status"
       aria-live="polite"
     >
-      {eyebrow && (
-        <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-brass-400 sm:text-[11px]">
-          {eyebrow}
-        </div>
-      )}
-      <div className="flex items-center gap-2.5 text-center text-lg font-medium text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] sm:text-2xl">
-        {travelling && (
-          <span
-            aria-hidden
-            className="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-brass-400 sm:h-2.5 sm:w-2.5"
-          />
-        )}
+      <span
+        aria-hidden
+        className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-brass-400 ${
+          travelling ? "animate-pulse" : ""
+        }`}
+      />
+      <span className="text-[12px] font-medium text-white/90 sm:text-[13px]">
         {headline}
-      </div>
-
-      <div className="mt-1 h-[3px] w-full max-w-sm overflow-hidden rounded-full bg-white/15">
-        {sequence ? (
-          <div
-            className="h-full bg-brass-400 transition-[width] duration-500 ease-out"
-            style={{ width: `${(sequence.step / sequence.total) * 100}%` }}
-          />
-        ) : (
-          <div
-            // Keyed on the run id so pressing the same scene twice restarts
-            // the animation instead of leaving a finished bar on screen.
-            key={sceneRunId}
-            className="h-full bg-brass-400"
-            style={{ animation: `scene-progress ${settleMs}ms linear forwards` }}
-          />
-        )}
-      </div>
+      </span>
+      {eyebrow && (
+        <span className="hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40 sm:inline">
+          {eyebrow}
+        </span>
+      )}
     </div>
   );
 }

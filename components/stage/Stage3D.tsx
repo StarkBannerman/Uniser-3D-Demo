@@ -55,35 +55,36 @@ import { ToneMappingMode } from "postprocessing";
 export type Quality = "high" | "low";
 
 /**
- * Resolution ladder, and the rung everyone starts on.
+ * One device pixel ratio, for everybody.
  *
- * Measured on the hotel lobby on an M1: dropping the device pixel ratio from
- * 1.25 to 1.0 took it from 8.1 to 17.2 frames a second. That is a factor of
- * two for 36 per cent fewer pixels, which is what you expect from a renderer
- * that is entirely fill-bound — and this one is: at 1.25 the drawing buffer is
- * 1.8 megapixels and every one of them evaluates three dozen lights.
- *
- * Below 1.0 the curve flattens (0.75 and 0.6 both measured 17.3), which says
- * the remaining cost is per-frame rather than per-pixel. So 1.0 is where
- * everybody starts, and the rungs below it exist for machines that still
- * cannot hold a frame there.
+ * Measured on the hotel lobby on an M1: 1.25 to 1.0 took it from 8.1 to 9.2
+ * frames a second. Fourteen per cent for thirty-six per cent fewer pixels,
+ * which says most of the cost is not per-pixel at all — three.js uploads
+ * every light's uniforms on every draw call, and that is paid per draw, not
+ * per fragment. Cutting the light count is what actually moved this room, by
+ * a factor of four.
  *
  * There is no rung above 1.0. A demo is shown on a projector or a shared
  * screen far more often than on a retina panel, and the half-stop of
- * sharpness 1.25 buys is not worth halving the frame rate of the one machine
- * in the room that matters.
- */
-const DPR_LADDER = [1.0, 0.85, 0.72, 0.6] as const;
-
-/**
- * The frame cost above which the governor steps down a rung.
+ * sharpness 1.25 buys is not worth it on the one machine in the room that
+ * matters.
  *
- * 55 ms is about 18 frames a second. Below that the eye reads a crossfade as
- * a crossfade; above it, it reads as the application having hung — which is
- * precisely the report that prompted this. The cap is 30 fps, so a healthy
- * machine sits at 33 ms and never trips it.
+ * **And there is no longer a ladder below it.** There was: a governor that
+ * watched frame times and stepped the resolution down. It had to go, and the
+ * reason is worth keeping. `<Canvas dpr={[min, max]} />` hands R3F a *range*,
+ * and R3F then owns the value inside it — so every time the governor called
+ * `setDpr`, the next Canvas render put it back. Traced: the governor dropped
+ * to 0.6 at t=23805 ms, the canvas went black at 23905, and R3F restored 1.0
+ * at 23932. Two owners, one number, and a visible blank every time they
+ * disagreed. That blank is what a client reported as "part of the screen goes
+ * blank for a second".
+ *
+ * A correct version would make this component the single owner and drive the
+ * Canvas from state. It is not worth it yet: the measured prize is fourteen
+ * per cent, and the room it was written to protect now runs at forty frames a
+ * second without it.
  */
-const STEP_DOWN_MS = 55;
+const DPR = 1.0;
 
 function detectQuality(): Quality {
   if (typeof navigator === "undefined") return "high";
@@ -340,78 +341,22 @@ function usePerfFlag(): boolean {
 }
 
 /**
- * Step the resolution down until the machine can hold a frame.
- *
- * **Why this is measured and not predicted.** The tier above it is chosen from
- * `hardwareConcurrency` and `deviceMemory` — how many CPU cores there are and
- * how much RAM. Neither says anything about the GPU, and the GPU is the entire
- * cost of this scene. A corporate laptop with eight cores and sixteen
- * gigabytes and an integrated Intel part reports exactly what a workstation
- * reports and gets exactly the same settings, then runs at a third of the
- * speed. That is the machine the demo was failing on, and no amount of
- * guessing from CPU facts would have caught it.
- *
- * So the room watches its own frame times and gives up resolution until they
- * come back under budget. It only samples while the pump is driving frames
- * back to back — during a scene fade, a curtain, a fan — because that is both
- * when the cost is real and when a person is watching for the room to respond.
- *
- * It never steps back up. A governor that hunts in both directions visibly
- * oscillates, and the only thing worse than a soft image is one that keeps
- * changing sharpness while somebody is presenting over it.
- */
-function useResolutionGovernor(startDpr: number) {
-  const setDpr = useThree((s) => s.setDpr);
-  const rung = useRef(0);
-  const samples = useRef<number[]>([]);
-  const settleUntil = useRef(0);
-
-  useLayoutEffect(() => {
-    setDpr(startDpr);
-  }, [setDpr, startDpr]);
-
-  return useCallback(
-    (cost: number, now: number) => {
-      if (rung.current >= DPR_LADDER.length - 1) return;
-      // The first frames after a step carry the recompile and the resize, so
-      // they say nothing about the steady state.
-      if (now < settleUntil.current) return;
-
-      const s = samples.current;
-      s.push(cost);
-      if (s.length < 24) return;
-      if (s.length > 48) s.shift();
-
-      const sorted = [...s].sort((a, b) => a - b);
-      const median = sorted[Math.floor(sorted.length / 2)];
-      if (median <= STEP_DOWN_MS) return;
-
-      rung.current += 1;
-      samples.current = [];
-      settleUntil.current = now + 1200;
-      setDpr(DPR_LADDER[rung.current]);
-    },
-    [setDpr],
-  );
-}
-
-/**
  * Hold the room back until it is genuinely ready to be looked at.
  *
  * three.js compiles a material's shader the first time it draws with it, so
  * opening a room used to mean watching it assemble: a black box, then a
  * partial scene, then a few seconds of stutter as 49 programs came up one at a
  * time. Measured on this machine that is about 98 shader compiles, and a
- * machine slower than this one spends correspondingly longer doing it in full
- * view of a client.
+ * slower machine spends correspondingly longer doing it in full view of a
+ * client.
  *
  * `compileAsync` does all of it up front. Where the browser supports
  * `KHR_parallel_shader_compile` it hands the work to the driver and returns a
- * promise, so the loader keeps animating instead of freezing the tab — which
- * is the whole reason for preferring it to the synchronous `compile`.
+ * promise, so the page stays responsive instead of freezing — which is the
+ * whole reason for preferring it to the synchronous `compile`.
  *
  * Then two frames: the first draws, the second proves the first was not a
- * one-off. Only then does the room appear, and it appears finished.
+ * one-off. Only then is the room uncovered, and it is uncovered finished.
  */
 function ReadyGate({ onReady }: { onReady: (ready: boolean) => void }) {
   const gl = useThree((s) => s.gl);
@@ -436,7 +381,7 @@ function ReadyGate({ onReady }: { onReady: (ready: boolean) => void }) {
           gl.compile(scene, camera);
         }
       } catch {
-        // A driver that refuses to pre-compile is not a reason to never show
+        // A driver that refuses to pre-compile is not a reason never to show
         // the room; it just means the stutter comes back.
       }
       if (cancelled) return;
@@ -449,7 +394,7 @@ function ReadyGate({ onReady }: { onReady: (ready: boolean) => void }) {
     };
 
     // A tick, so every child has committed its objects into the scene graph
-    // before we ask the renderer to compile what is in it.
+    // before the renderer is asked to compile what is in it.
     const t = setTimeout(run, 0);
     return () => {
       cancelled = true;
@@ -460,40 +405,37 @@ function ReadyGate({ onReady }: { onReady: (ready: boolean) => void }) {
   return null;
 }
 
-/** Shown over the stage until `ReadyGate` says the room is built. */
-function RoomLoader({ name, gone }: { name: string; gone: boolean }) {
+/**
+ * The room arrives rather than loading.
+ *
+ * This was a branded panel — name, bar, "Building the room…" — and it worked,
+ * but it announced a wait. A demo should not tell a client it is busy; it
+ * should simply not be seen until it is ready, which is the same gate with
+ * none of the furniture. So: a plain cover in the stage's own background
+ * colour that fades once `ReadyGate` says the shaders are compiled and two
+ * frames have drawn.
+ *
+ * On a fast machine nothing appears to happen at all — the room is simply
+ * there. On a slow one there is a held beat and then a room, instead of a
+ * black box assembling itself in front of somebody.
+ */
+function RoomReveal({ gone }: { gone: boolean }) {
   return (
     <div
-      className={`pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-shell-950 transition-opacity duration-500 ${
+      aria-hidden
+      className={`pointer-events-none absolute inset-0 z-30 bg-shell-950 transition-opacity duration-700 ease-out ${
         gone ? "opacity-0" : "opacity-100"
       }`}
-      // Faded out but still in the layer, so it keeps its transition. Hidden
-      // from assistive technology once it has nothing left to say, or a screen
-      // reader goes on announcing a room that finished loading.
-      aria-hidden={gone}
-      role={gone ? undefined : "status"}
-      aria-live={gone ? undefined : "polite"}
-    >
-      <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brass-500">
-        SmartSpaces
-      </div>
-      <div className="text-base font-medium text-shell-100 sm:text-lg">{name}</div>
-      <div className="h-[3px] w-40 overflow-hidden rounded-full bg-shell-800">
-        <div className="h-full w-1/3 rounded-full bg-brass-500 [animation:room-loading_1.1s_ease-in-out_infinite]" />
-      </div>
-      <div className="text-xs text-shell-500">Building the room…</div>
-    </div>
+    />
   );
 }
 
-function RenderPump({ fps, dpr }: { fps: number; dpr: number }) {
+function RenderPump({ fps }: { fps: number }) {
   const invalidate = useThree((s) => s.invalidate);
-  const report = useResolutionGovernor(dpr);
 
   useLayoutEffect(() => {
     let frame = 0;
     let last = 0;
-    let lastDraw = 0;
     let signature = "";
     const minDelta = 1000 / fps;
 
@@ -518,15 +460,6 @@ function RenderPump({ fps, dpr }: { fps: number; dpr: number }) {
       }
 
       if (draw && t - last >= gap) {
-        /**
-         * While a transition is running the loop asks for a frame on every
-         * tick, so `requestAnimationFrame` is gated by the work itself and the
-         * gap between consecutive draws *is* the cost of a frame. That is the
-         * only window in which this can be measured without timing the GPU
-         * directly, which WebGL will not let us do.
-         */
-        if (motion === "transition" && lastDraw) report(t - lastDraw, t);
-        lastDraw = motion === "transition" ? t : 0;
         last = t;
         if (motion === "transition") signature = visualSignature();
         invalidate();
@@ -536,7 +469,7 @@ function RenderPump({ fps, dpr }: { fps: number; dpr: number }) {
 
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [invalidate, fps, report]);
+  }, [invalidate, fps]);
 
   return null;
 }
@@ -683,7 +616,6 @@ export function Stage3D({
   const [quality] = useState<Quality>(detectQuality);
   const perf = usePerfFlag();
   const [ready, setReady] = useState(false);
-  const roomName = useSim((s) => s.space?.name ?? "Loading");
 
   const fill = new THREE.Color(
     ambient.color[0] / 255,
@@ -711,11 +643,11 @@ export function Stage3D({
        * come down by a third.
        */
       /**
-       * A range, so `setDpr` can move inside it. The governor sets the actual
-       * value on mount and steps it down from there; this only says how far it
-       * is allowed to go.
+       * One number, not a range. A range makes R3F the owner of the value
+       * inside it, and a second owner is what caused the blanking described
+       * above `DPR`.
        */
-      dpr={[DPR_LADDER[DPR_LADDER.length - 1], DPR_LADDER[0]]}
+      dpr={quality === "low" ? 0.85 : DPR}
       gl={{
         antialias: true,
         // Tone mapping is the composer's job — see the note at the top.
@@ -730,7 +662,7 @@ export function Stage3D({
       }}
     >
       <Suspense fallback={null}>
-        <RenderPump fps={FRAME_CAP[quality]} dpr={quality === "low" ? 0.85 : DPR_LADDER[0]} />
+        <RenderPump fps={FRAME_CAP[quality]} />
         {perf && <PerfProbe />}
         <LockHorizontalFov fovAt16x9={camera.fov} />
         <ProceduralEnvironment />
@@ -778,7 +710,7 @@ export function Stage3D({
         <ReadyGate onReady={setReady} />
       </Suspense>
     </Canvas>
-      <RoomLoader name={roomName} gone={ready} />
+      <RoomReveal gone={ready} />
       <StageStatus />
     </div>
   );
