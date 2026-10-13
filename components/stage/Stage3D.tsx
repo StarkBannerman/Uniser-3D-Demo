@@ -406,27 +406,42 @@ function ReadyGate({ onReady }: { onReady: (ready: boolean) => void }) {
 }
 
 /**
- * The room arrives rather than loading.
+ * Shown over the stage until `ReadyGate` says the room is built.
  *
- * This was a branded panel — name, bar, "Building the room…" — and it worked,
- * but it announced a wait. A demo should not tell a client it is busy; it
- * should simply not be seen until it is ready, which is the same gate with
- * none of the furniture. So: a plain cover in the stage's own background
- * colour that fades once `ReadyGate` says the shaders are compiled and two
- * frames have drawn.
+ * There was a version of this with no words in it — a plain pane that faded
+ * when the room was ready, on the reasoning that a demo should not announce a
+ * wait. It is quieter, and it is worse: on a slow machine a dark rectangle
+ * sitting there for four seconds is indistinguishable from a page that has
+ * failed to load, and the person it fails in front of is a salesperson with a
+ * client over their shoulder. Saying what is happening costs a line of type
+ * and buys the benefit of the doubt.
  *
- * On a fast machine nothing appears to happen at all — the room is simply
- * there. On a slow one there is a held beat and then a room, instead of a
- * black box assembling itself in front of somebody.
+ * The bar is indeterminate on purpose. Shader compilation reports no progress,
+ * and a bar that pretends to know how far along it is will sit at ninety per
+ * cent on exactly the machines where honesty matters most.
  */
-function RoomReveal({ gone }: { gone: boolean }) {
+function RoomLoader({ name, gone }: { name: string; gone: boolean }) {
   return (
     <div
-      aria-hidden
-      className={`pointer-events-none absolute inset-0 z-30 bg-shell-950 transition-opacity duration-700 ease-out ${
+      className={`pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-shell-950 transition-opacity duration-500 ${
         gone ? "opacity-0" : "opacity-100"
       }`}
-    />
+      // Faded out but still in the layer, so it keeps its transition. Hidden
+      // from assistive technology once it has nothing left to say, or a screen
+      // reader goes on announcing a room that finished loading.
+      aria-hidden={gone}
+      role={gone ? undefined : "status"}
+      aria-live={gone ? undefined : "polite"}
+    >
+      <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brass-500">
+        SmartSpaces
+      </div>
+      <div className="text-base font-medium text-shell-100 sm:text-lg">{name}</div>
+      <div className="h-[3px] w-40 overflow-hidden rounded-full bg-shell-800">
+        <div className="h-full w-1/3 rounded-full bg-brass-500 [animation:room-loading_1.1s_ease-in-out_infinite]" />
+      </div>
+      <div className="text-xs text-shell-500">Building the room…</div>
+    </div>
   );
 }
 
@@ -616,6 +631,7 @@ export function Stage3D({
   const [quality] = useState<Quality>(detectQuality);
   const perf = usePerfFlag();
   const [ready, setReady] = useState(false);
+  const roomName = useSim((s) => s.space?.name ?? "Loading");
 
   const fill = new THREE.Color(
     ambient.color[0] / 255,
@@ -710,7 +726,7 @@ export function Stage3D({
         <ReadyGate onReady={setReady} />
       </Suspense>
     </Canvas>
-      <RoomReveal gone={ready} />
+      <RoomLoader name={roomName} gone={ready} />
       <StageStatus />
     </div>
   );
