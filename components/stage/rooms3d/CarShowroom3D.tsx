@@ -30,7 +30,10 @@ import {
   CAR_SHAPES,
   makeBrandGraphic,
   makeCarBody,
+  makeAlloy,
+  makeTyre,
   makeCarPanelMap,
+  makeCarPillars,
   makeWordmark,
 } from "./geometry";
 
@@ -194,6 +197,12 @@ const M = {
     metalness: 0.6,
     envMapIntensity: 1.8,
   }),
+  /** Rubber. Rough enough that no fitting in the room puts a highlight on it. */
+  tyre: new THREE.MeshStandardMaterial({ color: "#121315", roughness: 0.94 }),
+  /** Mesh, in shadow but not a void. Near-black reads as a hole in the car. */
+  grille: new THREE.MeshStandardMaterial({ color: "#26282c", roughness: 0.78, metalness: 0.2 }),
+  /** A blank plate. No characters on it — it is not anybody's registration. */
+  plate: new THREE.MeshStandardMaterial({ color: "#c8c9c4", roughness: 0.6 }),
   chrome: new THREE.MeshStandardMaterial({
     color: "#b9bec4",
     roughness: 0.16,
@@ -491,6 +500,51 @@ export function HeroPlatform({
 
 
 /**
+ * Four wheels from one geometry, in a single draw.
+ *
+ * The left-hand pair are the same mesh turned through half a revolution about
+ * the vertical, which swaps the dished face to the outboard side. Mirroring a
+ * geometry would invert its winding and need the material flipped with it;
+ * rotating costs nothing and a wheel is symmetric about its axle anyway.
+ */
+function Wheels({
+  geometry,
+  material,
+  axle,
+  track,
+  r,
+}: {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material;
+  axle: { front: number; rear: number };
+  track: number;
+  r: number;
+}) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const one = new THREE.Vector3(1, 1, 1);
+    const up = new THREE.Vector3(0, 1, 0);
+    let i = 0;
+    for (const x of [axle.front, axle.rear]) {
+      for (const z of [-track, track]) {
+        q.setFromAxisAngle(up, z > 0 ? 0 : Math.PI);
+        m.compose(new THREE.Vector3(x, r, z), q, one);
+        mesh.setMatrixAt(i++, m);
+      }
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [axle, track, r, geometry]);
+
+  return (
+    <instancedMesh ref={ref} args={[geometry, material, 4]} castShadow receiveShadow />
+  );
+}
+
+/**
  * One car: paint, glass, a painted roof, wheels in their arches, lamps.
  *
  * Three skins rather than one. The paint stops at the shoulder and closes
@@ -525,7 +579,12 @@ export function Car({
       body: makeCarBody(shape.stations, shape.length, "body"),
       glass: makeCarBody(shape.stations, shape.length, "glass"),
       roof: makeCarBody(shape.stations, shape.length, "roof"),
+      pillars: makeCarPillars(shape.stations, shape.length, shape.pillars),
     }),
+    [shape],
+  );
+  const wheel = useMemo(
+    () => ({ tyre: makeTyre(shape.wheelR), alloy: makeAlloy(shape.wheelR) }),
     [shape],
   );
   const panels = useMemo(() => makeCarPanelMap(shape.doors), [shape]);
@@ -593,6 +652,15 @@ export function Car({
         clearcoat: 0,
         clearcoatRoughness: 0.2,
         envMapIntensity: 0.7,
+        /**
+         * Glass reflects about four per cent of what hits it, and under a
+         * twelve-head ring four per cent is still enough to read as a blank
+         * white panel — the hero's windscreen came back as a visor. Cutting
+         * the dielectric lobe to a third leaves the highlight along the top
+         * of the screen, which is the part that says glass, and lets the
+         * rest of it go dark the way a tinted screen does in a photograph.
+         */
+        specularIntensity: 0.35,
         side: THREE.DoubleSide,
       }),
     [],
@@ -658,52 +726,23 @@ export function Car({
       <mesh geometry={skins.roof} castShadow>
         <primitive object={roofPaint} attach="material" />
       </mesh>
+      {/* A, B and C in paint, cutting the greenhouse into panes. */}
+      <mesh geometry={skins.pillars} castShadow>
+        <primitive object={roofPaint} attach="material" />
+      </mesh>
 
-      {/* Wheels: a tyre, a dished rim and spokes, sat in the arch. */}
-      {[axle.front, axle.rear].map((x) =>
-        [-track, track].map((z) => (
-          <group key={`w-${x}-${z}`} position={[x, wheelR, z]} rotation={[Math.PI / 2, 0, 0]}>
-            <mesh castShadow>
-              <cylinderGeometry args={[wheelR, wheelR, tyreW, 24]} />
-              <meshStandardMaterial color="#121315" roughness={0.92} />
-            </mesh>
-            {/*
-              Outboard of the tyre, not inside it.
+      {/*
+        Four wheels, two draw calls.
 
-              The tyre is 235 mm across, so its outer face is at ±0.1175 and a
-              rim offset by 0.10 was buried in the rubber — every wheel read as
-              a plain black disc. 0.125 puts the dish just proud of the
-              sidewall, which is where an alloy actually sits.
-            */}
-            {/*
-              The dish is dark and only the spokes are alloy.
-
-              A full-width alloy disc reads as a white circle from any
-              distance — which is exactly what it did, and it made every
-              wheel look like a hubcap off a van. On a real wheel most of
-              the area behind the spokes is shadow.
-            */}
-            <mesh position={[0, z > 0 ? 0.122 : -0.122, 0]}>
-              <cylinderGeometry args={[wheelR * 0.74, wheelR * 0.74, 0.03, 24]} />
-              <primitive object={M.darker} attach="material" />
-            </mesh>
-            {Array.from({ length: 5 }, (_, k) => (
-              <mesh
-                key={k}
-                position={[0, z > 0 ? 0.138 : -0.138, 0]}
-                rotation={[0, (k * Math.PI * 2) / 5, 0]}
-              >
-                <boxGeometry args={[wheelR * 1.34, 0.016, 0.1]} />
-                <primitive object={M.rim} attach="material" />
-              </mesh>
-            ))}
-            <mesh position={[0, z > 0 ? 0.142 : -0.142, 0]}>
-              <cylinderGeometry args={[wheelR * 0.22, wheelR * 0.22, 0.03, 16]} />
-              <primitive object={M.chrome} attach="material" />
-            </mesh>
-          </group>
-        )),
-      )}
+        Each wheel used to be eight meshes — tyre, dish, five spokes, hub —
+        which is thirty-two a car and a hundred and ninety-two across the
+        floor. The tread and the alloy are now one merged geometry apiece,
+        instanced four times. The left pair are the same geometry turned
+        through half a revolution, which is what puts the dish on the outboard
+        side without a mirrored copy.
+      */}
+      <Wheels geometry={wheel.tyre} axle={axle} track={track} r={wheelR} material={M.tyre} />
+      <Wheels geometry={wheel.alloy} axle={axle} track={track} r={wheelR} material={M.rim} />
 
       {/*
         Door mirrors, on the shoulder at the base of the A-pillar.
@@ -715,16 +754,24 @@ export function Car({
       {[-1, 1].map((side) => {
         const st = at(0.34);
         return (
+          /**
+           * On the beltline, not above it.
+           *
+           * Mounted at the flank's full half-width but at shoulder + 40 mm,
+           * every mirror sat in mid-air: by that height the section has
+           * already tucked in to the deck and the body is barely 60 per cent
+           * as wide as it is at the waist.
+           */
           <group
             key={`m-${side}`}
-            position={[(0.34 - 0.5) * L, st.shoulder + 0.04, side * st.hw * 0.97]}
+            position={[(0.34 - 0.5) * L, st.shoulder - 0.02, side * st.hw * 0.86]}
           >
-            <mesh position={[0, 0, side * 0.055]}>
-              <boxGeometry args={[0.05, 0.03, 0.11]} />
+            <mesh position={[0, 0.02, side * 0.05]}>
+              <boxGeometry args={[0.045, 0.028, 0.1]} />
               <primitive object={M.darker} attach="material" />
             </mesh>
-            <mesh position={[0, 0.03, side * 0.145]} rotation={[0, 0, side * 0.12]}>
-              <boxGeometry args={[0.15, 0.085, 0.06]} />
+            <mesh position={[0, 0.055, side * 0.135]} rotation={[0, 0, side * 0.1]}>
+              <boxGeometry args={[0.15, 0.08, 0.055]} />
               <primitive object={paint} attach="material" />
             </mesh>
           </group>
@@ -732,41 +779,87 @@ export function Car({
       })}
 
       {/*
-        Headlamps and tail bars: abstract slots, not a face.
+        A face, laid out with the clearances written down.
 
-        Set out to the corners of the nose rather than inboard. A pair of
-        lamps huddled around the centreline reads as a cartoon; a real lamp
-        runs out to where the wing turns, and that is also the only place it
-        is visible from three-quarters on, which is how every one of these is
-        seen on the floor.
+        The first attempt stacked a lamp at 0.685–0.757, a grille at
+        0.566–0.688 and an intake at 0.444–0.508 on a nose face only 400 mm
+        tall — the lamps and the grille overlapped, and the whole front came
+        back as one black hole with a white tab hanging off it. Everything is
+        now positioned as a fraction of the nose station's own rise, with
+        50 mm of paint showing between each piece, and sized to stay inside
+        the ring at its own height so nothing hangs in the air beyond the
+        bumper. The grille is dark grey rather than near-black, because a
+        hole is not a grille.
       */}
-      {[-1, 1].map((side) => (
-        <mesh
-          key={`hl-${side}`}
-          position={[-L / 2 + 0.08, nose.shoulder - 0.1, side * (nose.hw * 0.78)]}
-          rotation={[0, Math.PI / 2, 0]}
-        >
-          <planeGeometry args={[0.3, 0.07]} />
-          <primitive object={lamp} attach="material" />
-        </mesh>
-      ))}
-      <mesh
-        position={[L / 2 - 0.04, tailSt.shoulder - 0.14, 0]}
-        rotation={[0, -Math.PI / 2, 0]}
-      >
-        <planeGeometry args={[tailSt.hw * 1.55, 0.06]} />
-        <primitive object={tail} attach="material" />
-      </mesh>
-      {/*
-        A dark intake low in the nose, which is what reads as a grille without
-        being one — and it is *low*. At a quarter of a metre tall it covered
-        the whole front of the car and every vehicle on the floor had a black
-        slab for a face.
-      */}
-      <mesh position={[-L / 2 + 0.04, nose.sill + 0.1, 0]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[nose.hw * 1.15, 0.15]} />
-        <primitive object={M.darker} attach="material" />
-      </mesh>
+      {(() => {
+        const x0 = -L / 2 + 0.03;
+        const rise = nose.shoulder - nose.sill;
+        const w = nose.hw;
+        const at = (f: number) => nose.sill + rise * f;
+        return (
+          <group>
+            {[-1, 1].map((side) => (
+              <mesh
+                key={`hl-${side}`}
+                position={[x0, at(0.847), side * (w * 0.64)]}
+                rotation={[0, side * 0.16, side * 0.04]}
+              >
+                <boxGeometry args={[0.08, rise * 0.153, w * 0.52]} />
+                <primitive object={lamp} attach="material" />
+              </mesh>
+            ))}
+            {/* The plate sits 14 mm in front of the grille. Behind it — where
+                it started — the grille box swallowed it whole and the only
+                thing a magenta test could find was nothing at all. */}
+            <mesh position={[x0, at(0.486), 0]}>
+              <boxGeometry args={[0.08, rise * 0.29, w * 1.77]} />
+              <primitive object={M.grille} attach="material" />
+            </mesh>
+            <mesh position={[x0 - 0.014, at(0.486), 0]}>
+              <boxGeometry args={[0.08, rise * 0.19, 0.26]} />
+              <primitive object={M.plate} attach="material" />
+            </mesh>
+            <mesh position={[x0, at(0.125), 0]}>
+              <boxGeometry args={[0.08, rise * 0.167, w * 1.57]} />
+              <primitive object={M.darker} attach="material" />
+            </mesh>
+          </group>
+        );
+      })()}
+
+      {/* The tail, to the same rules: one bar, a plate, a valance, two pipes. */}
+      {(() => {
+        const x1 = L / 2 - 0.03;
+        const rise = tailSt.shoulder - tailSt.sill;
+        const w = tailSt.hw;
+        const at = (f: number) => tailSt.sill + rise * f;
+        return (
+          <group>
+            <mesh position={[x1, at(0.8), 0]}>
+              <boxGeometry args={[0.08, rise * 0.1, w * 1.4]} />
+              <primitive object={tail} attach="material" />
+            </mesh>
+            <mesh position={[x1 + 0.014, at(0.48), 0]}>
+              <boxGeometry args={[0.08, rise * 0.14, 0.26]} />
+              <primitive object={M.plate} attach="material" />
+            </mesh>
+            <mesh position={[x1, at(0.17), 0]}>
+              <boxGeometry args={[0.08, rise * 0.16, w * 1.5]} />
+              <primitive object={M.darker} attach="material" />
+            </mesh>
+            {[-1, 1].map((side) => (
+              <mesh
+                key={`ex-${side}`}
+                position={[x1 + 0.02, at(0.17), side * (w * 0.6)]}
+                rotation={[0, 0, Math.PI / 2]}
+              >
+                <cylinderGeometry args={[0.036, 0.036, 0.07, 12]} />
+                <primitive object={M.chrome} attach="material" />
+              </mesh>
+            ))}
+          </group>
+        );
+      })()}
     </group>
   );
 }

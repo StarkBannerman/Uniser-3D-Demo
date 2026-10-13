@@ -1659,6 +1659,19 @@ export function makeCarPanelMap(doors: 2 | 4): THREE.CanvasTexture {
     bar(u, 1 - hi, 1 - lo, px, a);
   };
 
+  /**
+   * The rocker, in shadow for its whole length.
+   *
+   * v runs around the section, so the band just above the underside is the
+   * bottom 60 mm of the flank — the part of a real car that lives under the
+   * doors and never catches a ceiling fitting. Without it the body meets the
+   * floor at the same value it has at the beltline, and a flank lit evenly
+   * from sill to shoulder is the other half of why these read as mouldings.
+   */
+  g.fillStyle = "rgba(0,0,0,0.28)";
+  g.fillRect(0, 0.1 * h, w, 0.055 * h);
+  g.fillRect(0, 0.845 * h, w, 0.055 * h);
+
   // Bonnet trailing edge, right across the deck.
   bar(0.288, 0.4, 0.6, 2.6, 0.5);
   // Boot leading edge.
@@ -1693,12 +1706,27 @@ export function makeCarPanelMap(doors: 2 | 4): THREE.CanvasTexture {
  *
  * The axles sit at t = 0.19 and t = 0.81, the classic fractions, and the
  * `sill` column over each one traces a *circle around the wheel* rather than
- * a notch: seven stations on an arc of radius wheelR + 55 mm. The first pass
+ * a notch: nine stations on an arc of radius wheelR + 48 mm. At 70 mm the
+ * arch cleared the tyre by a visible crescent of empty wheel well and every
+ * car looked lifted; 48 is about what a road car runs. The first pass
  * at this had the arches in the data and they still did not read, because
  * the rocker between them sat 190 mm off the floor — a car whose body hangs
  * down to the axle centres has no arch to see however the sill is shaped.
  * Raising the rocker to 300 mm and taking the arch peak up to wheelR + 355 mm
  * leaves the thin band of metal over the wheel that a car actually has.
+ *
+ * The nose and tail taper over their last 100 mm — half-width 0.70 at the
+ * very end against 0.96 through the doors. That taper is the bumper wrapping
+ * round, and without it the end cap is a flat sheet 1.9 m across: every lamp
+ * and intake set into it then reads as a sticker on a piece of card, which is
+ * exactly how the first face came out. It stops at 0.70 rather than going
+ * further because the lamps and the grille still need something flat to sit
+ * on — taken to 0.58 the wrap simply swallowed them.
+ *
+ * The `sill` runs almost level through both ends. Dropping 120 mm in the
+ * 90 mm behind the bumper left the end cap's lower edge standing proud of
+ * the bodywork, and because that cap is a flat vertical polygon facing the
+ * lens it caught the key light and read as a pale tab bolted under the nose.
  *
  * The roof half-width is around three quarters of the flank, which is the
  * tumblehome; without that step the cabin is just the top of the body and the
@@ -1706,112 +1734,145 @@ export function makeCarPanelMap(doors: 2 | 4): THREE.CanvasTexture {
  */
 export const CAR_SHAPES: Record<
   string,
-  { length: number; doors: 2 | 4; wheelR: number; stations: CarStation[] }
+  {
+    length: number;
+    doors: 2 | 4;
+    wheelR: number;
+    /** Where the cabin's structure stands, and how wide each column is. */
+    pillars: { t: number; w: number }[];
+    stations: CarStation[];
+  }
 > = {
   coupe: {
     length: 4.72,
     doors: 2,
-    wheelR: 0.345,
+    wheelR: 0.355,
+    pillars: [
+      { t: 0.45, w: 0.012 },
+      { t: 0.72, w: 0.017 },
+    ],
     stations: [
-      { t: 0, hw: 0.86, sill: 0.42, shoulder: 0.8, roof: 0.8, roofHw: 0.5 },
-      { t: 0.02, hw: 0.92, sill: 0.28, shoulder: 0.824, roof: 0.824, roofHw: 0.501 },
-      { t: 0.06, hw: 0.955, sill: 0.28, shoulder: 0.866, roof: 0.866, roofHw: 0.504 },
-      { t: 0.087, hw: 0.955, sill: 0.28, shoulder: 0.883, roof: 0.883, roofHw: 0.506 },
-      { t: 0.118, hw: 0.961, sill: 0.583, shoulder: 0.901, roof: 0.901, roofHw: 0.508 },
-      { t: 0.132, hw: 0.964, sill: 0.657, shoulder: 0.91, roof: 0.91, roofHw: 0.509 },
-      { t: 0.15, hw: 0.967, sill: 0.713, shoulder: 0.92, roof: 0.92, roofHw: 0.51 },
-      { t: 0.19, hw: 0.975, sill: 0.76, shoulder: 0.945, roof: 0.945, roofHw: 0.513 },
-      { t: 0.23, hw: 0.967, sill: 0.713, shoulder: 0.954, roof: 0.954, roofHw: 0.515 },
-      { t: 0.248, hw: 0.964, sill: 0.657, shoulder: 0.959, roof: 0.959, roofHw: 0.517 },
-      { t: 0.262, hw: 0.961, sill: 0.583, shoulder: 0.962, roof: 0.962, roofHw: 0.517 },
-      { t: 0.293, hw: 0.955, sill: 0.28, shoulder: 0.969, roof: 0.969, roofHw: 0.52 },
+      { t: 0, hw: 0.7, sill: 0.3, shoulder: 0.74, roof: 0.74, roofHw: 0.5 },
+      { t: 0.008, hw: 0.822, sill: 0.295, shoulder: 0.81, roof: 0.81, roofHw: 0.501 },
+      { t: 0.02, hw: 0.888, sill: 0.289, shoulder: 0.824, roof: 0.824, roofHw: 0.501 },
+      { t: 0.04, hw: 0.925, sill: 0.285, shoulder: 0.848, roof: 0.848, roofHw: 0.503 },
+      { t: 0.06, hw: 0.95, sill: 0.303, shoulder: 0.866, roof: 0.866, roofHw: 0.504 },
+      { t: 0.092, hw: 0.955, sill: 0.285, shoulder: 0.885, roof: 0.885, roofHw: 0.506 },
+      { t: 0.12, hw: 0.961, sill: 0.586, shoulder: 0.902, roof: 0.902, roofHw: 0.508 },
+      { t: 0.134, hw: 0.964, sill: 0.658, shoulder: 0.911, roof: 0.911, roofHw: 0.509 },
+      { t: 0.151, hw: 0.967, sill: 0.713, shoulder: 0.921, roof: 0.921, roofHw: 0.51 },
+      { t: 0.19, hw: 0.975, sill: 0.758, shoulder: 0.945, roof: 0.945, roofHw: 0.513 },
+      { t: 0.229, hw: 0.967, sill: 0.713, shoulder: 0.954, roof: 0.954, roofHw: 0.515 },
+      { t: 0.246, hw: 0.964, sill: 0.658, shoulder: 0.958, roof: 0.958, roofHw: 0.516 },
+      { t: 0.26, hw: 0.961, sill: 0.586, shoulder: 0.961, roof: 0.961, roofHw: 0.517 },
+      { t: 0.288, hw: 0.955, sill: 0.28, shoulder: 0.968, roof: 0.968, roofHw: 0.519 },
       { t: 0.34, hw: 0.96, sill: 0.28, shoulder: 0.98, roof: 1.09, roofHw: 0.58 },
       { t: 0.42, hw: 0.967, sill: 0.28, shoulder: 0.983, roof: 1.254, roofHw: 0.673 },
       { t: 0.52, hw: 0.975, sill: 0.28, shoulder: 0.986, roof: 1.336, roofHw: 0.739 },
       { t: 0.62, hw: 0.97, sill: 0.28, shoulder: 0.99, roof: 1.304, roofHw: 0.731 },
       { t: 0.67, hw: 0.967, sill: 0.28, shoulder: 0.998, roof: 1.266, roofHw: 0.709 },
-      { t: 0.707, hw: 0.955, sill: 0.28, shoulder: 1.004, roof: 1.215, roofHw: 0.683 },
-      { t: 0.738, hw: 0.961, sill: 0.583, shoulder: 1.009, roof: 1.173, roofHw: 0.661 },
-      { t: 0.752, hw: 0.964, sill: 0.657, shoulder: 1.011, roof: 1.151, roofHw: 0.648 },
-      { t: 0.77, hw: 0.967, sill: 0.713, shoulder: 1.014, roof: 1.122, roofHw: 0.63 },
-      { t: 0.81, hw: 0.975, sill: 0.76, shoulder: 1.02, roof: 1.056, roofHw: 0.59 },
-      { t: 0.85, hw: 0.967, sill: 0.713, shoulder: 1.011, roof: 1.011, roofHw: 0.555 },
-      { t: 0.868, hw: 0.964, sill: 0.657, shoulder: 1.008, roof: 1.008, roofHw: 0.546 },
-      { t: 0.882, hw: 0.961, sill: 0.583, shoulder: 1.005, roof: 1.005, roofHw: 0.539 },
-      { t: 0.913, hw: 0.955, sill: 0.28, shoulder: 0.998, roof: 0.998, roofHw: 0.524 },
-      { t: 0.96, hw: 0.93, sill: 0.3, shoulder: 0.988, roof: 0.988, roofHw: 0.5 },
-      { t: 1, hw: 0.88, sill: 0.4, shoulder: 0.98, roof: 0.98, roofHw: 0.48 },
+      { t: 0.712, hw: 0.955, sill: 0.28, shoulder: 1.005, roof: 1.209, roofHw: 0.68 },
+      { t: 0.74, hw: 0.961, sill: 0.586, shoulder: 1.009, roof: 1.17, roofHw: 0.66 },
+      { t: 0.754, hw: 0.964, sill: 0.658, shoulder: 1.011, roof: 1.148, roofHw: 0.646 },
+      { t: 0.771, hw: 0.967, sill: 0.713, shoulder: 1.014, roof: 1.12, roofHw: 0.629 },
+      { t: 0.81, hw: 0.975, sill: 0.758, shoulder: 1.02, roof: 1.056, roofHw: 0.59 },
+      { t: 0.849, hw: 0.967, sill: 0.713, shoulder: 1.012, roof: 1.012, roofHw: 0.555 },
+      { t: 0.866, hw: 0.964, sill: 0.658, shoulder: 1.008, roof: 1.008, roofHw: 0.547 },
+      { t: 0.88, hw: 0.961, sill: 0.586, shoulder: 1.005, roof: 1.005, roofHw: 0.54 },
+      { t: 0.908, hw: 0.955, sill: 0.285, shoulder: 0.999, roof: 0.999, roofHw: 0.526 },
+      { t: 0.94, hw: 0.918, sill: 0.296, shoulder: 0.993, roof: 0.993, roofHw: 0.51 },
+      { t: 0.96, hw: 0.9, sill: 0.29, shoulder: 0.988, roof: 0.988, roofHw: 0.5 },
+      { t: 0.98, hw: 0.835, sill: 0.3, shoulder: 0.984, roof: 0.984, roofHw: 0.49 },
+      { t: 1, hw: 0.72, sill: 0.315, shoulder: 0.98, roof: 0.98, roofHw: 0.48 },
     ],
   },
   saloon: {
     length: 4.96,
     doors: 4,
-    wheelR: 0.35,
+    wheelR: 0.36,
+    pillars: [
+      { t: 0.44, w: 0.012 },
+      { t: 0.605, w: 0.014 },
+      { t: 0.775, w: 0.018 },
+    ],
     stations: [
-      { t: 0, hw: 0.88, sill: 0.44, shoulder: 0.84, roof: 0.84, roofHw: 0.52 },
-      { t: 0.02, hw: 0.93, sill: 0.29, shoulder: 0.864, roof: 0.864, roofHw: 0.521 },
-      { t: 0.06, hw: 0.965, sill: 0.29, shoulder: 0.906, roof: 0.906, roofHw: 0.524 },
-      { t: 0.091, hw: 0.965, sill: 0.29, shoulder: 0.925, roof: 0.925, roofHw: 0.526 },
-      { t: 0.121, hw: 0.971, sill: 0.59, shoulder: 0.943, roof: 0.943, roofHw: 0.528 },
-      { t: 0.134, hw: 0.974, sill: 0.666, shoulder: 0.951, roof: 0.951, roofHw: 0.529 },
-      { t: 0.151, hw: 0.977, sill: 0.723, shoulder: 0.961, roof: 0.961, roofHw: 0.53 },
-      { t: 0.19, hw: 0.985, sill: 0.77, shoulder: 0.985, roof: 0.985, roofHw: 0.533 },
-      { t: 0.229, hw: 0.977, sill: 0.723, shoulder: 0.993, roof: 0.993, roofHw: 0.536 },
-      { t: 0.246, hw: 0.974, sill: 0.666, shoulder: 0.996, roof: 0.996, roofHw: 0.537 },
-      { t: 0.259, hw: 0.971, sill: 0.59, shoulder: 0.999, roof: 0.999, roofHw: 0.538 },
-      { t: 0.289, hw: 0.965, sill: 0.29, shoulder: 1.005, roof: 1.016, roofHw: 0.54 },
+      { t: 0, hw: 0.72, sill: 0.31, shoulder: 0.78, roof: 0.78, roofHw: 0.52 },
+      { t: 0.008, hw: 0.842, sill: 0.305, shoulder: 0.85, roof: 0.85, roofHw: 0.521 },
+      { t: 0.02, hw: 0.908, sill: 0.299, shoulder: 0.864, roof: 0.864, roofHw: 0.521 },
+      { t: 0.04, hw: 0.94, sill: 0.295, shoulder: 0.888, roof: 0.888, roofHw: 0.523 },
+      { t: 0.06, hw: 0.962, sill: 0.315, shoulder: 0.906, roof: 0.906, roofHw: 0.524 },
+      { t: 0.096, hw: 0.965, sill: 0.295, shoulder: 0.928, roof: 0.928, roofHw: 0.527 },
+      { t: 0.123, hw: 0.971, sill: 0.594, shoulder: 0.944, roof: 0.944, roofHw: 0.528 },
+      { t: 0.136, hw: 0.973, sill: 0.667, shoulder: 0.952, roof: 0.952, roofHw: 0.529 },
+      { t: 0.152, hw: 0.977, sill: 0.722, shoulder: 0.962, roof: 0.962, roofHw: 0.53 },
+      { t: 0.19, hw: 0.985, sill: 0.768, shoulder: 0.985, roof: 0.985, roofHw: 0.533 },
+      { t: 0.228, hw: 0.977, sill: 0.722, shoulder: 0.993, roof: 0.993, roofHw: 0.536 },
+      { t: 0.244, hw: 0.973, sill: 0.667, shoulder: 0.996, roof: 0.996, roofHw: 0.537 },
+      { t: 0.257, hw: 0.971, sill: 0.594, shoulder: 0.998, roof: 0.998, roofHw: 0.538 },
+      { t: 0.284, hw: 0.965, sill: 0.29, shoulder: 1.004, roof: 1.004, roofHw: 0.54 },
       { t: 0.34, hw: 0.97, sill: 0.29, shoulder: 1.015, roof: 1.187, roofHw: 0.628 },
       { t: 0.42, hw: 0.977, sill: 0.29, shoulder: 1.016, roof: 1.374, roofHw: 0.715 },
       { t: 0.52, hw: 0.985, sill: 0.29, shoulder: 1.018, roof: 1.448, roofHw: 0.769 },
       { t: 0.62, hw: 0.981, sill: 0.29, shoulder: 1.02, roof: 1.46, roofHw: 0.763 },
       { t: 0.67, hw: 0.979, sill: 0.29, shoulder: 1.028, roof: 1.44, roofHw: 0.761 },
-      { t: 0.711, hw: 0.965, sill: 0.29, shoulder: 1.034, roof: 1.424, roofHw: 0.741 },
-      { t: 0.741, hw: 0.971, sill: 0.59, shoulder: 1.039, roof: 1.379, roofHw: 0.724 },
-      { t: 0.754, hw: 0.974, sill: 0.666, shoulder: 1.041, roof: 1.352, roofHw: 0.716 },
-      { t: 0.771, hw: 0.977, sill: 0.723, shoulder: 1.044, roof: 1.318, roofHw: 0.705 },
-      { t: 0.81, hw: 0.985, sill: 0.77, shoulder: 1.05, roof: 1.207, roofHw: 0.655 },
-      { t: 0.849, hw: 0.977, sill: 0.723, shoulder: 1.044, roof: 1.075, roofHw: 0.597 },
-      { t: 0.866, hw: 0.974, sill: 0.666, shoulder: 1.041, roof: 1.052, roofHw: 0.577 },
-      { t: 0.879, hw: 0.971, sill: 0.59, shoulder: 1.039, roof: 1.039, roofHw: 0.569 },
-      { t: 0.909, hw: 0.965, sill: 0.29, shoulder: 1.034, roof: 1.035, roofHw: 0.552 },
-      { t: 0.96, hw: 0.94, sill: 0.31, shoulder: 1.026, roof: 1.026, roofHw: 0.523 },
-      { t: 1, hw: 0.9, sill: 0.42, shoulder: 1.02, roof: 1.02, roofHw: 0.5 },
+      { t: 0.716, hw: 0.965, sill: 0.29, shoulder: 1.035, roof: 1.422, roofHw: 0.739 },
+      { t: 0.743, hw: 0.971, sill: 0.594, shoulder: 1.039, roof: 1.375, roofHw: 0.722 },
+      { t: 0.756, hw: 0.973, sill: 0.667, shoulder: 1.041, roof: 1.349, roofHw: 0.715 },
+      { t: 0.772, hw: 0.977, sill: 0.722, shoulder: 1.044, roof: 1.316, roofHw: 0.705 },
+      { t: 0.81, hw: 0.985, sill: 0.768, shoulder: 1.05, roof: 1.207, roofHw: 0.655 },
+      { t: 0.848, hw: 0.977, sill: 0.722, shoulder: 1.044, roof: 1.076, roofHw: 0.598 },
+      { t: 0.864, hw: 0.973, sill: 0.667, shoulder: 1.041, roof: 1.054, roofHw: 0.578 },
+      { t: 0.877, hw: 0.971, sill: 0.594, shoulder: 1.039, roof: 1.04, roofHw: 0.57 },
+      { t: 0.904, hw: 0.965, sill: 0.294, shoulder: 1.035, roof: 1.035, roofHw: 0.555 },
+      { t: 0.94, hw: 0.93, sill: 0.307, shoulder: 1.029, roof: 1.03, roofHw: 0.534 },
+      { t: 0.96, hw: 0.91, sill: 0.3, shoulder: 1.026, roof: 1.026, roofHw: 0.523 },
+      { t: 0.98, hw: 0.845, sill: 0.31, shoulder: 1.023, roof: 1.023, roofHw: 0.511 },
+      { t: 1, hw: 0.74, sill: 0.325, shoulder: 1.02, roof: 1.02, roofHw: 0.5 },
     ],
   },
   suv: {
     length: 4.9,
     doors: 4,
-    wheelR: 0.4,
+    wheelR: 0.415,
+    pillars: [
+      { t: 0.375, w: 0.013 },
+      { t: 0.56, w: 0.015 },
+      { t: 0.735, w: 0.015 },
+      { t: 0.905, w: 0.018 },
+    ],
     stations: [
-      { t: 0, hw: 0.95, sill: 0.56, shoulder: 1.16, roof: 1.16, roofHw: 0.62 },
-      { t: 0.02, hw: 1.02, sill: 0.42, shoulder: 1.188, roof: 1.188, roofHw: 0.631 },
-      { t: 0.06, hw: 1.06, sill: 0.42, shoulder: 1.233, roof: 1.233, roofHw: 0.652 },
-      { t: 0.078, hw: 1.07, sill: 0.42, shoulder: 1.238, roof: 1.238, roofHw: 0.662 },
-      { t: 0.11, hw: 1.076, sill: 0.675, shoulder: 1.247, roof: 1.247, roofHw: 0.679 },
-      { t: 0.125, hw: 1.078, sill: 0.761, shoulder: 1.252, roof: 1.252, roofHw: 0.687 },
-      { t: 0.145, hw: 1.082, sill: 0.826, shoulder: 1.257, roof: 1.257, roofHw: 0.698 },
-      { t: 0.19, hw: 1.09, sill: 0.88, shoulder: 1.27, roof: 1.27, roofHw: 0.722 },
-      { t: 0.235, hw: 1.082, sill: 0.826, shoulder: 1.273, roof: 1.273, roofHw: 0.747 },
-      { t: 0.255, hw: 1.078, sill: 0.761, shoulder: 1.274, roof: 1.293, roofHw: 0.757 },
-      { t: 0.27, hw: 1.076, sill: 0.675, shoulder: 1.275, roof: 1.382, roofHw: 0.773 },
-      { t: 0.302, hw: 1.07, sill: 0.42, shoulder: 1.277, roof: 1.573, roofHw: 0.813 },
+      { t: 0, hw: 0.82, sill: 0.45, shoulder: 1.1, roof: 1.1, roofHw: 0.62 },
+      { t: 0.008, hw: 0.94, sill: 0.443, shoulder: 1.171, roof: 1.171, roofHw: 0.624 },
+      { t: 0.02, hw: 1.005, sill: 0.433, shoulder: 1.188, roof: 1.188, roofHw: 0.631 },
+      { t: 0.04, hw: 1.04, sill: 0.425, shoulder: 1.216, roof: 1.216, roofHw: 0.642 },
+      { t: 0.06, hw: 1.062, sill: 0.443, shoulder: 1.233, roof: 1.233, roofHw: 0.652 },
+      { t: 0.083, hw: 1.07, sill: 0.425, shoulder: 1.24, roof: 1.24, roofHw: 0.665 },
+      { t: 0.113, hw: 1.075, sill: 0.68, shoulder: 1.248, roof: 1.248, roofHw: 0.681 },
+      { t: 0.128, hw: 1.078, sill: 0.763, shoulder: 1.252, roof: 1.252, roofHw: 0.689 },
+      { t: 0.147, hw: 1.082, sill: 0.826, shoulder: 1.258, roof: 1.258, roofHw: 0.699 },
+      { t: 0.19, hw: 1.09, sill: 0.878, shoulder: 1.27, roof: 1.27, roofHw: 0.722 },
+      { t: 0.233, hw: 1.082, sill: 0.826, shoulder: 1.273, roof: 1.273, roofHw: 0.746 },
+      { t: 0.252, hw: 1.078, sill: 0.763, shoulder: 1.274, roof: 1.281, roofHw: 0.756 },
+      { t: 0.267, hw: 1.075, sill: 0.68, shoulder: 1.275, roof: 1.365, roofHw: 0.769 },
+      { t: 0.297, hw: 1.07, sill: 0.42, shoulder: 1.277, roof: 1.54, roofHw: 0.806 },
       { t: 0.34, hw: 1.07, sill: 0.42, shoulder: 1.28, roof: 1.731, roofHw: 0.86 },
       { t: 0.42, hw: 1.074, sill: 0.42, shoulder: 1.283, roof: 1.891, roofHw: 0.907 },
       { t: 0.52, hw: 1.08, sill: 0.42, shoulder: 1.288, roof: 1.92, roofHw: 0.93 },
       { t: 0.62, hw: 1.077, sill: 0.42, shoulder: 1.292, roof: 1.92, roofHw: 0.93 },
       { t: 0.67, hw: 1.076, sill: 0.42, shoulder: 1.294, roof: 1.92, roofHw: 0.93 },
-      { t: 0.698, hw: 1.07, sill: 0.42, shoulder: 1.295, roof: 1.92, roofHw: 0.93 },
-      { t: 0.73, hw: 1.076, sill: 0.675, shoulder: 1.297, roof: 1.92, roofHw: 0.93 },
-      { t: 0.745, hw: 1.078, sill: 0.761, shoulder: 1.297, roof: 1.92, roofHw: 0.93 },
-      { t: 0.765, hw: 1.082, sill: 0.826, shoulder: 1.298, roof: 1.92, roofHw: 0.93 },
-      { t: 0.81, hw: 1.09, sill: 0.88, shoulder: 1.3, roof: 1.916, roofHw: 0.925 },
-      { t: 0.855, hw: 1.082, sill: 0.826, shoulder: 1.293, roof: 1.898, roofHw: 0.902 },
-      { t: 0.875, hw: 1.078, sill: 0.761, shoulder: 1.29, roof: 1.89, roofHw: 0.893 },
-      { t: 0.89, hw: 1.076, sill: 0.675, shoulder: 1.287, roof: 1.884, roofHw: 0.885 },
-      { t: 0.922, hw: 1.07, sill: 0.42, shoulder: 1.282, roof: 1.801, roofHw: 0.813 },
-      { t: 0.945, hw: 1.025, sill: 0.44, shoulder: 1.279, roof: 1.72, roofHw: 0.745 },
-      { t: 0.975, hw: 0.976, sill: 0.44, shoulder: 1.274, roof: 1.35, roofHw: 0.647 },
-      { t: 1, hw: 0.92, sill: 0.54, shoulder: 1.27, roof: 1.27, roofHw: 0.56 },
+      { t: 0.703, hw: 1.07, sill: 0.42, shoulder: 1.295, roof: 1.92, roofHw: 0.93 },
+      { t: 0.733, hw: 1.075, sill: 0.68, shoulder: 1.297, roof: 1.92, roofHw: 0.93 },
+      { t: 0.748, hw: 1.078, sill: 0.763, shoulder: 1.297, roof: 1.92, roofHw: 0.93 },
+      { t: 0.767, hw: 1.082, sill: 0.826, shoulder: 1.298, roof: 1.92, roofHw: 0.93 },
+      { t: 0.81, hw: 1.09, sill: 0.878, shoulder: 1.3, roof: 1.916, roofHw: 0.925 },
+      { t: 0.853, hw: 1.082, sill: 0.826, shoulder: 1.293, roof: 1.899, roofHw: 0.903 },
+      { t: 0.872, hw: 1.078, sill: 0.763, shoulder: 1.29, roof: 1.891, roofHw: 0.894 },
+      { t: 0.887, hw: 1.075, sill: 0.68, shoulder: 1.288, roof: 1.885, roofHw: 0.886 },
+      { t: 0.917, hw: 1.07, sill: 0.425, shoulder: 1.283, roof: 1.82, roofHw: 0.83 },
+      { t: 0.94, hw: 1.023, sill: 0.436, shoulder: 1.279, roof: 1.738, roofHw: 0.76 },
+      { t: 0.96, hw: 1, sill: 0.428, shoulder: 1.276, roof: 1.535, roofHw: 0.7 },
+      { t: 0.98, hw: 0.925, sill: 0.44, shoulder: 1.273, roof: 1.334, roofHw: 0.63 },
+      { t: 1, hw: 0.84, sill: 0.46, shoulder: 1.27, roof: 1.27, roofHw: 0.56 },
     ],
   },
 };
@@ -1958,4 +2019,180 @@ export function makeWordmark(
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 16;
   return t;
+}
+
+/* ------------------------------------------------------------------ */
+/* Car detail: pillars and wheels                                      */
+/* ------------------------------------------------------------------ */
+
+/** A station interpolated between the two that bracket `t`. */
+export function stationAt(stations: readonly CarStation[], t: number): CarStation {
+  if (t <= stations[0].t) return stations[0];
+  const last = stations[stations.length - 1];
+  if (t >= last.t) return last;
+  for (let i = 0; i < stations.length - 1; i++) {
+    const a = stations[i];
+    const b = stations[i + 1];
+    if (t >= a.t && t <= b.t) {
+      const f = (t - a.t) / (b.t - a.t);
+      return {
+        t,
+        hw: lerp(a.hw, b.hw, f),
+        sill: lerp(a.sill, b.sill, f),
+        shoulder: lerp(a.shoulder, b.shoulder, f),
+        roof: lerp(a.roof, b.roof, f),
+        roofHw: lerp(a.roofHw, b.roofHw, f),
+      };
+    }
+  }
+  return last;
+}
+
+/** Concatenate position/normal/uv/index geometries into one. */
+function mergeAll(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  let nV = 0;
+  let nI = 0;
+  for (const g of parts) {
+    nV += g.getAttribute("position").count;
+    nI += g.getIndex()!.count;
+  }
+  const pos = new Float32Array(nV * 3);
+  const nor = new Float32Array(nV * 3);
+  const uv = new Float32Array(nV * 2);
+  const idx = new Uint32Array(nI);
+  let vo = 0;
+  let io = 0;
+  for (const g of parts) {
+    const p = g.getAttribute("position");
+    const n = g.getAttribute("normal");
+    const u = g.getAttribute("uv");
+    const i = g.getIndex()!;
+    pos.set(p.array as Float32Array, vo * 3);
+    if (n) nor.set(n.array as Float32Array, vo * 3);
+    if (u) uv.set(u.array as Float32Array, vo * 2);
+    for (let k = 0; k < i.count; k++) idx[io + k] = i.getX(k) + vo;
+    vo += p.count;
+    io += i.count;
+    g.dispose();
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  out.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
+  out.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  out.setIndex(new THREE.BufferAttribute(idx, 1));
+  return out;
+}
+
+/**
+ * The pillars, as narrow bands of paint standing proud of the glass.
+ *
+ * Without them the greenhouse is one uninterrupted dark ribbon running from
+ * the windscreen to the back light, and that single feature is the loudest
+ * remaining tell that a car is a toy — real cabins are cut into three or four
+ * panes by structure, and the eye counts them without being asked.
+ *
+ * Each is two stations of the glass section a few centimetres apart, pushed
+ * out by 1.8 per cent and stretched past the beltline at the bottom and into
+ * the roof cap at the top, so it reads as a column the glass is set into
+ * rather than a sticker lying on it.
+ */
+export function makeCarPillars(
+  stations: readonly CarStation[],
+  length: number,
+  pillars: readonly { t: number; w: number }[],
+): THREE.BufferGeometry {
+  const grow = (s: CarStation): CarStation => ({
+    ...s,
+    shoulder: s.shoulder - 0.035,
+    roof: s.roof + 0.03,
+  });
+  const parts = pillars.map((p) => {
+    const g = makeCarBody(
+      [grow(stationAt(stations, p.t - p.w)), grow(stationAt(stations, p.t + p.w))],
+      length,
+      "glass",
+    );
+    g.scale(1, 1, 1.018);
+    return g;
+  });
+  return mergeAll(parts);
+}
+
+/**
+ * A tyre with a sidewall, as a lathe rather than a cylinder.
+ *
+ * A cylinder has a hard square edge at the tread, which is the one thing a
+ * tyre does not have, and it reads as a hockey puck at any distance. The
+ * profile here drops almost straight in from the bead to the shoulder — which
+ * is what a low-profile sidewall does — and rolls over the last 20 mm.
+ */
+export function makeTyre(R: number, w = 0.235): THREE.BufferGeometry {
+  const rim = R * 0.7;
+  const h = w / 2;
+  const profile: [number, number][] = [
+    [rim, -h],
+    [rim + 0.01, -h + 0.0025],
+    [R * 0.86, -h + 0.0075],
+    [R * 0.96, -h + 0.0155],
+    [R * 0.995, -h + 0.0195],
+    [R, -h + 0.024],
+    [R, h - 0.024],
+    [R * 0.995, h - 0.0195],
+    [R * 0.96, h - 0.0155],
+    [R * 0.86, h - 0.0075],
+    [rim + 0.01, h - 0.0025],
+    [rim, h],
+  ];
+  const g = new THREE.LatheGeometry(
+    profile.map(([x, y]) => new THREE.Vector2(x, y)),
+    26,
+  );
+  // The inner face of the wheel, so there is no hole through the hub, and a
+  // dark dish for the spokes to sit in front of.
+  const dish = new THREE.CylinderGeometry(rim * 0.99, rim * 0.99, 0.02, 24);
+  dish.translate(0, h * 0.6, 0);
+  const back = new THREE.CylinderGeometry(rim * 0.99, rim * 0.99, 0.02, 20);
+  back.translate(0, -h * 0.8, 0);
+  const out = mergeAll([g, dish, back]);
+  // Axle along Z, face toward +Z — the orientation the car uses.
+  out.rotateX(Math.PI / 2);
+  return out;
+}
+
+/**
+ * The alloy: a rim flange, five spokes, a hub and a brake disc behind them.
+ *
+ * All one geometry on purpose. Drawn as separate meshes this was eight calls
+ * a wheel, thirty-two a car and nearly two hundred across the floor, on a
+ * project whose whole performance problem has been the number of things
+ * submitted per frame rather than the number of triangles in them.
+ */
+export function makeAlloy(R: number, w = 0.235): THREE.BufferGeometry {
+  const rim = R * 0.7;
+  const h = w / 2;
+  const parts: THREE.BufferGeometry[] = [];
+
+  const disc = new THREE.CylinderGeometry(rim * 0.74, rim * 0.74, 0.022, 22);
+  disc.translate(0, h * 0.35, 0);
+  parts.push(disc);
+
+  const flange = new THREE.TorusGeometry(rim * 0.99, 0.016, 7, 28);
+  flange.rotateX(Math.PI / 2);
+  flange.translate(0, h * 0.86, 0);
+  parts.push(flange);
+
+  for (let k = 0; k < 5; k++) {
+    const spoke = new THREE.BoxGeometry(rim * 1.72, 0.018, 0.085);
+    spoke.rotateY((k * Math.PI * 2) / 5);
+    spoke.translate(0, h * 0.78, 0);
+    parts.push(spoke);
+  }
+
+  const hub = new THREE.CylinderGeometry(R * 0.17, R * 0.17, 0.028, 16);
+  hub.translate(0, h * 0.9, 0);
+  parts.push(hub);
+
+  const out = mergeAll(parts);
+  out.rotateX(Math.PI / 2);
+  return out;
 }
