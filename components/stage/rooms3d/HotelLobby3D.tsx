@@ -173,8 +173,24 @@ export const LAMPS: { x: number; z: number; y: number; kind: "table" | "floor" }
  */
 const M = {
   /** Polished large-format marble. */
+  /**
+   * Polished cream marble — at marble's reflectance, not paper's.
+   *
+   * Measured in Day: the floor came back at rgb(206,202,193), nearly neutral,
+   * with none of its veining left. Pulling every light out one at a time
+   * showed no single culprit — sun, sky and ambient fill each contributed
+   * about a sixth of it, and the downlights almost nothing. The floor was not
+   * over-lit; it was over-*bright*, because it was reflecting about 0.7 of
+   * what hit it.
+   *
+   * Polished cream limestone is 0.40 to 0.50. At 0.7 there is no headroom
+   * left for a highlight, so the whole surface sits on the shoulder of the
+   * ACES curve where tonal separation collapses — which is exactly what
+   * "glare" looks like. It also bounces that light back onto the ceiling and
+   * the walls, which is why they went flat with it.
+   */
   floor: new THREE.MeshPhysicalMaterial({
-    color: "#c6bdae",
+    color: "#a89d8c",
     roughness: 0.24,
     metalness: 0.02,
     // Was 0.6. A clearcoat is a second specular lobe on top of the first,
@@ -194,15 +210,18 @@ const M = {
     clearcoatRoughness: 0.3,
     envMapIntensity: 1.0,
   }),
-  ceiling: new THREE.MeshStandardMaterial({ color: "#efe9df", roughness: 0.95 }),
-  soffit: new THREE.MeshStandardMaterial({ color: "#e7e0d4", roughness: 0.92 }),
+  // Painted plaster really is this pale, but it is also the largest bounce
+  // surface above the largest bounce surface below — a few points off each
+  // keeps the pair out of the shoulder of the curve together.
+  ceiling: new THREE.MeshStandardMaterial({ color: "#e3dccf", roughness: 0.95 }),
+  soffit: new THREE.MeshStandardMaterial({ color: "#dbd3c4", roughness: 0.92 }),
   /** The reveal inside each coffer step, where the cove sits. */
   reveal: new THREE.MeshStandardMaterial({
     color: "#d9d0c2",
     roughness: 0.9,
     side: THREE.DoubleSide,
   }),
-  wall: new THREE.MeshStandardMaterial({ color: "#cfc6b8", roughness: 0.93 }),
+  wall: new THREE.MeshStandardMaterial({ color: "#c2b8a8", roughness: 0.93 }),
   /** Dark fluted wood on the reception wall. */
   wood: new THREE.MeshStandardMaterial({ color: "#5a4026", roughness: 0.55 }),
   woodDark: new THREE.MeshStandardMaterial({ color: "#2e2117", roughness: 0.8 }),
@@ -2343,7 +2362,7 @@ function Surfaces() {
      * also 1.2 m, so two tiles of the texture per slab keeps the veining from
      * repeating visibly down a twenty-four metre run.
      */
-    const floor = makeMarbleTexture("#cfc6b6", "#a39d94", 9173);
+    const floor = makeMarbleTexture("#b5ab99", "#8d8679", 9173);
     floor.repeat.set(HL.w / 2.4, HL.d / 2.4);
     M.floor.map = floor;
     M.floor.color.set("#ffffff");

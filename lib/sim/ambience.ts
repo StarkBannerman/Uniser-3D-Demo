@@ -59,9 +59,33 @@ export interface Ambience {
  * light. 0.62 keeps low scenes genuinely dark while leaving a lit room's fill
  * almost where it was.
  */
+/**
+ * And it is capped well below 1.
+ *
+ * `clamp01` let the fill reach full, which meant any room whose illuminance
+ * passed its design figure got a hemisphere light at maximum — light arriving
+ * uniformly from every direction, with no shadow and no direction in it.
+ * Measured in the hotel lobby at midday: ambient.level 1.0, and that one term
+ * was the largest single contributor to the floor, bigger than the sun and
+ * bigger than the sky. A room lit mostly by omnidirectional fill has no
+ * tonal separation left, which is what a client described as glare.
+ *
+ * It saturates there easily because `designLux` is a *task* figure — the lux
+ * a room is specified to on its working plane — and a lobby's is 300 against
+ * an office's 400, while the lobby also has twenty-four metres of glazing.
+ * Three hundred is passed by the middle of the morning.
+ *
+ * The honest ceiling is not the design figure, it is physics: inter-reflected
+ * light in a real interior is roughly a fifth to two fifths of total
+ * illuminance, never the dominant source. 0.72 keeps the whole existing curve
+ * for every scene that was not already pinned and only pulls down the ones
+ * that were.
+ */
+const MAX_FILL = 0.72;
+
 function bounce(lux: number, designLux: number): number {
   if (designLux <= 0) return 0;
-  return clamp01(Math.pow(clamp01(lux / designLux), 0.62));
+  return Math.min(MAX_FILL, Math.pow(clamp01(lux / designLux), 0.62));
 }
 
 export function roomAmbience(

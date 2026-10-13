@@ -319,14 +319,22 @@ export const hotelLobby: Space = {
         "Full neutral white with the daylight doing most of the work, decoratives minimal. The scene the room spends the most hours in and the one harvesting pays for.",
       fadeMs: 2400,
       targets: {
-        "hl-general": { on: true, level: 88, cct: 4800, sat: 0 },
+        /**
+         * Seventy, not eighty-eight.
+         *
+         * Day is the scene where the façade is supposed to be doing the work
+         * — that is the whole daylight-harvesting argument — and a ceiling
+         * running at nearly full under it is the layer fighting the window
+         * rather than filling in behind it.
+         */
+        "hl-general": { on: true, level: 70, cct: 4800, sat: 0 },
         // Lower than Morning, not higher. At noon the sun is doing the work
         // and a cove at 55 only lifts the ceiling — which had the lobby
         // brighter overhead than underfoot, the opposite of a daylit room.
         "hl-cove": { on: true, level: 38, cct: 4200, sat: 0 },
-        "hl-arch": { on: true, level: 46, cct: 4200, sat: 0 },
+        "hl-arch": { on: true, level: 36, cct: 4200, sat: 0 },
         "hl-decor": { on: true, level: 12, cct: 2800, sat: 0 },
-        "hl-accent": { on: true, level: 45, cct: 4000, sat: 0 },
+        "hl-accent": { on: true, level: 34, cct: 4000, sat: 0 },
         "hl-feature": { on: true, level: 40, cct: 5600, sat: 52, hue: 204 },
         "hl-facade": { on: false, sat: 0 },
         // Half-drawn. Midday sun on west glazing is glare on the seating, and
@@ -630,7 +638,7 @@ export const hotelLobby: Space = {
       enabledByDefault: true,
       at: 10 * 60,
       targets: {
-        "hl-general": { on: true, level: 88, cct: 4800, fadeMs: 6000, sat: 0 },
+        "hl-general": { on: true, level: 70, cct: 4800, fadeMs: 6000, sat: 0 },
         "hl-cove": { on: true, level: 38, cct: 4200, fadeMs: 6000, sat: 0 },
         "hl-decor": { on: true, level: 12, cct: 2800, fadeMs: 6000, sat: 0 },
         "hl-blinds": { sheer: 55, blackout: 0 },

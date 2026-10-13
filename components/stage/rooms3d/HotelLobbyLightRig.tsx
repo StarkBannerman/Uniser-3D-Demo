@@ -894,7 +894,7 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
          * plane falls off with distance and does the general filling, so it
          * takes the level back.
          */
-        intensity={1.9 * strength}
+        intensity={1.45 * strength}
         color={new THREE.Color("#fff1da")}
         castShadow
         shadow-mapSize={[2048, 2048]}
@@ -951,7 +951,7 @@ function Daylight({ amount, transmission }: { amount: number; transmission: numb
          * wall to wall. Twelve puts the floor at about 200 with the glazing
          * brighter still, which is what a daylit room looks like.
          */
-        intensity={9.5 * strength}
+        intensity={7.2 * strength}
         color={new THREE.Color("#d5e4f6")}
       />
     </group>
