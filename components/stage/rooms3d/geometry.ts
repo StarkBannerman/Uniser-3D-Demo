@@ -1424,3 +1424,295 @@ export function makeContactShadow(
   t.anisotropy = 4;
   return t;
 }
+
+/**
+ * A car body, skinned from cross-sections along its length.
+ *
+ * Built this way for the same reason the hotel lobby's sofa is: a vehicle
+ * assembled from boxes reads as boxes however much the corners are rounded,
+ * because the eye judges an object from its *silhouette* and a box silhouette
+ * has corners in it. A car's whole identity is the line from bonnet to roof to
+ * boot, and that line only exists if the surface is continuous.
+ *
+ * Each station gives a half-section — sill, shoulder, roof — and the loop is
+ * mirrored to the other side and skinned to its neighbour. No marque, no
+ * grille, no badge: the parameters make a coupé, a saloon or a tall estate,
+ * and nothing in here is anybody's design.
+ */
+export interface CarStation {
+  /** Position along the car, 0 at the nose to 1 at the tail. */
+  t: number;
+  /** Half-width of the body at the sill. */
+  hw: number;
+  /** Sill height. */
+  sill: number;
+  /** Shoulder line — the top of the doors. */
+  shoulder: number;
+  /** Roof height. Equal to `shoulder` where there is no roof. */
+  roof: number;
+  /** Half-width at the roof. Zero tapers the greenhouse to nothing. */
+  roofHw: number;
+}
+
+export function makeCarBody(
+  stations: readonly CarStation[],
+  length: number,
+  /** Points around each half-section; more is smoother and costs little. */
+  ring = 9,
+): THREE.BufferGeometry {
+  /** One closed loop: up the left side, across the roof, down the right. */
+  const section = (s: CarStation): THREE.Vector2[] => {
+    const pts: THREE.Vector2[] = [];
+    const half: [number, number][] = [
+      [0, s.sill - 0.02],
+      [s.hw * 0.72, s.sill - 0.015],
+      [s.hw * 0.98, s.sill + 0.06],
+      [s.hw, s.sill + (s.shoulder - s.sill) * 0.45],
+      [s.hw * 0.96, s.shoulder],
+      [s.roofHw * 1.06, s.shoulder + (s.roof - s.shoulder) * 0.42],
+      [s.roofHw * 0.92, s.roof - 0.015],
+      [s.roofHw * 0.5, s.roof],
+      [0, s.roof + 0.004],
+    ];
+    const take = half.slice(0, ring);
+    // Left side bottom-to-top, then right side top-to-bottom.
+    take.forEach(([z, y]) => pts.push(new THREE.Vector2(-z, y)));
+    for (let i = take.length - 2; i >= 1; i--) {
+      pts.push(new THREE.Vector2(take[i][0], take[i][1]));
+    }
+    return pts;
+  };
+
+  const rows = stations.length;
+  const loops = stations.map(section);
+  const cols = loops[0].length;
+
+  const pos = new Float32Array(rows * cols * 3);
+  const uv = new Float32Array(rows * cols * 2);
+  for (let i = 0; i < rows; i++) {
+    const s = stations[i];
+    const x = (s.t - 0.5) * length;
+    for (let j = 0; j < cols; j++) {
+      const p = loops[i][j];
+      const k = (i * cols + j) * 3;
+      pos[k] = x;
+      pos[k + 1] = p.y;
+      pos[k + 2] = p.x;
+      const m = (i * cols + j) * 2;
+      uv[m] = s.t;
+      uv[m + 1] = j / (cols - 1);
+    }
+  }
+
+  const index: number[] = [];
+  for (let i = 0; i < rows - 1; i++) {
+    for (let j = 0; j < cols - 1; j++) {
+      const a = i * cols + j;
+      const b = a + 1;
+      const c = a + cols;
+      const d = c + 1;
+      index.push(a, c, b, b, c, d);
+    }
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  g.setIndex(index);
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Nose-to-tail station sets. Proportion is the whole of what makes these read. */
+export const CAR_SHAPES: Record<string, { length: number; stations: CarStation[] }> = {
+  /** Long bonnet, low fast roof, short tail. */
+  coupe: {
+    length: 4.72,
+    stations: [
+      { t: 0.0, hw: 0.74, sill: 0.33, shoulder: 0.73, roof: 0.73, roofHw: 0.52 },
+      { t: 0.07, hw: 0.9, sill: 0.28, shoulder: 0.82, roof: 0.82, roofHw: 0.66 },
+      { t: 0.18, hw: 0.95, sill: 0.26, shoulder: 0.88, roof: 0.88, roofHw: 0.74 },
+      { t: 0.3, hw: 0.97, sill: 0.25, shoulder: 0.92, roof: 1.14, roofHw: 0.62 },
+      { t: 0.44, hw: 0.98, sill: 0.25, shoulder: 0.94, roof: 1.3, roofHw: 0.72 },
+      { t: 0.58, hw: 0.97, sill: 0.26, shoulder: 0.94, roof: 1.31, roofHw: 0.7 },
+      { t: 0.72, hw: 0.95, sill: 0.27, shoulder: 0.93, roof: 1.18, roofHw: 0.5 },
+      { t: 0.85, hw: 0.92, sill: 0.3, shoulder: 0.95, roof: 0.95, roofHw: 0.7 },
+      { t: 0.95, hw: 0.84, sill: 0.36, shoulder: 0.9, roof: 0.9, roofHw: 0.62 },
+      { t: 1.0, hw: 0.7, sill: 0.42, shoulder: 0.84, roof: 0.84, roofHw: 0.46 },
+    ],
+  },
+  /** Three-box: upright cabin, level shoulder, square boot. */
+  saloon: {
+    length: 4.94,
+    stations: [
+      { t: 0.0, hw: 0.74, sill: 0.36, shoulder: 0.76, roof: 0.76, roofHw: 0.54 },
+      { t: 0.07, hw: 0.9, sill: 0.3, shoulder: 0.86, roof: 0.86, roofHw: 0.68 },
+      { t: 0.2, hw: 0.95, sill: 0.28, shoulder: 0.93, roof: 0.93, roofHw: 0.76 },
+      { t: 0.3, hw: 0.97, sill: 0.27, shoulder: 0.96, roof: 1.27, roofHw: 0.62 },
+      { t: 0.42, hw: 0.98, sill: 0.27, shoulder: 0.98, roof: 1.43, roofHw: 0.74 },
+      { t: 0.6, hw: 0.98, sill: 0.27, shoulder: 0.98, roof: 1.44, roofHw: 0.74 },
+      { t: 0.74, hw: 0.96, sill: 0.28, shoulder: 0.97, roof: 1.26, roofHw: 0.56 },
+      { t: 0.84, hw: 0.94, sill: 0.31, shoulder: 1.0, roof: 1.0, roofHw: 0.74 },
+      { t: 0.95, hw: 0.88, sill: 0.37, shoulder: 0.97, roof: 0.97, roofHw: 0.66 },
+      { t: 1.0, hw: 0.72, sill: 0.44, shoulder: 0.9, roof: 0.9, roofHw: 0.48 },
+    ],
+  },
+  /** Boxy and tall, with an upright screen and a flat roof. */
+  suv: {
+    length: 4.86,
+    stations: [
+      { t: 0.0, hw: 0.88, sill: 0.46, shoulder: 1.26, roof: 1.26, roofHw: 0.74 },
+      { t: 0.06, hw: 1.0, sill: 0.42, shoulder: 1.3, roof: 1.3, roofHw: 0.86 },
+      { t: 0.16, hw: 1.03, sill: 0.4, shoulder: 1.32, roof: 1.32, roofHw: 0.9 },
+      { t: 0.24, hw: 1.04, sill: 0.39, shoulder: 1.33, roof: 1.86, roofHw: 0.84 },
+      { t: 0.36, hw: 1.05, sill: 0.39, shoulder: 1.34, roof: 1.92, roofHw: 0.9 },
+      { t: 0.62, hw: 1.05, sill: 0.39, shoulder: 1.34, roof: 1.93, roofHw: 0.9 },
+      { t: 0.8, hw: 1.04, sill: 0.4, shoulder: 1.34, roof: 1.9, roofHw: 0.88 },
+      { t: 0.92, hw: 1.0, sill: 0.42, shoulder: 1.33, roof: 1.84, roofHw: 0.82 },
+      { t: 1.0, hw: 0.9, sill: 0.46, shoulder: 1.3, roof: 1.3, roofHw: 0.7 },
+    ],
+  },
+};
+
+/**
+ * A backlit brand graphic: a mountain road under a wide sky, with a tagline.
+ *
+ * Drawn rather than loaded, so the demo still works offline, and deterministic
+ * so the ridgeline does not reshuffle on a remount. The text is placed glyph
+ * by glyph for the same reason the hotel's wordmark is — canvas has no
+ * letter-spacing, and wide tracking is most of what makes a tagline read as
+ * a brand line rather than as a caption.
+ */
+export function makeBrandGraphic(
+  lines: string,
+  seed = 31,
+  width = 2048,
+  height = 1152,
+): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = width;
+  c.height = height;
+  const g = c.getContext("2d")!;
+  let s = seed;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+
+  // Sky: a dusk gradient, because the graphic is lit from behind and a pale
+  // sky would read as a lightbox with a photograph in front of it.
+  const sky = g.createLinearGradient(0, 0, 0, height * 0.72);
+  sky.addColorStop(0, "#1b2a3c");
+  sky.addColorStop(0.55, "#4a5a6b");
+  sky.addColorStop(1, "#c08a5a");
+  g.fillStyle = sky;
+  g.fillRect(0, 0, width, height);
+
+  /** Ridge lines, far to near, each darker and lower than the last. */
+  const ridge = (baseY: number, amp: number, fill: string) => {
+    g.beginPath();
+    g.moveTo(0, height);
+    g.lineTo(0, baseY);
+    let y = baseY;
+    for (let x = 0; x <= width; x += 24) {
+      y += (rnd() - 0.5) * amp;
+      y = Math.max(baseY - amp * 3, Math.min(baseY + amp * 3, y));
+      g.lineTo(x, y);
+    }
+    g.lineTo(width, height);
+    g.closePath();
+    g.fillStyle = fill;
+    g.fill();
+  };
+  ridge(height * 0.52, 22, "#3d4a5a");
+  ridge(height * 0.62, 30, "#2a3340");
+  ridge(height * 0.72, 18, "#1a2029");
+
+  // The road: a tapering ribbon running to the vanishing point.
+  g.beginPath();
+  g.moveTo(width * 0.5 - 14, height * 0.73);
+  g.lineTo(width * 0.5 + 14, height * 0.73);
+  g.lineTo(width * 0.86, height);
+  g.lineTo(width * 0.2, height);
+  g.closePath();
+  g.fillStyle = "#15181c";
+  g.fill();
+  g.strokeStyle = "rgba(230,230,220,0.5)";
+  g.lineWidth = 5;
+  g.setLineDash([26, 34]);
+  g.beginPath();
+  g.moveTo(width * 0.5, height * 0.74);
+  g.lineTo(width * 0.53, height);
+  g.stroke();
+  g.setLineDash([]);
+
+  // A low sun behind the ridge, which is what gives the panel its glow.
+  const sun = g.createRadialGradient(
+    width * 0.63, height * 0.5, 0,
+    width * 0.63, height * 0.5, height * 0.42,
+  );
+  sun.addColorStop(0, "rgba(255,206,150,0.5)");
+  sun.addColorStop(1, "rgba(255,196,130,0)");
+  g.fillStyle = sun;
+  g.fillRect(0, 0, width, height);
+
+  // The tagline, tracked wide, upper left.
+  const rows = lines.split("\n");
+  g.textAlign = "left";
+  g.textBaseline = "middle";
+  const size = Math.round(height * 0.085);
+  const spacing = size * 0.17;
+  rows.forEach((row, i) => {
+    g.font = `300 ${size}px Georgia, "Times New Roman", serif`;
+    let x = width * 0.07;
+    const y = height * 0.18 + i * size * 1.3;
+    for (const ch of row) {
+      g.fillStyle = "rgba(0,0,0,0.45)";
+      g.fillText(ch, x + size * 0.03, y + size * 0.035);
+      g.fillStyle = "#f3efe6";
+      g.fillText(ch, x, y);
+      x += g.measureText(ch).width + spacing;
+    }
+  });
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 16;
+  return t;
+}
+
+/** A wordmark on a dark ground, for a desk or a feature wall. */
+export function makeWordmark(
+  name: string,
+  sub: string,
+  width = 2048,
+  height = 512,
+): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = width;
+  c.height = height;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#101113";
+  g.fillRect(0, 0, width, height);
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+
+  const track = (text: string, y: number, size: number, spacing: number, fill: string) => {
+    g.font = `400 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    const widths = [...text].map((ch) => g.measureText(ch).width + spacing);
+    const total = widths.reduce((a, b) => a + b, 0) - spacing;
+    let x = width / 2 - total / 2;
+    [...text].forEach((ch, i) => {
+      g.fillStyle = fill;
+      g.fillText(ch, x + widths[i] / 2 - spacing / 2, y);
+      x += widths[i];
+    });
+  };
+  track(name, height * 0.42, Math.round(height * 0.3), Math.round(height * 0.1), "#f0ece3");
+  track(sub, height * 0.74, Math.round(height * 0.1), Math.round(height * 0.055), "#c9a362");
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 16;
+  return t;
+}

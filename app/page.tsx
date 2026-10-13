@@ -31,9 +31,9 @@ const DOORS: { segment: Segment; title: string; lead: string; blurb: string }[] 
   {
     segment: "hospitality",
     title: "Commercial",
-    lead: "Hospitality and public spaces",
+    lead: "Hospitality, retail and public spaces",
     blurb:
-      "Hotel lobbies, reception and lounge — seven lighting layers over one double-height room, scheduled around the clock, with the arrival moment on a single button.",
+      "Hotel lobbies and car showrooms — the rooms a business is judged on in the first ten seconds, with the lighting layers that do the judging on separate circuits.",
   },
   {
     segment: "commercial",
