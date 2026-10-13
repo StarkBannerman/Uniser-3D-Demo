@@ -154,3 +154,15 @@ input[type="range"].u-slider:disabled {
   from { width: 0%; }
   to { width: 100%; }
 }
+
+/**
+ * The room loader's indeterminate bar.
+ *
+ * Indeterminate on purpose: shader compilation reports no progress, and a bar
+ * that pretends to know how far along it is will sit at 90 per cent on exactly
+ * the machines where honesty matters most.
+ */
+@keyframes room-loading {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(310%); }
+}

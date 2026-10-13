@@ -793,11 +793,20 @@ check(
 );
 
 /**
- * A scene supersedes anything already moving.
+ * A scene supersedes anything already moving — and then owns it.
  *
- * Otherwise a curtain's own lock would outlive the press that cancelled it, and
- * its control would sit disabled inside a scene that had already sent it
- * somewhere else.
+ * This check used to assert that pressing a scene left `busyDevices` empty,
+ * which was right while only a hand on a slider could start a motor: any lock
+ * surviving the press was stale, and a stale lock leaves a control disabled
+ * inside a scene that has already sent it somewhere else.
+ *
+ * A scene can start a motor now, because the room has to be able to say
+ * "closing the blinds" while a scene is doing exactly that. So the guarantee
+ * is no longer "no lock" but "no *stale* lock": the hand's lock is dropped,
+ * and whatever the scene itself sets travelling is locked afresh and released
+ * when it seats. The third case below is the one that actually protects
+ * against the original fault — a scene asking a motor for the position it is
+ * already in must lock nothing at all.
  */
 store.getState().patch("bd-curtain", { blackout: 0 });
 check(
@@ -807,11 +816,23 @@ check(
 );
 store.getState().applyScene("morning");
 check(
-  "a scene takes over the device locks it supersedes",
-  store.getState().busyDevices.length === 0,
+  "a scene that moves a motor takes the lock over from the hand that had it",
+  store.getState().busyDevices.includes("bd-curtain"),
   `busy=${store.getState().busy} devices=[${store.getState().busyDevices}]`,
 );
 run(900); // let it land, so section 17 starts from rest
+check(
+  "and releases it once the scene's own travel has seated",
+  store.getState().busyDevices.length === 0,
+  `devices=[${store.getState().busyDevices}]`,
+);
+store.getState().applyScene("morning");
+check(
+  "a scene asking for the position it is already in locks nothing",
+  store.getState().busyDevices.length === 0,
+  `devices=[${store.getState().busyDevices}]`,
+);
+run(60);
 
 /* ================================================================== */
 console.log("\n17. Fan speed is visibly different at every setting\n");

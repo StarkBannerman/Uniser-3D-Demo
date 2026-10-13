@@ -192,15 +192,26 @@ function holdDevice(deviceId: string, durationMs: number): boolean {
  * skip the `set` entirely on the overwhelming majority of frames where no
  * device is moving at all.
  */
-function expireDeviceLocks(now: number): string[] | null {
-  let changed = false;
+function expireDeviceLocks(now: number, published: string[]): string[] | null {
   for (const [id, until] of deviceBusyUntil) {
-    if (now >= until) {
-      deviceBusyUntil.delete(id);
-      changed = true;
-    }
+    if (now >= until) deviceBusyUntil.delete(id);
   }
-  return changed ? [...deviceBusyUntil.keys()] : null;
+  /**
+   * Compared against what the store is actually showing, not against what
+   * this function happened to delete.
+   *
+   * It used to return a list only when something *expired*, which was right
+   * while locks could only be created by `patch` — that path publishes its own
+   * list synchronously. Now a scene can start a motor travelling too, and
+   * those locks are created inside the tick, so "nothing expired" is no longer
+   * the same as "nothing changed". A blind set moving by a scene would not
+   * have reached `busyDevices` until something unrelated expired.
+   */
+  const ids = [...deviceBusyUntil.keys()];
+  if (ids.length === published.length && ids.every((id) => published.includes(id))) {
+    return null;
+  }
+  return ids;
 }
 
 /**
@@ -240,12 +251,28 @@ function applyTargetMap(
       cctLocked[deviceId] = "cct" in patchInput;
     }
 
-    const next = applyPatchToState(
-      device,
-      current,
-      patchInput,
-      perDevice ?? defaultFadeMs,
-    );
+    const fade = perDevice ?? defaultFadeMs;
+
+    /**
+     * A motor driven by a scene is travelling exactly as it would under a
+     * hand on the slider, and nothing was recording that.
+     *
+     * `holdDevice` was only ever called from `patch` — the manual path — so
+     * for the whole of a scene `busyDevices` stayed empty however far the
+     * blinds were actually moving. Two things fell out of that. The room could
+     * not say what it was doing, which is the visible half; and a device the
+     * scene had set travelling was not locked, so its own slider could be
+     * grabbed mid-travel and re-aim a motor the scene was still driving.
+     *
+     * `holdDevice` ignores a zero duration, so a stage that asks a blind for
+     * the position it is already in locks nothing — which is the same no-op
+     * test the stage scheduler uses to decide whether to wait at all.
+     */
+    if (physicallyTravels(device)) {
+      holdDevice(deviceId, patchDurationMs(device, current, patchInput, fade));
+    }
+
+    const next = applyPatchToState(device, current, patchInput, fade);
     if (next) {
       nextStates[deviceId] = next;
       touched.add(device.productId);
@@ -529,6 +556,9 @@ export const useSim = create<SimStore>((set, get) => ({
     // Pressing any scene abandons a sequence already running. Half of one
     // demonstration continuing underneath another is the worst possible state.
     cancelSequence();
+    // And it supersedes any motor a hand had set going, before `applyTargetMap`
+    // records the ones this scene is about to start.
+    deviceBusyUntil.clear();
 
     // Measured before anything is applied, while `states` still holds the
     // positions every fade is starting from.
@@ -597,7 +627,6 @@ export const useSim = create<SimStore>((set, get) => ({
     const clockMin =
       scene.clockMin === undefined ? undefined : wrapMinutes(scene.clockMin);
     if (clockMin !== undefined) lastRuleMin = clockMin;
-    deviceBusyUntil.clear();
 
     set({
       states: nextStates,
@@ -611,10 +640,17 @@ export const useSim = create<SimStore>((set, get) => ({
       // the case somebody needs telling about.
       settleMs: holdMs,
       sceneRunId: get().sceneRunId + 1,
-      // A scene drives every fixture, so whatever one device was doing on its
-      // own is now part of the scene and no longer needs a lock of its own.
-      busyDevices: [],
       sequence: sequenceView,
+      /**
+       * Whatever this scene has just set travelling.
+       *
+       * It used to be unconditionally empty, on the reasoning that a scene
+       * supersedes whatever one device was doing on its own. The first half of
+       * that is still true and is why the map is cleared before the targets
+       * are applied; the second half was only true while scenes could not move
+       * motors of their own, which they now can.
+       */
+      busyDevices: [...deviceBusyUntil.keys()],
       ...(clockMin === undefined ? {} : { clockMin }),
     });
   },
@@ -852,8 +888,8 @@ export const useSim = create<SimStore>((set, get) => ({
     if (cctLocked !== state.cctLocked) next.cctLocked = cctLocked;
     if (touchedProducts) next.touchedProductIds = touchedProducts;
     if (state.busy && realNow >= busyUntil) next.busy = false;
-    const freedDevices = expireDeviceLocks(realNow);
-    if (freedDevices) next.busyDevices = freedDevices;
+    const movingDevices = expireDeviceLocks(realNow, state.busyDevices);
+    if (movingDevices) next.busyDevices = movingDevices;
     if (sequenceUpdate !== undefined) next.sequence = sequenceUpdate;
     if (publish) {
       next.power = power;

@@ -20,6 +20,7 @@
 import {
   Suspense,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   type ReactNode,
@@ -32,6 +33,7 @@ import { hasActiveTweens } from "@/lib/sim/tween";
 import type { AvState, FanState, LightState, ShadeState } from "@/lib/sim/types";
 import { Environment, Lightformer } from "@react-three/drei";
 import { EffectComposer, Bloom, N8AO, ToneMapping } from "@react-three/postprocessing";
+import { StageStatus } from "./StageStatus";
 import { ToneMappingMode } from "postprocessing";
 
 /**
@@ -393,6 +395,97 @@ function useResolutionGovernor(startDpr: number) {
   );
 }
 
+/**
+ * Hold the room back until it is genuinely ready to be looked at.
+ *
+ * three.js compiles a material's shader the first time it draws with it, so
+ * opening a room used to mean watching it assemble: a black box, then a
+ * partial scene, then a few seconds of stutter as 49 programs came up one at a
+ * time. Measured on this machine that is about 98 shader compiles, and a
+ * machine slower than this one spends correspondingly longer doing it in full
+ * view of a client.
+ *
+ * `compileAsync` does all of it up front. Where the browser supports
+ * `KHR_parallel_shader_compile` it hands the work to the driver and returns a
+ * promise, so the loader keeps animating instead of freezing the tab — which
+ * is the whole reason for preferring it to the synchronous `compile`.
+ *
+ * Then two frames: the first draws, the second proves the first was not a
+ * one-off. Only then does the room appear, and it appears finished.
+ */
+function ReadyGate({ onReady }: { onReady: (ready: boolean) => void }) {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  const camera = useThree((s) => s.camera);
+  const invalidate = useThree((s) => s.invalidate);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const renderer = gl as THREE.WebGLRenderer & {
+          compileAsync?: (
+            scene: THREE.Object3D,
+            camera: THREE.Camera,
+          ) => Promise<unknown>;
+        };
+        if (typeof renderer.compileAsync === "function") {
+          await renderer.compileAsync(scene, camera);
+        } else {
+          gl.compile(scene, camera);
+        }
+      } catch {
+        // A driver that refuses to pre-compile is not a reason to never show
+        // the room; it just means the stutter comes back.
+      }
+      if (cancelled) return;
+      invalidate();
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (!cancelled) onReady(true);
+        }),
+      );
+    };
+
+    // A tick, so every child has committed its objects into the scene graph
+    // before we ask the renderer to compile what is in it.
+    const t = setTimeout(run, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [gl, scene, camera, invalidate, onReady]);
+
+  return null;
+}
+
+/** Shown over the stage until `ReadyGate` says the room is built. */
+function RoomLoader({ name, gone }: { name: string; gone: boolean }) {
+  return (
+    <div
+      className={`pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-shell-950 transition-opacity duration-500 ${
+        gone ? "opacity-0" : "opacity-100"
+      }`}
+      // Faded out but still in the layer, so it keeps its transition. Hidden
+      // from assistive technology once it has nothing left to say, or a screen
+      // reader goes on announcing a room that finished loading.
+      aria-hidden={gone}
+      role={gone ? undefined : "status"}
+      aria-live={gone ? undefined : "polite"}
+    >
+      <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brass-500">
+        SmartSpaces
+      </div>
+      <div className="text-base font-medium text-shell-100 sm:text-lg">{name}</div>
+      <div className="h-[3px] w-40 overflow-hidden rounded-full bg-shell-800">
+        <div className="h-full w-1/3 rounded-full bg-brass-500 [animation:room-loading_1.1s_ease-in-out_infinite]" />
+      </div>
+      <div className="text-xs text-shell-500">Building the room…</div>
+    </div>
+  );
+}
+
 function RenderPump({ fps, dpr }: { fps: number; dpr: number }) {
   const invalidate = useThree((s) => s.invalidate);
   const report = useResolutionGovernor(dpr);
@@ -589,6 +682,8 @@ export function Stage3D({
    */
   const [quality] = useState<Quality>(detectQuality);
   const perf = usePerfFlag();
+  const [ready, setReady] = useState(false);
+  const roomName = useSim((s) => s.space?.name ?? "Loading");
 
   const fill = new THREE.Color(
     ambient.color[0] / 255,
@@ -598,6 +693,7 @@ export function Stage3D({
   // Floor bounce is the same light, warmer and much weaker.
   const ground = fill.clone().multiplyScalar(0.45).offsetHSL(0.02, 0.05, -0.12);
   return (
+    <div className="relative h-full w-full">
     <Canvas
       /**
        * On demand, not continuously. See `RenderPump` — this one prop is the
@@ -678,7 +774,12 @@ export function Stage3D({
           />
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         </EffectComposer>
+        {/* After the children, so the scene graph is populated when it runs. */}
+        <ReadyGate onReady={setReady} />
       </Suspense>
     </Canvas>
+      <RoomLoader name={roomName} gone={ready} />
+      <StageStatus />
+    </div>
   );
 }
