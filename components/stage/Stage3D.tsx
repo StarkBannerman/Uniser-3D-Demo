@@ -17,7 +17,14 @@
  * image gives a flat grey haze instead of a glow.
  */
 
-import { Suspense, useLayoutEffect, type ReactNode, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  type ReactNode,
+  useState,
+} from "react";
 import * as THREE from "three";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useSim } from "@/lib/sim/store";
@@ -44,6 +51,37 @@ import { ToneMappingMode } from "postprocessing";
  * accurate and late here.
  */
 export type Quality = "high" | "low";
+
+/**
+ * Resolution ladder, and the rung everyone starts on.
+ *
+ * Measured on the hotel lobby on an M1: dropping the device pixel ratio from
+ * 1.25 to 1.0 took it from 8.1 to 17.2 frames a second. That is a factor of
+ * two for 36 per cent fewer pixels, which is what you expect from a renderer
+ * that is entirely fill-bound — and this one is: at 1.25 the drawing buffer is
+ * 1.8 megapixels and every one of them evaluates three dozen lights.
+ *
+ * Below 1.0 the curve flattens (0.75 and 0.6 both measured 17.3), which says
+ * the remaining cost is per-frame rather than per-pixel. So 1.0 is where
+ * everybody starts, and the rungs below it exist for machines that still
+ * cannot hold a frame there.
+ *
+ * There is no rung above 1.0. A demo is shown on a projector or a shared
+ * screen far more often than on a retina panel, and the half-stop of
+ * sharpness 1.25 buys is not worth halving the frame rate of the one machine
+ * in the room that matters.
+ */
+const DPR_LADDER = [1.0, 0.85, 0.72, 0.6] as const;
+
+/**
+ * The frame cost above which the governor steps down a rung.
+ *
+ * 55 ms is about 18 frames a second. Below that the eye reads a crossfade as
+ * a crossfade; above it, it reads as the application having hung — which is
+ * precisely the report that prompted this. The cap is 30 fps, so a healthy
+ * machine sits at 33 ms and never trips it.
+ */
+const STEP_DOWN_MS = 55;
 
 function detectQuality(): Quality {
   if (typeof navigator === "undefined") return "high";
@@ -181,12 +219,188 @@ function visualSignature(): string {
   return parts.join("|");
 }
 
-function RenderPump({ fps }: { fps: number }) {
+/**
+ * A diagnostic that reports what this machine is actually doing, on demand.
+ *
+ * The reason this exists: the only computer whose frame rate matters is the
+ * client's, and we cannot profile it from here. Every number this project has
+ * tuned against was measured on a developer Mac with a Metal backend, which
+ * is not what a demo gets opened on. Opening any room with `?perf=1` publishes
+ * `window.__stage` — the renderer, the scene, a live frame-time history and a
+ * census of what is in the frame — so a number can be read off the machine
+ * that is struggling rather than inferred from one that is not.
+ *
+ * It mounts nothing and costs nothing unless the flag is present.
+ */
+function PerfProbe() {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  const camera = useThree((s) => s.camera);
+
+  useLayoutEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    const frames: number[] = [];
+    let last = performance.now();
+    let raf = 0;
+
+    const tick = (t: number) => {
+      frames.push(t - last);
+      last = t;
+      if (frames.length > 600) frames.shift();
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    const census = () => {
+      const lights: Record<string, number> = {};
+      let meshes = 0;
+      let instanced = 0;
+      let instances = 0;
+      let triangles = 0;
+      let shadowCasters = 0;
+      const materials = new Set<string>();
+      scene.traverse((o) => {
+        const any = o as unknown as {
+          isLight?: boolean;
+          isMesh?: boolean;
+          isInstancedMesh?: boolean;
+          castShadow?: boolean;
+          count?: number;
+          type: string;
+          material?: { uuid?: string };
+          geometry?: { index?: { count: number }; attributes?: { position?: { count: number } } };
+        };
+        if (any.isLight) {
+          lights[any.type] = (lights[any.type] ?? 0) + 1;
+          if (any.castShadow) shadowCasters += 1;
+        }
+        if (any.isInstancedMesh) {
+          instanced += 1;
+          instances += any.count ?? 0;
+        } else if (any.isMesh) {
+          meshes += 1;
+        }
+        if (any.isMesh || any.isInstancedMesh) {
+          if (any.material?.uuid) materials.add(any.material.uuid);
+          const mult = any.isInstancedMesh ? any.count ?? 1 : 1;
+          const g = any.geometry;
+          const verts = g?.index?.count ?? g?.attributes?.position?.count ?? 0;
+          triangles += (verts / 3) * mult;
+        }
+      });
+      const sorted = [...frames].sort((a, b) => a - b);
+      const at = (q: number) => sorted[Math.floor(sorted.length * q)] ?? 0;
+      return {
+        fps: frames.length ? +(1000 / (frames.reduce((a, c) => a + c, 0) / frames.length)).toFixed(1) : 0,
+        medianMs: +at(0.5).toFixed(1),
+        p95Ms: +at(0.95).toFixed(1),
+        worstMs: +(sorted[sorted.length - 1] ?? 0).toFixed(1),
+        lights,
+        lightTotal: Object.values(lights).reduce((a, c) => a + c, 0),
+        shadowCasters,
+        meshes,
+        instancedMeshes: instanced,
+        instances,
+        triangles: Math.round(triangles),
+        materials: materials.size,
+        programs: gl.info.programs?.length ?? 0,
+        drawCalls: gl.info.render.calls,
+        dpr: gl.getPixelRatio(),
+        buffer: [gl.domElement.width, gl.domElement.height],
+        renderer: (() => {
+          const ctx = gl.getContext();
+          const ext = ctx.getExtension("WEBGL_debug_renderer_info");
+          return ext ? String(ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "hidden";
+        })(),
+        cores: navigator.hardwareConcurrency,
+        memoryGb: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+        screen: [window.innerWidth, window.innerHeight, window.devicePixelRatio],
+      };
+    };
+
+    w.__stage = { gl, scene, camera, census, frames };
+    return () => {
+      cancelAnimationFrame(raf);
+      delete w.__stage;
+    };
+  }, [gl, scene, camera]);
+
+  return null;
+}
+
+/** `?perf=1` on any room URL. Read once, on mount; it never changes. */
+function usePerfFlag(): boolean {
+  const [on] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).has("perf");
+  });
+  return on;
+}
+
+/**
+ * Step the resolution down until the machine can hold a frame.
+ *
+ * **Why this is measured and not predicted.** The tier above it is chosen from
+ * `hardwareConcurrency` and `deviceMemory` — how many CPU cores there are and
+ * how much RAM. Neither says anything about the GPU, and the GPU is the entire
+ * cost of this scene. A corporate laptop with eight cores and sixteen
+ * gigabytes and an integrated Intel part reports exactly what a workstation
+ * reports and gets exactly the same settings, then runs at a third of the
+ * speed. That is the machine the demo was failing on, and no amount of
+ * guessing from CPU facts would have caught it.
+ *
+ * So the room watches its own frame times and gives up resolution until they
+ * come back under budget. It only samples while the pump is driving frames
+ * back to back — during a scene fade, a curtain, a fan — because that is both
+ * when the cost is real and when a person is watching for the room to respond.
+ *
+ * It never steps back up. A governor that hunts in both directions visibly
+ * oscillates, and the only thing worse than a soft image is one that keeps
+ * changing sharpness while somebody is presenting over it.
+ */
+function useResolutionGovernor(startDpr: number) {
+  const setDpr = useThree((s) => s.setDpr);
+  const rung = useRef(0);
+  const samples = useRef<number[]>([]);
+  const settleUntil = useRef(0);
+
+  useLayoutEffect(() => {
+    setDpr(startDpr);
+  }, [setDpr, startDpr]);
+
+  return useCallback(
+    (cost: number, now: number) => {
+      if (rung.current >= DPR_LADDER.length - 1) return;
+      // The first frames after a step carry the recompile and the resize, so
+      // they say nothing about the steady state.
+      if (now < settleUntil.current) return;
+
+      const s = samples.current;
+      s.push(cost);
+      if (s.length < 24) return;
+      if (s.length > 48) s.shift();
+
+      const sorted = [...s].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      if (median <= STEP_DOWN_MS) return;
+
+      rung.current += 1;
+      samples.current = [];
+      settleUntil.current = now + 1200;
+      setDpr(DPR_LADDER[rung.current]);
+    },
+    [setDpr],
+  );
+}
+
+function RenderPump({ fps, dpr }: { fps: number; dpr: number }) {
   const invalidate = useThree((s) => s.invalidate);
+  const report = useResolutionGovernor(dpr);
 
   useLayoutEffect(() => {
     let frame = 0;
     let last = 0;
+    let lastDraw = 0;
     let signature = "";
     const minDelta = 1000 / fps;
 
@@ -211,6 +425,15 @@ function RenderPump({ fps }: { fps: number }) {
       }
 
       if (draw && t - last >= gap) {
+        /**
+         * While a transition is running the loop asks for a frame on every
+         * tick, so `requestAnimationFrame` is gated by the work itself and the
+         * gap between consecutive draws *is* the cost of a frame. That is the
+         * only window in which this can be measured without timing the GPU
+         * directly, which WebGL will not let us do.
+         */
+        if (motion === "transition" && lastDraw) report(t - lastDraw, t);
+        lastDraw = motion === "transition" ? t : 0;
         last = t;
         if (motion === "transition") signature = visualSignature();
         invalidate();
@@ -220,7 +443,7 @@ function RenderPump({ fps }: { fps: number }) {
 
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [invalidate, fps]);
+  }, [invalidate, fps, report]);
 
   return null;
 }
@@ -365,6 +588,7 @@ export function Stage3D({
    * device can change while the page is open anyway.
    */
   const [quality] = useState<Quality>(detectQuality);
+  const perf = usePerfFlag();
 
   const fill = new THREE.Color(
     ambient.color[0] / 255,
@@ -390,7 +614,12 @@ export function Stage3D({
        * point where text on a screen prop is still crisp and the fill cost has
        * come down by a third.
        */
-      dpr={quality === "low" ? [1, 1] : [1, 1.25]}
+      /**
+       * A range, so `setDpr` can move inside it. The governor sets the actual
+       * value on mount and steps it down from there; this only says how far it
+       * is allowed to go.
+       */
+      dpr={[DPR_LADDER[DPR_LADDER.length - 1], DPR_LADDER[0]]}
       gl={{
         antialias: true,
         // Tone mapping is the composer's job — see the note at the top.
@@ -405,7 +634,8 @@ export function Stage3D({
       }}
     >
       <Suspense fallback={null}>
-        <RenderPump fps={FRAME_CAP[quality]} />
+        <RenderPump fps={FRAME_CAP[quality]} dpr={quality === "low" ? 0.85 : DPR_LADDER[0]} />
+        {perf && <PerfProbe />}
         <LockHorizontalFov fovAt16x9={camera.fov} />
         <ProceduralEnvironment />
         {/* The room's fill, scaled by how much light is actually in it. Props

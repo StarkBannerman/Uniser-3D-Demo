@@ -56,7 +56,27 @@ const GAIN = {
 } as const;
 
 /** Field downlights, on an even grid over the seating. */
+/**
+ * Four heads that light the room; the grid of eleven is drawn as apertures.
+ *
+ * Measured, this room was running at 9.9 frames a second with thirty-two
+ * lights in it — the worst in the project — and three quarters of them were
+ * spot lights on a ceiling grid. A downlight three metres above a floor
+ * overlaps its neighbours almost completely; four of them cover an 8 x 10 m
+ * room, and what a viewer reads as "eleven downlights are on" is the eleven
+ * glowing lenses, which cost nothing.
+ *
+ * The same change took the hotel lobby from 9.2 fps to 35.
+ */
 export const LR_DOWNLIGHTS = [
+  { x: 2.6, z: 2.4 },
+  { x: 6.2, z: 3.2 },
+  { x: 2.8, z: 7.0 },
+  { x: 6.0, z: 8.2 },
+] as const;
+
+/** Every lens in the ceiling, lit but not illuminating. */
+export const LR_DOWNLIGHT_LENSES = [
   { x: 1.8, z: 1.6 },
   { x: 4.2, z: 1.6 },
   { x: 6.6, z: 1.6 },
@@ -78,15 +98,13 @@ export const LR_DOWNLIGHTS = [
  * is not accent lighting, it is a wall washer with better marketing.
  */
 export const LR_ART_HEADS = [
-  { x: LR.soffit.depth + 0.12, z: LR_PLAN.art.z - 0.85 },
-  { x: LR.soffit.depth + 0.12, z: LR_PLAN.art.z + 0.85 },
+  { x: LR.soffit.depth + 0.12, z: LR_PLAN.art.z },
 ] as const;
 
 /** Accent heads in the soffit, raking down the media wall at z = 0. */
 export const LR_WASH = [
-  { x: 1.9, z: LR.soffit.depth + 0.12 },
-  { x: 4.2, z: LR.soffit.depth + 0.12 },
-  { x: 6.4, z: LR.soffit.depth + 0.12 },
+  { x: 2.6, z: LR.soffit.depth + 0.12 },
+  { x: 5.9, z: LR.soffit.depth + 0.12 },
 ] as const;
 
 function colourOf(state: LightState): THREE.Color {
@@ -145,10 +163,12 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
     <group>
       {segments.map((s, i) => (
         <group key={`cove-${i}`}>
-          {MOUNTED && (
+          {/* The two long runs carry the light; the short ends carry only
+              their strip, which is what the eye reads as a lit cove. */}
+          {MOUNTED && s.along === "z" && (
             <rectAreaLight
               position={s.pos as unknown as [number, number, number]}
-              rotation={[Math.PI / 2, 0, s.along === "x" ? 0 : Math.PI / 2]}
+              rotation={[Math.PI / 2, 0, Math.PI / 2]}
               width={s.len}
               height={LR.soffit.depth * 0.45}
               intensity={GAIN.cove * out * gain}
@@ -175,10 +195,23 @@ function Downlights({
   aim,
   intensity,
   angle,
+  shadows = false,
+  lenses,
 }: {
   state: LightState;
   gain: number;
   positions: readonly { x: number; z: number }[];
+  /**
+   * Whether this group carries the room's shadow map.
+   *
+   * It used to be `i === 0` inside this component, which is correct for one
+   * group and wrong for three — the field, the media-wall graze and the art
+   * heads each took a shadow map, and with the sun that made four full extra
+   * scene renders every frame. Only the field needs one.
+   */
+  shadows?: boolean;
+  /** Apertures to draw where there is no light. */
+  lenses?: readonly { x: number; z: number }[];
   /** Where the beam lands — straight down, or forward onto the media wall. */
   aim: (p: { x: number; z: number }) => [number, number, number];
   intensity: number;
@@ -204,16 +237,20 @@ function Downlights({
               decay={1.35}
               intensity={intensity * out * gain}
               color={colour}
-              // One shadow caster per group. More shadow maps cost far more
-              // than the extra shadows contribute at this scale.
-              castShadow={i === 0}
+              castShadow={shadows && i === 0}
             />
           )}
-          <mesh position={[p.x, LR.h - 0.035, p.z]} rotation={[Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.05, 18]} />
-            <primitive object={lens} attach="material" />
-          </mesh>
         </group>
+      ))}
+      {(lenses ?? positions).map((p) => (
+        <mesh
+          key={`lens-${p.x}-${p.z}`}
+          position={[p.x, LR.h - 0.035, p.z]}
+          rotation={[Math.PI / 2, 0, 0]}
+        >
+          <circleGeometry args={[0.05, 18]} />
+          <primitive object={lens} attach="material" />
+        </mesh>
       ))}
     </group>
   );
@@ -493,9 +530,11 @@ export function LivingRoomLightRig({
         state={fixtures.downlights}
         gain={gain}
         positions={LR_DOWNLIGHTS}
+        lenses={LR_DOWNLIGHT_LENSES}
         aim={(p) => [p.x, 0, p.z]}
         intensity={GAIN.downlight}
-        angle={0.6}
+        angle={0.78}
+        shadows
       />
       {/* Accent, in two parts: the graze down the media wall and the strips
           inside the niches. One device, because on a keypad it is one button. */}

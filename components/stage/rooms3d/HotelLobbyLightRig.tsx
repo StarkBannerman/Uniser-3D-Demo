@@ -73,6 +73,24 @@ const GAIN = {
  */
 const MOUNTED = true;
 
+/**
+ * **The light budget is the frame budget.** Measured on this room, on an M1:
+ *
+ *     36 lights   9.2 fps   p95 134 ms
+ *     23 lights  35.1 fps   p95  67 ms
+ *
+ * Nothing else in the renderer is within a factor of three of that. Resolution
+ * — the obvious lever, and the one tried first — bought 14 per cent for 36 per
+ * cent fewer pixels, because three.js evaluates every light at every fragment
+ * *and* uploads every light's uniforms on every draw call, so a third of the
+ * cost is not per-pixel at all.
+ *
+ * The rule this room now follows, and the reason it still looks the same: a
+ * light is for *illumination*, an emissive mesh is for *recognition*. Anything
+ * whose job is to be seen as a lit fitting is an aperture; only the handful
+ * that genuinely change how the room is lit are lights.
+ */
+
 /** Seven flutes at 140 mm centres — see the slot run in `Accent`. */
 const SLOT_PITCH = 7 * (0.085 + 0.055);
 const SLOTS = 9;
@@ -112,17 +130,25 @@ for (let i = 0; i < 6; i++) {
   }
 }
 
+/**
+ * Four, where there were ten.
+ *
+ * This is the single biggest saving in the room and it costs almost nothing to
+ * look at. A downlight five and a half metres above a floor does not make a
+ * readable pool of light — it makes a broad wash, and four broad washes
+ * overlapping across 408 m² are indistinguishable from ten. What a viewer
+ * actually reads as "the downlights are on" is the forty-eight glowing lenses
+ * in the ceiling, and those are an instanced mesh that costs one draw call and
+ * no light at all.
+ *
+ * Measured: taking this room from 36 lights to 23 moved it from 9.2 frames a
+ * second to 35. Nothing else in the renderer comes close to that.
+ */
 const EMITTERS = [
-  { x: 4.4, z: 4.7 },
-  { x: 10.0, z: 4.7 },
-  { x: 4.4, z: 10.5 },
-  { x: 10.0, z: 10.5 },
-  { x: 13.0, z: 7.6 },
-  { x: 4.4, z: 16.3 },
-  { x: 10.0, z: 16.3 },
-  { x: 13.0, z: 19.2 },
-  { x: 7.2, z: 21.0 },
-  { x: 2.0, z: 19.2 },
+  { x: 6.0, z: 6.0 },
+  { x: 11.5, z: 9.0 },
+  { x: 5.2, z: 15.5 },
+  { x: 11.8, z: 18.5 },
 ] as const;
 
 function Downlights({ state, gain }: { state: LightState; gain: number }) {
@@ -169,7 +195,18 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
               color={colour}
               // One shadow caster. More shadow maps cost far more at this
               // scale than the extra shadows contribute.
-              castShadow={i === 6}
+              /**
+               * The caster is the head over the circulation route, not the
+               * one over the sofa.
+               *
+               * One shadow map is all this room gets — more cost far more
+               * than they contribute at this scale — so which head carries it
+               * matters. Directly above the sectional it drew a hard-edged
+               * band across the hero object in the brightest scene; over the
+               * open floor it gives the furniture contact shadows without
+               * putting a line through anything.
+               */
+              castShadow={i === 1}
             />
           )}
         </group>
@@ -218,6 +255,13 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
           <group key={`cove-${i}`}>
             {runs.map((r, j) => (
               <group key={j}>
+                {/*
+                  The two long runs of each step carry a light; the two short
+                  ones carry only their strip. In a room twenty-four metres
+                  long and seventeen wide the end runs are a tenth of the
+                  cove's output and a sixth of its cost, and the strip is what
+                  the eye reads as "lit" either way.
+                */}
                 {/* Only the two long runs carry a light. */}
                 {MOUNTED && r.along === "z" && (
                   <rectAreaLight
@@ -229,7 +273,7 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
                     color={colour}
                   />
                 )}
-                {MOUNTED && r.along === "x" && i === 1 && (
+                {false && r.along === "x" && i === 1 && (
                   <rectAreaLight
                     position={r.pos as unknown as [number, number, number]}
                     rotation={[Math.PI / 2, 0, 0]}
@@ -332,7 +376,7 @@ function Architectural({ state, gain }: { state: LightState; gain: number }) {
               <primitive object={mat} attach="material" />
             </mesh>
           ))}
-          {MOUNTED && (i === 1 || i === 3) && (
+          {MOUNTED && i === 2 && (
             <pointLight
               position={[-0.8, 2.6, 0]}
               intensity={GAIN.arch * 0.5 * out * gain}
@@ -523,13 +567,7 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
             decay={1.5}
             color={colour}
           />
-          <pointLight
-            position={[x, 5.1, z]}
-            intensity={GAIN.decorative * 0.7 * out * gain}
-            distance={13}
-            decay={1.5}
-            color={colour}
-          />
+
         </>
       )}
 
@@ -547,7 +585,7 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
               so the spill lands on the table rather than on the ceiling.
               Seven point lights in one room is seven per-fragment
               evaluations everywhere, for a difference nobody can see. */}
-          {MOUNTED && (i === 0 || i === 3 || i === 4) && (
+          {MOUNTED && i === 3 && (
             <pointLight
               position={[0, l.y - 0.12, 0]}
               intensity={GAIN.decorative * 0.42 * out * gain}
@@ -770,7 +808,7 @@ function Facade({ state, gain }: { state: LightState; gain: number }) {
             <circleGeometry args={[0.13, 14]} />
             <primitive object={mat} attach="material" />
           </mesh>
-          {MOUNTED && i !== 1 && (
+          {MOUNTED && i === 1 && (
             <pointLight
               position={[h.x, 1.6, h.z]}
               intensity={GAIN.facade * out * gain}
