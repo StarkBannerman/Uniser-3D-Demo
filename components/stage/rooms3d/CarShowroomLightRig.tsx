@@ -33,9 +33,18 @@ import { SH, SH_CARS, SH_PLAN } from "./CarShowroom3D";
 const GAIN = {
   downlight: 44,
   downlightEmissive: 6,
-  spot: 70,
+  /**
+   * Fifty-two, not seventy.
+   *
+   * A head aimed at a car six metres below it delivers, after inverse square,
+   * about a third of what the same number gives the hero across the room —
+   * so the figure that lit the platform correctly blew the nearest car to
+   * white paper. The heads are the sharpest instrument in the room and they
+   * were being swung the hardest.
+   */
+  spot: 52,
   spotEmissive: 5,
-  product: 95,
+  product: 72,
   linear: 30,
   linearEmissive: 4.2,
   accent: 34,
@@ -50,9 +59,9 @@ const GAIN = {
    * the frame came back as one orange plane. The ratio is the setting, not
    * the number.
    */
-  floor: 6,
+  floor: 4,
   floorEmissive: 4,
-  arch: 18,
+  arch: 12,
   archEmissive: 3.6,
   rgb: 24,
   rgbEmissive: 4.4,
@@ -71,13 +80,37 @@ const GAIN = {
  */
 const MOUNTED = true;
 
+/**
+ * How far each light is pulled toward white. 0 is the raw illuminant.
+ *
+ * A 3400 K source really is (1.00, 0.51, 0.24) in linear light: full red,
+ * a quarter of the blue. That is correct physics and it renders wrong,
+ * because six circuits of it stack red to saturation while blue never gets
+ * near it, and ACES then compresses the top of a frame whose red is already
+ * clipped. Measured here: the floor came back at roughly 2000 K in a room
+ * whose warmest circuit was set to 3400.
+ *
+ * What is missing is not the illuminant, it is the observer. An eye in that
+ * room — and the camera that took the client's reference photograph —
+ * chromatically adapts, so a warm room reads *warm* rather than orange. The
+ * renderer has no model of that, so it gets one here: every light is mixed
+ * part of the way to white, which keeps the ordering between scenes intact
+ * (3400 K is still visibly warmer than 4600 K) and takes the saturation out.
+ *
+ * Deliberately local to this room. The residential rooms and the hotel lobby
+ * were tuned by eye against the unadapted colours and signed off that way;
+ * changing the constant under them would shift seven approved scenes apiece.
+ */
+const ADAPT = 0.45;
+
 function colourOf(state: LightState): THREE.Color {
+  const adapt = (c: THREE.Color) => c.lerp(new THREE.Color(1, 1, 1), ADAPT);
   if (state.sat > 0) {
     const c = new THREE.Color(rgbToCss(cctToRgb(state.cct)));
-    return c.lerp(new THREE.Color().setHSL(state.hue / 360, 1, 0.5), state.sat / 100);
+    return adapt(c.lerp(new THREE.Color().setHSL(state.hue / 360, 1, 0.5), state.sat / 100));
   }
   const [r, g, b] = cctToRgb(state.cct);
-  return new THREE.Color(r / 255, g / 255, b / 255).convertSRGBToLinear();
+  return adapt(new THREE.Color(r / 255, g / 255, b / 255).convertSRGBToLinear());
 }
 
 const output = (s: LightState) => (s.on ? lightOutput(s.level) : 0);
@@ -320,11 +353,21 @@ function ProductLighting({
           </mesh>
         </group>
       ))}
+      {/*
+        The hero head, far enough forward to reach the nose.
+
+        At 1.4 m in front of the platform the cone pointed down and *away*
+        from the camera, so it washed the hero's tail and left the bonnet —
+        the surface everyone in the room is looking at — on ambient alone.
+        Measured at 35/255 on a car whose flank was at 138. Standing the head
+        2.6 m out and opening it to 0.5 rad puts the whole vehicle in the
+        pool, which is the point of a display fitting.
+      */}
       {MOUNTED && (
         <Spot
-          position={[h.x, c.y + 0.2, h.z + 1.4]}
-          target={[h.x, 1.0, h.z]}
-          angle={0.42}
+          position={[h.x, c.y + 0.2, h.z + 2.6]}
+          target={[h.x, 1.1, h.z + 0.4]}
+          angle={0.5}
           penumbra={0.5}
           distance={11}
           decay={1.3}
@@ -681,9 +724,20 @@ export function CarShowroomLightRig({
     [standardCri],
   );
 
-  /** Four live heads: two on the focus car, two spread over the floor. */
+  /**
+   * Four live heads: two on the focus car, two on the foreground pair.
+   *
+   * Picked by name rather than by taking the first two off the list, which
+   * quietly put a head on a saloon parked behind a column and left the red
+   * car — one of the three vehicles actually in shot — with nothing on it at
+   * all. It read as a flat red mass because it was lit like one.
+   */
   const aims = useMemo<[number, number, number][]>(() => {
-    const others = SH_CARS.filter((c) => c.id !== (focusId ?? "suv")).slice(0, 2);
+    const priority = ["coupe", "sport", "sedan", "white", "black"];
+    const others = priority
+      .filter((id) => id !== (focusId ?? "suv"))
+      .slice(0, 2)
+      .flatMap((id) => SH_CARS.filter((c) => c.id === id));
     const list: [number, number, number][] = [
       focus,
       [focus[0], 0.9, focus[2]],

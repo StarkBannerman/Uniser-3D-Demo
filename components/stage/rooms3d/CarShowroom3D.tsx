@@ -30,6 +30,7 @@ import {
   CAR_SHAPES,
   makeBrandGraphic,
   makeCarBody,
+  makeCarPanelMap,
   makeWordmark,
 } from "./geometry";
 
@@ -98,20 +99,31 @@ export const SH_PLAN = {
  */
 export const SH_CARS = [
   /**
-   * Left mid-ground, three-quarter on, and far enough right to be whole.
+   * Laid out to the reference photograph, which is a near-axial view.
    *
-   * At x = 8.0 its nose ran off the left edge of the frame — one of the faults
-   * the brief names. The camera stands at x = 7, so anything left of about
-   * x = 9.5 at this depth is partly outside the picture however far back it
-   * is. Ten metres along and nine back puts the whole car in shot with its
-   * three-quarter toward the lens.
+   * The first arrangement was built around a hard diagonal camera and put the
+   * white saloon across the whole bottom of the frame — the fault the brief
+   * names. In the reference the coupé sits in the *left third*, nearer the
+   * lens than the hero and turned so its nose comes toward the camera and its
+   * tail recedes to the upper left.
+   *
+   * Every heading here is set *relative to the lens*, not to the room. The
+   * first pass picked them by eye against the plan and three of the six came
+   * out within ten degrees of pointing straight down the camera axis — and a
+   * car seen head-on is a slab, because the one view that shows none of its
+   * flank is the one view with no length in it. Each is now turned 40 to 45
+   * degrees off the sightline, which is the three-quarter the reference uses
+   * on all six of its vehicles and the angle every showroom parks to.
+   *
+   * Every car is on the floor. The pair on the right stand under the
+   * mezzanine, past the lounge, as the smaller vehicles do in the reference.
    */
-  { id: "coupe", kind: "coupe", x: 10.2, z: 15.4, rot: -0.95, colour: "#aeb4bb", hero: false },
-  { id: "sedan", kind: "saloon", x: 8.4, z: 8.2, rot: -0.5, colour: "#33373d", hero: false },
-  { id: "suv", kind: "suv", x: 13.5, z: 10.5, rot: 0.62, colour: "#28382d", hero: true },
-  { id: "sport", kind: "coupe", x: 18.6, z: 7.6, rot: 2.42, colour: "#8e1c13", hero: false },
-  { id: "white", kind: "saloon", x: 24.4, z: 4.2, rot: 2.0, colour: "#cfd0cf", hero: false },
-  { id: "black", kind: "saloon", x: 27.0, z: 6.6, rot: 2.3, colour: "#141619", hero: false },
+  { id: "coupe", kind: "coupe", x: 9.8, z: 10.2, rot: 1.181, colour: "#70767d", hero: false },
+  { id: "sedan", kind: "saloon", x: 7.4, z: 7.0, rot: 1.349, colour: "#33373d", hero: false },
+  { id: "suv", kind: "suv", x: 13.5, z: 10.5, rot: 1.822, colour: "#28382d", hero: true },
+  { id: "sport", kind: "coupe", x: 18.5, z: 11.4, rot: 1.807, colour: "#8e1c13", hero: false },
+  { id: "white", kind: "saloon", x: 24.6, z: 4.2, rot: 1.669, colour: "#9ea0a0", hero: false },
+  { id: "black", kind: "saloon", x: 27.4, z: 7.2, rot: 1.514, colour: "#141619", hero: false },
 ] as const;
 
 /* ------------------------------------------------------------------ */
@@ -119,41 +131,43 @@ export const SH_CARS = [
 /* ------------------------------------------------------------------ */
 
 /**
- * A dark room. Every architectural surface in here is charcoal or darker.
+ * A dark room with a light floor — which is what the reference actually is.
  *
- * This is the whole brief in one decision, and it is the opposite of what the
- * first build did. A showroom reads as premium because of *contrast*: the
- * paint on a car is the brightest thing in the frame and everything around it
- * falls away. Pale walls and a pale ceiling make that impossible — they bounce
- * the display lighting straight back, lift the floor, and leave the cars
- * sitting in the same tone as the room. The first version shipped with cream
- * walls and a 0.3 floor and read as a lit warehouse.
+ * The first build shipped cream walls and read as a lit warehouse, so the
+ * rebuild took everything to charcoal. That overcorrected: with the floor at
+ * 0.05 as well, the room had nothing in it brighter than the cars and no
+ * surface for their reflections to live on, and the whole frame went to mud
+ * under a warm scene.
  *
- * The numbers are reflectances, not preferences. Charcoal paint is 0.08 to
- * 0.12; dark terrazzo is 0.05 to 0.08 and earns all of its brightness from
- * gloss. Keeping them there is what leaves headroom for a highlight.
+ * The reference splits it. Walls, ceiling and columns are charcoal — the cars
+ * are still the brightest thing in the room — but the floor is *pale polished
+ * concrete*, and it is the single most important surface in the picture: it
+ * carries every reflection, it is where the floor lighting shows, and it is
+ * where the frame gets its depth. Those are the real reflectances too:
+ * charcoal paint is 0.08 to 0.12, and ground-and-sealed concrete is 0.30 to
+ * 0.40 whatever anybody would like it to be.
  */
 const M = {
-  /** Near-black polished terrazzo. The most important surface in the room. */
+  /** Pale polished concrete, warm grey. The most important surface here. */
   floor: new THREE.MeshPhysicalMaterial({
-    color: "#17191c",
-    roughness: 0.1,
+    color: "#8a8681",
+    roughness: 0.14,
     metalness: 0.0,
     clearcoat: 1,
-    clearcoatRoughness: 0.03,
-    envMapIntensity: 1.6,
+    clearcoatRoughness: 0.05,
+    envMapIntensity: 1.3,
   }),
-  /** The turntable deck: the same stone, unmapped — see `HeroPlatform`. */
+  /** The hero platform deck: the same concrete, a shade deeper and glossier. */
   deck: new THREE.MeshPhysicalMaterial({
-    color: "#15171a",
-    roughness: 0.08,
+    color: "#726e69",
+    roughness: 0.1,
     metalness: 0,
     clearcoat: 1,
-    clearcoatRoughness: 0.03,
-    envMapIntensity: 1.7,
+    clearcoatRoughness: 0.035,
+    envMapIntensity: 1.5,
   }),
   /** Dark charcoal matte ceiling. */
-  ceiling: new THREE.MeshStandardMaterial({ color: "#1d1f22", roughness: 0.96 }),
+  ceiling: new THREE.MeshStandardMaterial({ color: "#212326", roughness: 0.96 }),
   coffer: new THREE.MeshStandardMaterial({ color: "#191b1e", roughness: 0.9 }),
   /** Deep charcoal walls. */
   wall: new THREE.MeshStandardMaterial({ color: "#232528", roughness: 0.94 }),
@@ -475,20 +489,27 @@ export function HeroPlatform({
 /* Vehicles                                                            */
 /* ------------------------------------------------------------------ */
 
+
 /**
- * One car: a skinned body, a greenhouse, wheels and lamps.
+ * One car: paint, glass, a painted roof, wheels in their arches, lamps.
+ *
+ * Three skins rather than one. The paint stops at the shoulder and closes
+ * across with a crowned deck; the glass is a narrower volume standing on that
+ * beltline; a painted cap covers the top of it. That step from flank to glass
+ * is what a single lofted tube could not produce, and it is the difference
+ * between a car and a bar of soap — see `makeCarBody`.
  *
  * Paint is a `MeshPhysicalMaterial` with a clearcoat, which is what car paint
- * physically is — a pigmented base under a clear lacquer, and two specular
- * lobes rather than one. It is also the material that makes the high-CRI
- * demonstration visible at all: a single-lobe surface has no depth for a
+ * physically is: a pigmented base under a clear lacquer, two specular lobes
+ * rather than one. It is also the material that makes the high-CRI
+ * demonstration visible at all — a single-lobe surface has no depth for a
  * spectrum to flatten.
  *
  * Nothing here is badged. The grille is a dark recess, the lamps are abstract
- * bars, and the proportions come from `CAR_SHAPES` — a coupé, a saloon and a
- * tall estate. None of it is anybody's design.
+ * bars, and the proportions come from `CAR_SHAPES`. None of it is anybody's
+ * design.
  */
-function Car({
+export function Car({
   kind,
   colour,
   lampsOn,
@@ -499,36 +520,79 @@ function Car({
   lampsOn: boolean;
 }) {
   const shape = CAR_SHAPES[kind] ?? CAR_SHAPES.saloon;
-  const body = useMemo(
-    () => makeCarBody(shape.stations, shape.length),
+  const skins = useMemo(
+    () => ({
+      body: makeCarBody(shape.stations, shape.length, "body"),
+      glass: makeCarBody(shape.stations, shape.length, "glass"),
+      roof: makeCarBody(shape.stations, shape.length, "roof"),
+    }),
     [shape],
   );
+  const panels = useMemo(() => makeCarPanelMap(shape.doors), [shape]);
 
   const paint = useMemo(
     () =>
       new THREE.MeshPhysicalMaterial({
         color: colour,
+        map: panels,
         roughness: 0.3,
         // Metallic flake: enough to pick up the room, not enough to turn the
         // panel into a mirror and lose its colour entirely.
-        metalness: 0.55,
+        //
+        // 0.28. Car paint is a dielectric with flake suspended in it, not a
+        // metal, and at 0.55 a pale silver had so little diffuse left that
+        // the body was almost pure reflection — the coupé came back as a
+        // white cut-out with a spotlight on it whatever its base colour was.
+        metalness: 0.28,
         clearcoat: 1,
         clearcoatRoughness: 0.045,
-        envMapIntensity: 1.7,
+        // 1.2, not 1.7. A pale metallic at 1.7 saturates to white under the
+        // general wash before a spotlight has touched it, and then there is
+        // no headroom left for the spotlight to do anything with.
+        envMapIntensity: 1.2,
+        side: THREE.DoubleSide,
+      }),
+    [colour, panels],
+  );
+  /** The roof cap: the same paint without the shut lines over it. */
+  const roofPaint = useMemo(
+    () =>
+      new THREE.MeshPhysicalMaterial({
+        color: colour,
+        roughness: 0.3,
+        metalness: 0.28,
+        clearcoat: 1,
+        clearcoatRoughness: 0.045,
+        envMapIntensity: 1.2,
         side: THREE.DoubleSide,
       }),
     [colour],
   );
 
+  /**
+   * Opaque, dark, and only moderately glossy.
+   *
+   * Showroom glass is privacy-tinted and lit from above, so what you actually
+   * see in a photograph is the ceiling reflected in it — almost never the
+   * interior. An opaque dark surface gives exactly that, and it avoids a
+   * sorted draw and the depth artefacts that come with one on a curved shell.
+   *
+   * The gloss had to come *down*. At roughness 0.08 with a full clearcoat the
+   * greenhouse was a mirror, so it returned the pale floor across its whole
+   * area and every car came out wearing a white bubble instead of a cabin —
+   * the glass was the brightest thing on the vehicle. Softening it to 0.2 and
+   * halving the environment keeps the sharp highlight along the top of the
+   * screen, which is the part that reads as glass, and lets the rest go dark.
+   */
   const glass = useMemo(
     () =>
       new THREE.MeshPhysicalMaterial({
-        color: "#1c2328",
-        roughness: 0.06,
-        metalness: 0.1,
-        transparent: true,
-        opacity: 0.62,
-        envMapIntensity: 2,
+        color: "#0b0e12",
+        roughness: 0.5,
+        metalness: 0,
+        clearcoat: 0,
+        clearcoatRoughness: 0.2,
+        envMapIntensity: 0.7,
         side: THREE.DoubleSide,
       }),
     [],
@@ -562,64 +626,66 @@ function Car({
   });
 
   const L = shape.length;
-  const last = shape.stations[shape.stations.length - 1];
-  const mid = shape.stations[Math.floor(shape.stations.length / 2)];
-  /** Axles at the classic fractions, so the stance reads right. */
+  const at = (t: number) =>
+    shape.stations.reduce((a, b) =>
+      Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a,
+    );
+  const nose = shape.stations[0];
+  const tailSt = shape.stations[shape.stations.length - 1];
+  const widest = shape.stations.reduce((a, b) => (b.hw > a.hw ? b : a));
+  /** Axles at the classic fractions — the arches are cut to match. */
   const axle = { front: -L * 0.31, rear: L * 0.31 };
-  const wheelR = kind === "suv" ? 0.39 : 0.335;
-  const track = mid.hw - 0.06;
+  const wheelR = shape.wheelR;
+  /**
+   * Inset by the tyre's half-width plus a little, so the sidewall sits just
+   * inside the flank and fills the arch.
+   *
+   * The old figure put the whole wheel *inside* the body, which is why every
+   * car looked like a blob with discs parked under it: a wheel you cannot see
+   * the outer face of is not a wheel.
+   */
+  const tyreW = 0.235;
+  const track = widest.hw - tyreW / 2 - 0.03;
 
   return (
     <group>
-      <mesh geometry={body} castShadow receiveShadow>
+      <mesh geometry={skins.body} castShadow receiveShadow>
         <primitive object={paint} attach="material" />
       </mesh>
-
-      {/*
-        The greenhouse, as a second skin just inside the roof.
-
-        Drawn from the same stations with the sills raised to the shoulder, so
-        the glass follows the body's own line exactly rather than being a box
-        set into it — which is what makes a windscreen read as raked.
-      */}
-      <mesh
-        geometry={useMemo(
-          () =>
-            makeCarBody(
-              shape.stations.map((st) => ({
-                ...st,
-                hw: st.roofHw * 1.02,
-                sill: st.shoulder + 0.012,
-                shoulder: st.shoulder + 0.02,
-              })),
-              shape.length,
-            ),
-          [shape],
-        )}
-        scale={[0.995, 0.998, 0.985]}
-      >
+      <mesh geometry={skins.glass} castShadow>
         <primitive object={glass} attach="material" />
       </mesh>
+      <mesh geometry={skins.roof} castShadow>
+        <primitive object={roofPaint} attach="material" />
+      </mesh>
 
-      {/* Wheels: a tyre, a dished rim and spokes. */}
+      {/* Wheels: a tyre, a dished rim and spokes, sat in the arch. */}
       {[axle.front, axle.rear].map((x) =>
         [-track, track].map((z) => (
           <group key={`w-${x}-${z}`} position={[x, wheelR, z]} rotation={[Math.PI / 2, 0, 0]}>
             <mesh castShadow>
-              <cylinderGeometry args={[wheelR, wheelR, 0.235, 22]} />
+              <cylinderGeometry args={[wheelR, wheelR, tyreW, 24]} />
               <meshStandardMaterial color="#121315" roughness={0.92} />
             </mesh>
             {/*
               Outboard of the tyre, not inside it.
- 
+
               The tyre is 235 mm across, so its outer face is at ±0.1175 and a
               rim offset by 0.10 was buried in the rubber — every wheel read as
               a plain black disc. 0.125 puts the dish just proud of the
               sidewall, which is where an alloy actually sits.
             */}
-            <mesh position={[0, z > 0 ? 0.125 : -0.125, 0]}>
-              <cylinderGeometry args={[wheelR * 0.7, wheelR * 0.7, 0.03, 24]} />
-              <primitive object={M.rim} attach="material" />
+            {/*
+              The dish is dark and only the spokes are alloy.
+
+              A full-width alloy disc reads as a white circle from any
+              distance — which is exactly what it did, and it made every
+              wheel look like a hubcap off a van. On a real wheel most of
+              the area behind the spokes is shadow.
+            */}
+            <mesh position={[0, z > 0 ? 0.122 : -0.122, 0]}>
+              <cylinderGeometry args={[wheelR * 0.74, wheelR * 0.74, 0.03, 24]} />
+              <primitive object={M.darker} attach="material" />
             </mesh>
             {Array.from({ length: 5 }, (_, k) => (
               <mesh
@@ -627,37 +693,78 @@ function Car({
                 position={[0, z > 0 ? 0.138 : -0.138, 0]}
                 rotation={[0, (k * Math.PI * 2) / 5, 0]}
               >
-                <boxGeometry args={[wheelR * 1.28, 0.016, 0.085]} />
+                <boxGeometry args={[wheelR * 1.34, 0.016, 0.1]} />
                 <primitive object={M.rim} attach="material" />
               </mesh>
             ))}
             <mesh position={[0, z > 0 ? 0.142 : -0.142, 0]}>
-              <cylinderGeometry args={[wheelR * 0.2, wheelR * 0.2, 0.03, 16]} />
+              <cylinderGeometry args={[wheelR * 0.22, wheelR * 0.22, 0.03, 16]} />
               <primitive object={M.chrome} attach="material" />
             </mesh>
           </group>
         )),
       )}
 
-      {/* Headlamps and tail bars: abstract slots, not a face. */}
+      {/*
+        Door mirrors, on the shoulder at the base of the A-pillar.
+
+        Small, and worth every triangle: a mirror is the one detail that sits
+        *outside* the silhouette, so it breaks the smooth outline of the
+        greenhouse from any angle and is read instantly as a car.
+      */}
+      {[-1, 1].map((side) => {
+        const st = at(0.34);
+        return (
+          <group
+            key={`m-${side}`}
+            position={[(0.34 - 0.5) * L, st.shoulder + 0.04, side * st.hw * 0.97]}
+          >
+            <mesh position={[0, 0, side * 0.055]}>
+              <boxGeometry args={[0.05, 0.03, 0.11]} />
+              <primitive object={M.darker} attach="material" />
+            </mesh>
+            <mesh position={[0, 0.03, side * 0.145]} rotation={[0, 0, side * 0.12]}>
+              <boxGeometry args={[0.15, 0.085, 0.06]} />
+              <primitive object={paint} attach="material" />
+            </mesh>
+          </group>
+        );
+      })}
+
+      {/*
+        Headlamps and tail bars: abstract slots, not a face.
+
+        Set out to the corners of the nose rather than inboard. A pair of
+        lamps huddled around the centreline reads as a cartoon; a real lamp
+        runs out to where the wing turns, and that is also the only place it
+        is visible from three-quarters on, which is how every one of these is
+        seen on the floor.
+      */}
       {[-1, 1].map((side) => (
         <mesh
           key={`hl-${side}`}
-          position={[-L / 2 + 0.07, mid.sill + 0.42, side * (mid.hw * 0.62)]}
+          position={[-L / 2 + 0.08, nose.shoulder - 0.1, side * (nose.hw * 0.78)]}
           rotation={[0, Math.PI / 2, 0]}
         >
-          <planeGeometry args={[0.34, 0.1]} />
+          <planeGeometry args={[0.3, 0.07]} />
           <primitive object={lamp} attach="material" />
         </mesh>
       ))}
-      <mesh position={[L / 2 - 0.04, last.sill + 0.42, 0]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[last.hw * 1.5, 0.075]} />
+      <mesh
+        position={[L / 2 - 0.04, tailSt.shoulder - 0.14, 0]}
+        rotation={[0, -Math.PI / 2, 0]}
+      >
+        <planeGeometry args={[tailSt.hw * 1.55, 0.06]} />
         <primitive object={tail} attach="material" />
       </mesh>
-      {/* A dark intake under the nose, which is what reads as a grille
-          without being one. */}
-      <mesh position={[-L / 2 + 0.03, mid.sill + 0.12, 0]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[mid.hw * 1.3, 0.2]} />
+      {/*
+        A dark intake low in the nose, which is what reads as a grille without
+        being one — and it is *low*. At a quarter of a metre tall it covered
+        the whole front of the car and every vehicle on the floor had a black
+        slab for a face.
+      */}
+      <mesh position={[-L / 2 + 0.04, nose.sill + 0.1, 0]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[nose.hw * 1.15, 0.15]} />
         <primitive object={M.darker} attach="material" />
       </mesh>
     </group>
@@ -971,11 +1078,21 @@ function Foliage({ scale = 1 }: { scale?: number }) {
   );
 }
 
+/**
+ * Against the walls, and one at the edge of the frame to close it.
+ *
+ * The fourth of these used to stand at x = 16.3, four metres in front of the
+ * lens and dead centre: a two-metre ficus straight through the middle of the
+ * shot, hiding the red car and most of the lounge behind it. Planting belongs
+ * at the edges of a showroom floor, which is also where the reference puts
+ * it — the sightline from the door to the hero car is the one thing on the
+ * plan nothing is allowed to stand in.
+ */
 const PLANTERS = [
   { x: 1.5, z: 2.0, s: 1.15 },
   { x: 1.5, z: 9.0, s: 1.0 },
   { x: 1.5, z: 16.2, s: 1.2 },
-  { x: 16.3, z: 16.6, s: 1.05 },
+  { x: 21.2, z: 15.4, s: 0.95 },
   { x: 24.6, z: 16.4, s: 1.15 },
   { x: 24.6, z: 2.2, s: 0.95 },
 ] as const;

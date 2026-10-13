@@ -7,37 +7,50 @@
  * turntable's speed arrive already tweened by the engine.
  */
 
-import type { AvState, FanState, LightState } from "@/lib/sim/types";
+import type { AvState, LightState } from "@/lib/sim/types";
 import { useSim } from "@/lib/sim/store";
 import { roomAmbience } from "@/lib/sim/ambience";
 import { clamp01, daylightLux, sunElevation01 } from "@/lib/sim/photometry";
-import { bladeRadPerSec } from "@/lib/sim/fan";
 import { Stage3D, type CameraSpec } from "../Stage3D";
 import { CarShowroom3D } from "./CarShowroom3D";
 import { CarShowroomLightRig, type ShowroomFixtures } from "./CarShowroomLightRig";
 
 /**
- * Front-left of the floor, looking diagonally into the depth.
+ * Near-axial, from the front of the floor at eye height.
  *
- * Eye height, not drone height: 1.55 m. A showroom photographed from three
- * metres up reads as a floor plan, and what is being sold here is what a
- * customer sees walking in off the street.
+ * Rebuilt against the reference photograph. The previous camera ran a hard
+ * diagonal across the plate, which is what drove a saloon into the bottom of
+ * the frame at arm's length and left the hero behind it. The reference is not
+ * a diagonal: it looks almost straight down the depth of the room from a
+ * little right of centre, with the hero platform just left of the middle, the
+ * brand walls down the left and the lounge and reception opening up on the
+ * right. Everything stays whole and nothing is closer than about nine metres.
  *
- * Pitched down by a degree and a half rather than up. The hotel lobby was
- * pitched *up* two degrees and handed 45 per cent of the frame to an empty
- * ceiling; a shallow downward tilt puts the horizon above centre, which gives
- * the floor — the surface carrying every reflection in the room — the space
- * it needs, and keeps a six-metre column from visibly converging.
+ * Eye height, not drone height: 1.62 m. A showroom photographed from three
+ * metres up reads as a floor plan, and what is being sold is what a customer
+ * sees walking in off the street.
  *
- * The diagonal is what makes the room deep. Square to the back wall a 20 m
- * plate is a corridor; on the diagonal the coupé leads in the left
- * foreground, the hero platform sits at the vanishing point, and the columns,
- * lounge and mezzanine open up to the right.
+ * 50° rather than 45°, because the reference is a wide frame — it holds the
+ * left-hand brand wall and the right-hand reception in one shot, which a
+ * 45° lens from this distance cannot.
+ *
+ * Standing at x = 13.2, not 15. The stage is not the browser window — the
+ * control panel takes the right third, so the plate is about 1.35:1 and not
+ * the 1.6 the viewport suggests. At x = 15 that narrower frame cut the left
+ * edge off the coupé however far back the car was moved, because shifting a
+ * car toward the lens narrows the frame faster than the car travels. The
+ * camera had to move, not the vehicle.
+ *
+ * The target sits at 1.5 m, barely below the lens. Aimed at 1.15 it pitched
+ * down far enough to hand the bottom 45 per cent of the plate to bare floor,
+ * which is the same mistake the hotel lobby made with its ceiling, upside
+ * down. The reference gives the floor about a third: enough to carry the
+ * reflections, not so much that it becomes the subject.
  */
 const CAMERA: CameraSpec = {
-  position: [7.0, 1.7, 23.0],
-  target: [15.5, 1.45, 6.0],
-  fov: 45,
+  position: [13.2, 1.66, 20.8],
+  target: [14.9, 1.5, 4.0],
+  fov: 50,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
@@ -61,7 +74,6 @@ export function CarShowroomStage() {
     rgb: light("cs-rgb"),
   };
 
-  const turntable = states["cs-turntable"] as FanState | undefined;
   const focus = states["cs-focus"] as AvState | undefined;
 
   /**
@@ -89,9 +101,22 @@ export function CarShowroomStage() {
       )
     : 0;
 
-  const ambient = space
+  /**
+   * Fill, scaled back hard for this room.
+   *
+   * `roomAmbience` derives bounce from illuminance against the space's design
+   * lux, which is right in a room with ordinary surfaces and wrong here: the
+   * ceiling, walls and columns are all charcoal at a reflectance of 0.08 to
+   * 0.12, so there is a fraction of the inter-reflection the model assumes.
+   * Left alone it sat at its cap and lit every car from every direction at
+   * once — the coupé's bonnet and its flank came back eleven values apart,
+   * which is a car with no form in it. Light that arrives from everywhere
+   * cannot model anything, and modelling is the entire job of a display rig.
+   */
+  const bounced = space
     ? roomAmbience(space, states, clockMin)
     : { level: 0, color: [255, 245, 230] as [number, number, number], lux: 0 };
+  const ambient = { ...bounced, level: bounced.level * 0.55 };
 
   /**
    * High-CRI is a circuit that is *on*; standard CRI is what you get when it
@@ -121,15 +146,16 @@ export function CarShowroomStage() {
     >
       <CarShowroom3D
         /**
-         * A twelfth of a ceiling fan's rate.
+         * The hero car stands still.
          *
-         * `bladeRadPerSec` is calibrated for blades — 29 to 134 rpm — and a
-         * display turntable does about one revolution every forty seconds, or
-         * 1.5 rpm. Reusing the device kind is worth it for everything else it
-         * brings; reusing its speeds without scaling them would spin a car
-         * like a washing machine.
+         * The turntable is still a device — it has a speed, the scenes set it
+         * and the controls show it — but the client asked for the car not to
+         * turn, and they are right: a slow rotation reads as drift on a
+         * screenshot and as a stutter on a weak GPU, and it costs a continuous
+         * frame loop for the whole session. Keeping the device and zeroing the
+         * motion is the cheap half of both.
          */
-        turntableRadiansPerSecond={bladeRadPerSec(turntable, 3) * 0.028}
+        turntableRadiansPerSecond={0}
         // A car's own lamps belong to the moment it is being presented, not
         // to the room's ambient state — so they follow the RGB feature
         // circuit, which is only up in Launch and Event.

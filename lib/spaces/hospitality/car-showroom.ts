@@ -754,7 +754,17 @@ export const carShowroom: Space = {
    * the most visible work, with the room pulled down and the cars standing in
    * light. It is also the hour the sheet's own hero image is lit for.
    */
-  openingSceneId: "premium",
+  /**
+   * Open on the neutral morning scene, not on Premium.
+   *
+   * Premium is 2700–3400 K with the room pulled right down — it is the most
+   * flattering scene in the file and the worst possible first frame, because
+   * with nothing to compare it against a warm low-key room just reads as an
+   * orange one. Showroom Open is also the scene the client's own reference
+   * photograph shows, which is what anyone looking at this will compare it
+   * to, and it stages itself over three beats as it comes up.
+   */
+  openingSceneId: "showroom-open",
   openingClockMin: 18 * 60 + 45,
 
   // Mumbai.

@@ -1428,79 +1428,166 @@ export function makeContactShadow(
 /**
  * A car body, skinned from cross-sections along its length.
  *
- * Built this way for the same reason the hotel lobby's sofa is: a vehicle
- * assembled from boxes reads as boxes however much the corners are rounded,
- * because the eye judges an object from its *silhouette* and a box silhouette
- * has corners in it. A car's whole identity is the line from bonnet to roof to
- * boot, and that line only exists if the surface is continuous.
+ * The first version of this lofted one closed tube from the sill all the way
+ * over the roof, and every car came out a bar of soap. Two things were wrong
+ * with it, and they are the two things that make a car read as a car:
  *
- * Each station gives a half-section — sill, shoulder, roof — and the loop is
- * mirrored to the other side and skinned to its neighbour. No marque, no
- * grille, no badge: the parameters make a coupé, a saloon or a tall estate,
- * and nothing in here is anybody's design.
+ * **The greenhouse was inside the paint.** A single tube means the roof is
+ * body-coloured all the way across and the glass shell drawn inside it can
+ * never be seen. A car's cabin is a *separate, narrower volume* standing on
+ * the beltline — the step from flank to glass is the strongest horizontal in
+ * the whole silhouette. So the paint now stops at the shoulder and closes
+ * across with a crowned deck (which is the bonnet at the front, the beltline
+ * through the doors and the boot lid at the back), and the glass is its own
+ * loft sitting on top of it with a painted roof cap over that.
+ *
+ * **The sill was almost constant**, so the body met the floor in a straight
+ * line and the wheels were discs parked beside it. A real car's lower edge
+ * *arches over each axle*, and that arch is the strongest cue in the
+ * silhouette — stronger than the roofline. The arches here span a full wheel
+ * diameter with five stations each, so they are curves rather than notches,
+ * and the wheels are set to sit just inside them.
+ *
+ * No marque, no grille, no badge: the parameters make a coupé, a saloon or a
+ * tall estate, and nothing in here is anybody's design.
  */
 export interface CarStation {
   /** Position along the car, 0 at the nose to 1 at the tail. */
   t: number;
-  /** Half-width of the body at the sill. */
+  /** Half-width of the flank at its widest. */
   hw: number;
-  /** Sill height. */
+  /** The rocker line — the bottom of the body. Climbs over each axle. */
   sill: number;
-  /** Shoulder line — the top of the doors. */
+  /** Shoulder line: bonnet top, door top, boot lid. */
   shoulder: number;
-  /** Roof height. Equal to `shoulder` where there is no roof. */
+  /** Roof height. Equal to `shoulder` anywhere there is no cabin. */
   roof: number;
-  /** Half-width at the roof. Zero tapers the greenhouse to nothing. */
+  /** Half-width at the roof. */
   roofHw: number;
 }
+
+/** Which of the three skins to build from a station set. */
+export type CarPart = "body" | "glass" | "roof";
+
+/** Fraction of the shoulder-to-roof height that is glass; the rest is roof. */
+const GLASS_FRACTION = 0.8;
+/** Below this, a station has no cabin and its glass and roof rings collapse. */
+const CABIN_MIN = 0.03;
+/** Where the deck meets the flank. The glass stands on the same line. */
+const BELT = 0.88;
+
+const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
+/** A half-section collapsed onto the centreline: `n` points, zero area. */
+const flat = (n: number, y: number): [number, number][] =>
+  Array.from({ length: n }, () => [0, y] as [number, number]);
 
 export function makeCarBody(
   stations: readonly CarStation[],
   length: number,
-  /** Points around each half-section; more is smoother and costs little. */
-  ring = 9,
+  part: CarPart = "body",
 ): THREE.BufferGeometry {
-  /** One closed loop: up the left side, across the roof, down the right. */
-  const section = (s: CarStation): THREE.Vector2[] => {
-    const pts: THREE.Vector2[] = [];
-    const half: [number, number][] = [
-      [0, s.sill - 0.02],
-      [s.hw * 0.72, s.sill - 0.015],
-      [s.hw * 0.98, s.sill + 0.06],
-      [s.hw, s.sill + (s.shoulder - s.sill) * 0.45],
-      [s.hw * 0.96, s.shoulder],
-      [s.roofHw * 1.06, s.shoulder + (s.roof - s.shoulder) * 0.42],
-      [s.roofHw * 0.92, s.roof - 0.015],
-      [s.roofHw * 0.5, s.roof],
-      [0, s.roof + 0.004],
-    ];
-    const take = half.slice(0, ring);
-    // Left side bottom-to-top, then right side top-to-bottom.
-    take.forEach(([z, y]) => pts.push(new THREE.Vector2(-z, y)));
-    for (let i = take.length - 2; i >= 1; i--) {
-      pts.push(new THREE.Vector2(take[i][0], take[i][1]));
+  /** One loop: out along the left, over the top, back down the right. */
+  const section = (s: CarStation): [number, number][] => {
+    const cabin = s.roof - s.shoulder;
+    const gh = Math.max(0, cabin) * GLASS_FRACTION;
+    const glassTop = s.shoulder + gh;
+    const belt = s.hw * BELT;
+
+    let half: [number, number][];
+    if (part === "body") {
+      const rise = s.shoulder - s.sill;
+      half = [
+        [0, s.sill - 0.01],
+        [s.hw * 0.62, s.sill - 0.03],
+        // The tuck finishes quickly, so the flank above it is nearly vertical.
+        // The first version eased it over the whole rise, which gave every car
+        // a barrel cross-section — and a barrel has no flat side to catch a
+        // highlight, which is most of why they read as soap.
+        //
+        // Proportional to the rise rather than absolute, because over a wheel
+        // arch the rise is only 170 mm: fixed offsets there ran the section's
+        // own points past each other and folded the loop inside out.
+        [s.hw * 0.88, s.sill + rise * 0.03],
+        [s.hw * 0.975, s.sill + rise * 0.14],
+        [s.hw, s.sill + rise * 0.42],
+        // A character line. Three points close together put a crease in the
+        // flank, and the crease is what carries the long highlight down the
+        // side of the car in every showroom photograph ever taken.
+        [s.hw * 0.998, s.sill + rise * 0.52],
+        [s.hw * 0.972, s.sill + rise * 0.6],
+        [s.hw * 0.985, s.shoulder - 0.14],
+        [s.hw * 0.945, s.shoulder - 0.02],
+        [belt, s.shoulder],
+        [s.hw * 0.7, s.shoulder + 0.02],
+        [s.hw * 0.38, s.shoulder + 0.03],
+        [0, s.shoulder + 0.034],
+      ];
+    } else if (part === "glass") {
+      // No cabin here: collapse to a zero-area ring on the centreline, just
+      // clear of the deck. Cheaper than slicing the loft, and invisible.
+      //
+      // It has to be built from a *half* of the usual length, not returned
+      // as a ring directly: `cols` comes from the first station, so a
+      // collapsed ring with its own point count silently writes past the end
+      // of its row and indexes vertices belonging to the next one. That is
+      // what left every car but the hero with no cabin at all.
+      half = flat(6, s.shoulder + 0.004);
+      if (cabin >= CABIN_MIN) half = [
+        [belt, s.shoulder],
+        [lerp(belt, s.roofHw, 0.45), s.shoulder + gh * 0.34],
+        [lerp(belt, s.roofHw, 0.82), s.shoulder + gh * 0.7],
+        [s.roofHw, glassTop],
+        [s.roofHw * 0.55, glassTop + 0.01],
+        [0, glassTop + 0.014],
+      ];
+    } else {
+      const base = glassTop - 0.006;
+      half = flat(5, s.shoulder + 0.006);
+      if (cabin >= CABIN_MIN) half = [
+        [s.roofHw * 1.014, base],
+        [s.roofHw * 1.016, base + (s.roof - base) * 0.42],
+        [s.roofHw * 0.95, s.roof - 0.012],
+        [s.roofHw * 0.55, s.roof],
+        [0, s.roof + 0.004],
+      ];
     }
+
+    const pts: [number, number][] = [];
+    half.forEach(([z, y]) => pts.push([-z, y]));
+    for (let i = half.length - 2; i >= 1; i--) pts.push([half[i][0], half[i][1]]);
     return pts;
   };
 
   const rows = stations.length;
   const loops = stations.map(section);
   const cols = loops[0].length;
+  /**
+   * The nose and the tail get their own ring of vertices, fanned into a cap.
+   *
+   * Without them the loft is an open tube, and a car with an open nose is not
+   * a subtle fault: the first build of this showed the inside of the far side
+   * of the body through the front of every car, tail lamp included. The cap
+   * vertices are duplicated rather than shared so `computeVertexNormals`
+   * gives them a flat face instead of averaging them into the flank.
+   */
+  const capped = part === "body";
+  const total = rows * cols + (capped ? cols * 2 : 0);
 
-  const pos = new Float32Array(rows * cols * 3);
-  const uv = new Float32Array(rows * cols * 2);
+  const pos = new Float32Array(total * 3);
+  const uv = new Float32Array(total * 2);
+  const put = (n: number, x: number, y: number, z: number, u: number, v: number) => {
+    pos[n * 3] = x;
+    pos[n * 3 + 1] = y;
+    pos[n * 3 + 2] = z;
+    uv[n * 2] = u;
+    uv[n * 2 + 1] = v;
+  };
+
   for (let i = 0; i < rows; i++) {
-    const s = stations[i];
-    const x = (s.t - 0.5) * length;
+    const x = (stations[i].t - 0.5) * length;
     for (let j = 0; j < cols; j++) {
-      const p = loops[i][j];
-      const k = (i * cols + j) * 3;
-      pos[k] = x;
-      pos[k + 1] = p.y;
-      pos[k + 2] = p.x;
-      const m = (i * cols + j) * 2;
-      uv[m] = s.t;
-      uv[m + 1] = j / (cols - 1);
+      const [z, y] = loops[i][j];
+      put(i * cols + j, x, y, z, stations[i].t, j / (cols - 1));
     }
   }
 
@@ -1508,11 +1595,23 @@ export function makeCarBody(
   for (let i = 0; i < rows - 1; i++) {
     for (let j = 0; j < cols - 1; j++) {
       const a = i * cols + j;
-      const b = a + 1;
-      const c = a + cols;
-      const d = c + 1;
-      index.push(a, c, b, b, c, d);
+      index.push(a, a + cols, a + 1, a + 1, a + cols, a + cols + 1);
     }
+  }
+
+  if (capped) {
+    [0, rows - 1].forEach((row, end) => {
+      const base = rows * cols + end * cols;
+      const x = (stations[row].t - 0.5) * length;
+      for (let j = 0; j < cols; j++) {
+        const [z, y] = loops[row][j];
+        put(base + j, x, y, z, stations[row].t, j / (cols - 1));
+      }
+      for (let j = 1; j < cols - 1; j++) {
+        if (end === 0) index.push(base, base + j + 1, base + j);
+        else index.push(base, base + j, base + j + 1);
+      }
+    });
   }
 
   const g = new THREE.BufferGeometry();
@@ -1523,53 +1622,196 @@ export function makeCarBody(
   return g;
 }
 
-/** Nose-to-tail station sets. Proportion is the whole of what makes these read. */
-export const CAR_SHAPES: Record<string, { length: number; stations: CarStation[] }> = {
-  /** Long bonnet, low fast roof, short tail. */
+/**
+ * Panel gaps, drawn into a map rather than modelled.
+ *
+ * The loft already carries a useful parameterisation — `u` runs nose to tail
+ * and `v` runs around the section — so a shut line is a vertical bar in a
+ * texture, and it follows the curvature of the flank exactly. Modelled gaps
+ * would be four extra meshes a car and would clip through a doubly curved
+ * panel at every one of them.
+ *
+ * The map is greyscale and multiplies the paint, so one texture serves every
+ * colour: white leaves the paint alone and the bars darken it, which is what
+ * a shadowed gap is.
+ */
+export function makeCarPanelMap(doors: 2 | 4): THREE.CanvasTexture {
+  const w = 1024;
+  const h = 256;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#ffffff";
+  g.fillRect(0, 0, w, h);
+
+  /**
+   * v = 0 is the centre of the underside and v = 0.5 the centre of the deck,
+   * so the two flanks are the bands either side of those. Bars are drawn over
+   * the flank for a door shut and across the deck for a bonnet or boot.
+   */
+  const bar = (u: number, v0: number, v1: number, px = 2.4, a = 0.55) => {
+    g.fillStyle = `rgba(28,28,30,${a})`;
+    g.fillRect(u * w - px / 2, v0 * h, px, (v1 - v0) * h);
+  };
+  const flanks = (u: number, lo: number, hi: number, px?: number, a?: number) => {
+    bar(u, lo, hi, px, a);
+    bar(u, 1 - hi, 1 - lo, px, a);
+  };
+
+  // Bonnet trailing edge, right across the deck.
+  bar(0.288, 0.4, 0.6, 2.6, 0.5);
+  // Boot leading edge.
+  bar(0.765, 0.4, 0.6, 2.6, 0.5);
+  if (doors === 2) {
+    flanks(0.345, 0.1, 0.44);
+    flanks(0.655, 0.1, 0.44);
+  } else {
+    flanks(0.335, 0.1, 0.44);
+    flanks(0.545, 0.1, 0.44);
+    flanks(0.755, 0.1, 0.44);
+  }
+  // Door handles: a short horizontal nick just under the beltline.
+  const handle = (u0: number, u1: number) => {
+    g.fillStyle = "rgba(40,40,44,0.5)";
+    [0.37, 0.63].forEach((v) => g.fillRect(u0 * w, v * h - 1.6, (u1 - u0) * w, 3.2));
+  };
+  if (doors === 2) handle(0.6, 0.645);
+  else {
+    handle(0.495, 0.538);
+    handle(0.705, 0.748);
+  }
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+/**
+ * Nose-to-tail station sets. Proportion is the whole of what makes these read.
+ *
+ * The axles sit at t = 0.19 and t = 0.81, the classic fractions, and the
+ * `sill` column over each one traces a *circle around the wheel* rather than
+ * a notch: seven stations on an arc of radius wheelR + 55 mm. The first pass
+ * at this had the arches in the data and they still did not read, because
+ * the rocker between them sat 190 mm off the floor — a car whose body hangs
+ * down to the axle centres has no arch to see however the sill is shaped.
+ * Raising the rocker to 300 mm and taking the arch peak up to wheelR + 355 mm
+ * leaves the thin band of metal over the wheel that a car actually has.
+ *
+ * The roof half-width is around three quarters of the flank, which is the
+ * tumblehome; without that step the cabin is just the top of the body and the
+ * car has no waist.
+ */
+export const CAR_SHAPES: Record<
+  string,
+  { length: number; doors: 2 | 4; wheelR: number; stations: CarStation[] }
+> = {
   coupe: {
     length: 4.72,
+    doors: 2,
+    wheelR: 0.345,
     stations: [
-      { t: 0.0, hw: 0.74, sill: 0.33, shoulder: 0.73, roof: 0.73, roofHw: 0.52 },
-      { t: 0.07, hw: 0.9, sill: 0.28, shoulder: 0.82, roof: 0.82, roofHw: 0.66 },
-      { t: 0.18, hw: 0.95, sill: 0.26, shoulder: 0.88, roof: 0.88, roofHw: 0.74 },
-      { t: 0.3, hw: 0.97, sill: 0.25, shoulder: 0.92, roof: 1.14, roofHw: 0.62 },
-      { t: 0.44, hw: 0.98, sill: 0.25, shoulder: 0.94, roof: 1.3, roofHw: 0.72 },
-      { t: 0.58, hw: 0.97, sill: 0.26, shoulder: 0.94, roof: 1.31, roofHw: 0.7 },
-      { t: 0.72, hw: 0.95, sill: 0.27, shoulder: 0.93, roof: 1.18, roofHw: 0.5 },
-      { t: 0.85, hw: 0.92, sill: 0.3, shoulder: 0.95, roof: 0.95, roofHw: 0.7 },
-      { t: 0.95, hw: 0.84, sill: 0.36, shoulder: 0.9, roof: 0.9, roofHw: 0.62 },
-      { t: 1.0, hw: 0.7, sill: 0.42, shoulder: 0.84, roof: 0.84, roofHw: 0.46 },
+      { t: 0, hw: 0.86, sill: 0.42, shoulder: 0.8, roof: 0.8, roofHw: 0.5 },
+      { t: 0.02, hw: 0.92, sill: 0.28, shoulder: 0.824, roof: 0.824, roofHw: 0.501 },
+      { t: 0.06, hw: 0.955, sill: 0.28, shoulder: 0.866, roof: 0.866, roofHw: 0.504 },
+      { t: 0.087, hw: 0.955, sill: 0.28, shoulder: 0.883, roof: 0.883, roofHw: 0.506 },
+      { t: 0.118, hw: 0.961, sill: 0.583, shoulder: 0.901, roof: 0.901, roofHw: 0.508 },
+      { t: 0.132, hw: 0.964, sill: 0.657, shoulder: 0.91, roof: 0.91, roofHw: 0.509 },
+      { t: 0.15, hw: 0.967, sill: 0.713, shoulder: 0.92, roof: 0.92, roofHw: 0.51 },
+      { t: 0.19, hw: 0.975, sill: 0.76, shoulder: 0.945, roof: 0.945, roofHw: 0.513 },
+      { t: 0.23, hw: 0.967, sill: 0.713, shoulder: 0.954, roof: 0.954, roofHw: 0.515 },
+      { t: 0.248, hw: 0.964, sill: 0.657, shoulder: 0.959, roof: 0.959, roofHw: 0.517 },
+      { t: 0.262, hw: 0.961, sill: 0.583, shoulder: 0.962, roof: 0.962, roofHw: 0.517 },
+      { t: 0.293, hw: 0.955, sill: 0.28, shoulder: 0.969, roof: 0.969, roofHw: 0.52 },
+      { t: 0.34, hw: 0.96, sill: 0.28, shoulder: 0.98, roof: 1.09, roofHw: 0.58 },
+      { t: 0.42, hw: 0.967, sill: 0.28, shoulder: 0.983, roof: 1.254, roofHw: 0.673 },
+      { t: 0.52, hw: 0.975, sill: 0.28, shoulder: 0.986, roof: 1.336, roofHw: 0.739 },
+      { t: 0.62, hw: 0.97, sill: 0.28, shoulder: 0.99, roof: 1.304, roofHw: 0.731 },
+      { t: 0.67, hw: 0.967, sill: 0.28, shoulder: 0.998, roof: 1.266, roofHw: 0.709 },
+      { t: 0.707, hw: 0.955, sill: 0.28, shoulder: 1.004, roof: 1.215, roofHw: 0.683 },
+      { t: 0.738, hw: 0.961, sill: 0.583, shoulder: 1.009, roof: 1.173, roofHw: 0.661 },
+      { t: 0.752, hw: 0.964, sill: 0.657, shoulder: 1.011, roof: 1.151, roofHw: 0.648 },
+      { t: 0.77, hw: 0.967, sill: 0.713, shoulder: 1.014, roof: 1.122, roofHw: 0.63 },
+      { t: 0.81, hw: 0.975, sill: 0.76, shoulder: 1.02, roof: 1.056, roofHw: 0.59 },
+      { t: 0.85, hw: 0.967, sill: 0.713, shoulder: 1.011, roof: 1.011, roofHw: 0.555 },
+      { t: 0.868, hw: 0.964, sill: 0.657, shoulder: 1.008, roof: 1.008, roofHw: 0.546 },
+      { t: 0.882, hw: 0.961, sill: 0.583, shoulder: 1.005, roof: 1.005, roofHw: 0.539 },
+      { t: 0.913, hw: 0.955, sill: 0.28, shoulder: 0.998, roof: 0.998, roofHw: 0.524 },
+      { t: 0.96, hw: 0.93, sill: 0.3, shoulder: 0.988, roof: 0.988, roofHw: 0.5 },
+      { t: 1, hw: 0.88, sill: 0.4, shoulder: 0.98, roof: 0.98, roofHw: 0.48 },
     ],
   },
-  /** Three-box: upright cabin, level shoulder, square boot. */
   saloon: {
-    length: 4.94,
+    length: 4.96,
+    doors: 4,
+    wheelR: 0.35,
     stations: [
-      { t: 0.0, hw: 0.74, sill: 0.36, shoulder: 0.76, roof: 0.76, roofHw: 0.54 },
-      { t: 0.07, hw: 0.9, sill: 0.3, shoulder: 0.86, roof: 0.86, roofHw: 0.68 },
-      { t: 0.2, hw: 0.95, sill: 0.28, shoulder: 0.93, roof: 0.93, roofHw: 0.76 },
-      { t: 0.3, hw: 0.97, sill: 0.27, shoulder: 0.96, roof: 1.27, roofHw: 0.62 },
-      { t: 0.42, hw: 0.98, sill: 0.27, shoulder: 0.98, roof: 1.43, roofHw: 0.74 },
-      { t: 0.6, hw: 0.98, sill: 0.27, shoulder: 0.98, roof: 1.44, roofHw: 0.74 },
-      { t: 0.74, hw: 0.96, sill: 0.28, shoulder: 0.97, roof: 1.26, roofHw: 0.56 },
-      { t: 0.84, hw: 0.94, sill: 0.31, shoulder: 1.0, roof: 1.0, roofHw: 0.74 },
-      { t: 0.95, hw: 0.88, sill: 0.37, shoulder: 0.97, roof: 0.97, roofHw: 0.66 },
-      { t: 1.0, hw: 0.72, sill: 0.44, shoulder: 0.9, roof: 0.9, roofHw: 0.48 },
+      { t: 0, hw: 0.88, sill: 0.44, shoulder: 0.84, roof: 0.84, roofHw: 0.52 },
+      { t: 0.02, hw: 0.93, sill: 0.29, shoulder: 0.864, roof: 0.864, roofHw: 0.521 },
+      { t: 0.06, hw: 0.965, sill: 0.29, shoulder: 0.906, roof: 0.906, roofHw: 0.524 },
+      { t: 0.091, hw: 0.965, sill: 0.29, shoulder: 0.925, roof: 0.925, roofHw: 0.526 },
+      { t: 0.121, hw: 0.971, sill: 0.59, shoulder: 0.943, roof: 0.943, roofHw: 0.528 },
+      { t: 0.134, hw: 0.974, sill: 0.666, shoulder: 0.951, roof: 0.951, roofHw: 0.529 },
+      { t: 0.151, hw: 0.977, sill: 0.723, shoulder: 0.961, roof: 0.961, roofHw: 0.53 },
+      { t: 0.19, hw: 0.985, sill: 0.77, shoulder: 0.985, roof: 0.985, roofHw: 0.533 },
+      { t: 0.229, hw: 0.977, sill: 0.723, shoulder: 0.993, roof: 0.993, roofHw: 0.536 },
+      { t: 0.246, hw: 0.974, sill: 0.666, shoulder: 0.996, roof: 0.996, roofHw: 0.537 },
+      { t: 0.259, hw: 0.971, sill: 0.59, shoulder: 0.999, roof: 0.999, roofHw: 0.538 },
+      { t: 0.289, hw: 0.965, sill: 0.29, shoulder: 1.005, roof: 1.016, roofHw: 0.54 },
+      { t: 0.34, hw: 0.97, sill: 0.29, shoulder: 1.015, roof: 1.187, roofHw: 0.628 },
+      { t: 0.42, hw: 0.977, sill: 0.29, shoulder: 1.016, roof: 1.374, roofHw: 0.715 },
+      { t: 0.52, hw: 0.985, sill: 0.29, shoulder: 1.018, roof: 1.448, roofHw: 0.769 },
+      { t: 0.62, hw: 0.981, sill: 0.29, shoulder: 1.02, roof: 1.46, roofHw: 0.763 },
+      { t: 0.67, hw: 0.979, sill: 0.29, shoulder: 1.028, roof: 1.44, roofHw: 0.761 },
+      { t: 0.711, hw: 0.965, sill: 0.29, shoulder: 1.034, roof: 1.424, roofHw: 0.741 },
+      { t: 0.741, hw: 0.971, sill: 0.59, shoulder: 1.039, roof: 1.379, roofHw: 0.724 },
+      { t: 0.754, hw: 0.974, sill: 0.666, shoulder: 1.041, roof: 1.352, roofHw: 0.716 },
+      { t: 0.771, hw: 0.977, sill: 0.723, shoulder: 1.044, roof: 1.318, roofHw: 0.705 },
+      { t: 0.81, hw: 0.985, sill: 0.77, shoulder: 1.05, roof: 1.207, roofHw: 0.655 },
+      { t: 0.849, hw: 0.977, sill: 0.723, shoulder: 1.044, roof: 1.075, roofHw: 0.597 },
+      { t: 0.866, hw: 0.974, sill: 0.666, shoulder: 1.041, roof: 1.052, roofHw: 0.577 },
+      { t: 0.879, hw: 0.971, sill: 0.59, shoulder: 1.039, roof: 1.039, roofHw: 0.569 },
+      { t: 0.909, hw: 0.965, sill: 0.29, shoulder: 1.034, roof: 1.035, roofHw: 0.552 },
+      { t: 0.96, hw: 0.94, sill: 0.31, shoulder: 1.026, roof: 1.026, roofHw: 0.523 },
+      { t: 1, hw: 0.9, sill: 0.42, shoulder: 1.02, roof: 1.02, roofHw: 0.5 },
     ],
   },
-  /** Boxy and tall, with an upright screen and a flat roof. */
   suv: {
-    length: 4.86,
+    length: 4.9,
+    doors: 4,
+    wheelR: 0.4,
     stations: [
-      { t: 0.0, hw: 0.88, sill: 0.46, shoulder: 1.26, roof: 1.26, roofHw: 0.74 },
-      { t: 0.06, hw: 1.0, sill: 0.42, shoulder: 1.3, roof: 1.3, roofHw: 0.86 },
-      { t: 0.16, hw: 1.03, sill: 0.4, shoulder: 1.32, roof: 1.32, roofHw: 0.9 },
-      { t: 0.24, hw: 1.04, sill: 0.39, shoulder: 1.33, roof: 1.86, roofHw: 0.84 },
-      { t: 0.36, hw: 1.05, sill: 0.39, shoulder: 1.34, roof: 1.92, roofHw: 0.9 },
-      { t: 0.62, hw: 1.05, sill: 0.39, shoulder: 1.34, roof: 1.93, roofHw: 0.9 },
-      { t: 0.8, hw: 1.04, sill: 0.4, shoulder: 1.34, roof: 1.9, roofHw: 0.88 },
-      { t: 0.92, hw: 1.0, sill: 0.42, shoulder: 1.33, roof: 1.84, roofHw: 0.82 },
-      { t: 1.0, hw: 0.9, sill: 0.46, shoulder: 1.3, roof: 1.3, roofHw: 0.7 },
+      { t: 0, hw: 0.95, sill: 0.56, shoulder: 1.16, roof: 1.16, roofHw: 0.62 },
+      { t: 0.02, hw: 1.02, sill: 0.42, shoulder: 1.188, roof: 1.188, roofHw: 0.631 },
+      { t: 0.06, hw: 1.06, sill: 0.42, shoulder: 1.233, roof: 1.233, roofHw: 0.652 },
+      { t: 0.078, hw: 1.07, sill: 0.42, shoulder: 1.238, roof: 1.238, roofHw: 0.662 },
+      { t: 0.11, hw: 1.076, sill: 0.675, shoulder: 1.247, roof: 1.247, roofHw: 0.679 },
+      { t: 0.125, hw: 1.078, sill: 0.761, shoulder: 1.252, roof: 1.252, roofHw: 0.687 },
+      { t: 0.145, hw: 1.082, sill: 0.826, shoulder: 1.257, roof: 1.257, roofHw: 0.698 },
+      { t: 0.19, hw: 1.09, sill: 0.88, shoulder: 1.27, roof: 1.27, roofHw: 0.722 },
+      { t: 0.235, hw: 1.082, sill: 0.826, shoulder: 1.273, roof: 1.273, roofHw: 0.747 },
+      { t: 0.255, hw: 1.078, sill: 0.761, shoulder: 1.274, roof: 1.293, roofHw: 0.757 },
+      { t: 0.27, hw: 1.076, sill: 0.675, shoulder: 1.275, roof: 1.382, roofHw: 0.773 },
+      { t: 0.302, hw: 1.07, sill: 0.42, shoulder: 1.277, roof: 1.573, roofHw: 0.813 },
+      { t: 0.34, hw: 1.07, sill: 0.42, shoulder: 1.28, roof: 1.731, roofHw: 0.86 },
+      { t: 0.42, hw: 1.074, sill: 0.42, shoulder: 1.283, roof: 1.891, roofHw: 0.907 },
+      { t: 0.52, hw: 1.08, sill: 0.42, shoulder: 1.288, roof: 1.92, roofHw: 0.93 },
+      { t: 0.62, hw: 1.077, sill: 0.42, shoulder: 1.292, roof: 1.92, roofHw: 0.93 },
+      { t: 0.67, hw: 1.076, sill: 0.42, shoulder: 1.294, roof: 1.92, roofHw: 0.93 },
+      { t: 0.698, hw: 1.07, sill: 0.42, shoulder: 1.295, roof: 1.92, roofHw: 0.93 },
+      { t: 0.73, hw: 1.076, sill: 0.675, shoulder: 1.297, roof: 1.92, roofHw: 0.93 },
+      { t: 0.745, hw: 1.078, sill: 0.761, shoulder: 1.297, roof: 1.92, roofHw: 0.93 },
+      { t: 0.765, hw: 1.082, sill: 0.826, shoulder: 1.298, roof: 1.92, roofHw: 0.93 },
+      { t: 0.81, hw: 1.09, sill: 0.88, shoulder: 1.3, roof: 1.916, roofHw: 0.925 },
+      { t: 0.855, hw: 1.082, sill: 0.826, shoulder: 1.293, roof: 1.898, roofHw: 0.902 },
+      { t: 0.875, hw: 1.078, sill: 0.761, shoulder: 1.29, roof: 1.89, roofHw: 0.893 },
+      { t: 0.89, hw: 1.076, sill: 0.675, shoulder: 1.287, roof: 1.884, roofHw: 0.885 },
+      { t: 0.922, hw: 1.07, sill: 0.42, shoulder: 1.282, roof: 1.801, roofHw: 0.813 },
+      { t: 0.945, hw: 1.025, sill: 0.44, shoulder: 1.279, roof: 1.72, roofHw: 0.745 },
+      { t: 0.975, hw: 0.976, sill: 0.44, shoulder: 1.274, roof: 1.35, roofHw: 0.647 },
+      { t: 1, hw: 0.92, sill: 0.54, shoulder: 1.27, roof: 1.27, roofHw: 0.56 },
     ],
   },
 };
@@ -1579,15 +1821,14 @@ export const CAR_SHAPES: Record<string, { length: number; stations: CarStation[]
  *
  * Drawn rather than loaded, so the demo still works offline, and deterministic
  * so the ridgeline does not reshuffle on a remount. The text is placed glyph
- * by glyph for the same reason the hotel's wordmark is — canvas has no
- * letter-spacing, and wide tracking is most of what makes a tagline read as
- * a brand line rather than as a caption.
+ * by glyph because canvas has no letter-spacing, and wide tracking is most of
+ * what makes a tagline read as a brand line rather than as a caption.
  */
 export function makeBrandGraphic(
   lines: string,
   seed = 31,
-  width = 2048,
-  height = 1152,
+  width = 2560,
+  height = 1440,
 ): THREE.CanvasTexture {
   const c = document.createElement("canvas");
   c.width = width;
@@ -1599,8 +1840,6 @@ export function makeBrandGraphic(
     return s / 233280;
   };
 
-  // Sky: a dusk gradient, because the graphic is lit from behind and a pale
-  // sky would read as a lightbox with a photograph in front of it.
   const sky = g.createLinearGradient(0, 0, 0, height * 0.72);
   sky.addColorStop(0, "#1b2a3c");
   sky.addColorStop(0.55, "#4a5a6b");
@@ -1608,7 +1847,6 @@ export function makeBrandGraphic(
   g.fillStyle = sky;
   g.fillRect(0, 0, width, height);
 
-  /** Ridge lines, far to near, each darker and lower than the last. */
   const ridge = (baseY: number, amp: number, fill: string) => {
     g.beginPath();
     g.moveTo(0, height);
@@ -1628,25 +1866,23 @@ export function makeBrandGraphic(
   ridge(height * 0.62, 30, "#2a3340");
   ridge(height * 0.72, 18, "#1a2029");
 
-  // The road: a tapering ribbon running to the vanishing point.
   g.beginPath();
-  g.moveTo(width * 0.5 - 14, height * 0.73);
-  g.lineTo(width * 0.5 + 14, height * 0.73);
+  g.moveTo(width * 0.5 - 16, height * 0.73);
+  g.lineTo(width * 0.5 + 16, height * 0.73);
   g.lineTo(width * 0.86, height);
   g.lineTo(width * 0.2, height);
   g.closePath();
   g.fillStyle = "#15181c";
   g.fill();
   g.strokeStyle = "rgba(230,230,220,0.5)";
-  g.lineWidth = 5;
-  g.setLineDash([26, 34]);
+  g.lineWidth = 6;
+  g.setLineDash([30, 38]);
   g.beginPath();
   g.moveTo(width * 0.5, height * 0.74);
   g.lineTo(width * 0.53, height);
   g.stroke();
   g.setLineDash([]);
 
-  // A low sun behind the ridge, which is what gives the panel its glow.
   const sun = g.createRadialGradient(
     width * 0.63, height * 0.5, 0,
     width * 0.63, height * 0.5, height * 0.42,
@@ -1656,20 +1892,27 @@ export function makeBrandGraphic(
   g.fillStyle = sun;
   g.fillRect(0, 0, width, height);
 
-  // The tagline, tracked wide, upper left.
+  /**
+   * A thin modern sans with wide tracking, not a serif.
+   *
+   * The brief asks for it by name, and it is the right call: a serif on a
+   * backlit panel at this size picks up a halo on every stem and reads as
+   * soft even when the texture is sharp. A light grotesque at wide tracking
+   * stays crisp.
+   */
   const rows = lines.split("\n");
   g.textAlign = "left";
   g.textBaseline = "middle";
-  const size = Math.round(height * 0.085);
-  const spacing = size * 0.17;
+  const size = Math.round(height * 0.072);
+  const spacing = size * 0.22;
   rows.forEach((row, i) => {
-    g.font = `300 ${size}px Georgia, "Times New Roman", serif`;
+    g.font = `300 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
     let x = width * 0.07;
-    const y = height * 0.18 + i * size * 1.3;
+    const y = height * 0.2 + i * size * 1.42;
     for (const ch of row) {
-      g.fillStyle = "rgba(0,0,0,0.45)";
-      g.fillText(ch, x + size * 0.03, y + size * 0.035);
-      g.fillStyle = "#f3efe6";
+      g.fillStyle = "rgba(0,0,0,0.5)";
+      g.fillText(ch, x + size * 0.028, y + size * 0.032);
+      g.fillStyle = "#f6f3ec";
       g.fillText(ch, x, y);
       x += g.measureText(ch).width + spacing;
     }
@@ -1698,7 +1941,7 @@ export function makeWordmark(
   g.textBaseline = "middle";
 
   const track = (text: string, y: number, size: number, spacing: number, fill: string) => {
-    g.font = `400 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    g.font = `300 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
     const widths = [...text].map((ch) => g.measureText(ch).width + spacing);
     const total = widths.reduce((a, b) => a + b, 0) - spacing;
     let x = width / 2 - total / 2;
@@ -1708,8 +1951,8 @@ export function makeWordmark(
       x += widths[i];
     });
   };
-  track(name, height * 0.42, Math.round(height * 0.3), Math.round(height * 0.1), "#f0ece3");
-  track(sub, height * 0.74, Math.round(height * 0.1), Math.round(height * 0.055), "#c9a362");
+  track(name, height * 0.42, Math.round(height * 0.3), Math.round(height * 0.14), "#f0ece3");
+  track(sub, height * 0.74, Math.round(height * 0.1), Math.round(height * 0.06), "#c9a362");
 
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
