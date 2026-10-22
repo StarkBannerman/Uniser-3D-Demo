@@ -102,6 +102,17 @@ const DPR = 1.0;
 
 function detectQuality(): Quality {
   if (typeof navigator === "undefined") return "high";
+  /**
+   * `?q=low` / `?q=high` forces the tier.
+   *
+   * The detector reads cores and memory, which is the best guess available
+   * up front and still only a guess — the client's machine is the one that
+   * matters and it is not this one. Being able to pin the tier from the URL
+   * is how we find out what their laptop does with the second depth pass
+   * without asking them to describe it.
+   */
+  const forced = new URLSearchParams(window.location.search).get("q");
+  if (forced === "low" || forced === "high") return forced;
   const nav = navigator as Navigator & { deviceMemory?: number };
   const cores = nav.hardwareConcurrency ?? 4;
   const memory = nav.deviceMemory ?? 4;
@@ -182,13 +193,42 @@ export function useContinuousMotion(key: string, active: boolean) {
   }, [key, active]);
 }
 
+/**
+ * Fan devices the room draws as stationary.
+ *
+ * `motionNow` assumes a running fan means something on screen is turning,
+ * which is true of every ceiling fan in the project and false of the car
+ * showroom's turntable: the client asked for the hero car not to rotate, so
+ * the renderer is passed a speed of zero while the *device* stays on in five
+ * of the eight scenes. The room therefore never reached "still" and kept
+ * drawing at the ambient rate for a car that was not moving — a permanently
+ * busy GPU, on a demo whose original complaint was a laptop getting hot.
+ *
+ * Declared by the room rather than inferred, because only the renderer knows
+ * whether it is animating a device the simulation says is running.
+ */
+const STILL_DEVICES = new Set<string>();
+
+export function useStillDevice(id: string, still: boolean) {
+  useLayoutEffect(() => {
+    if (!still) {
+      STILL_DEVICES.delete(id);
+      return;
+    }
+    STILL_DEVICES.add(id);
+    return () => {
+      STILL_DEVICES.delete(id);
+    };
+  }, [id, still]);
+}
+
 function motionNow(): Motion {
   if (hasActiveTweens()) return "transition";
   if (CONTINUOUS.size > 0) return "ambient";
   const { space, states } = useSim.getState();
   if (space) {
     for (const device of space.devices) {
-      if (device.kind !== "fan") continue;
+      if (device.kind !== "fan" || STILL_DEVICES.has(device.id)) continue;
       const state = states[device.id] as FanState | undefined;
       if (state?.on && state.speed > 0) return "ambient";
     }

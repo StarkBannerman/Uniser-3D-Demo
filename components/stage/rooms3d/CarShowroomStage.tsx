@@ -11,7 +11,7 @@ import type { AvState, LightState } from "@/lib/sim/types";
 import { useSim } from "@/lib/sim/store";
 import { roomAmbience } from "@/lib/sim/ambience";
 import { clamp01, daylightLux, sunElevation01 } from "@/lib/sim/photometry";
-import { Stage3D, type CameraSpec } from "../Stage3D";
+import { Stage3D, useStillDevice, type CameraSpec } from "../Stage3D";
 import { CarShowroom3D } from "./CarShowroom3D";
 import { CarShowroomLightRig, type ShowroomFixtures } from "./CarShowroomLightRig";
 
@@ -75,6 +75,10 @@ export function CarShowroomStage() {
   };
 
   const focus = states["cs-focus"] as AvState | undefined;
+
+  // The turntable is a device, and it does not turn. Tell the render pump, or
+  // the room never goes idle in any scene that leaves it switched on.
+  useStillDevice("cs-turntable", true);
 
   /**
    * The source list in the panel is written for a person; the rig needs an id.
