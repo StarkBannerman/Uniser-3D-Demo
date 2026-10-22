@@ -68,23 +68,6 @@ function RoomArt({ illustration }: { illustration?: string }) {
   switch (illustration) {
     case "living-room":
       return <LivingRoom />;
-    /**
-     * The photoreal base the illustrated renderer was always written for.
-     *
-     * Rendered with every fixture switched off and then neutralised and lifted
-     * in prep — the supplied plate came in at 20 per cent grey with a +25 blue
-     * cast, and this compositor can only multiply *down* and add pools on top.
-     * A dark base leaves a bright scene nowhere to go, and a blue one fights
-     * every warm illuminant the tint layer multiplies over it.
-     */
-    case "car-showroom":
-      return (
-        <img
-          src="/rooms/car-showroom.jpg"
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      );
     default:
       return <div className="absolute inset-0 bg-shell-800" />;
   }
@@ -104,18 +87,7 @@ export function SpaceCanvas() {
    * below — no darkness overlay, no colour cast, no glow layer. Those exist to
    * fake illumination on a flat image; here the lights are real.
    */
-  /**
-   * `?photo=1` sends the car showroom through the flat compositor instead of
-   * its 3D room, so the two can be compared by changing the URL. Scoped to
-   * that one space on purpose: this is a trial, and nothing else should take a
-   * dependency on it until it has been judged.
-   */
-  const photo =
-    typeof window !== "undefined" &&
-    space.model === "car-showroom" &&
-    new URLSearchParams(window.location.search).has("photo");
-
-  if (space.renderer === "3d" && !photo) {
+  if (space.renderer === "3d") {
     return (
       /**
        * Holds 16:9 on a phone, fills its container from `lg` up.
