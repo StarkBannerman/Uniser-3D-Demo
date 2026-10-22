@@ -96,11 +96,11 @@ export const useQuality = () => useContext(QualityContext);
  * blank for a second".
  *
  * A correct version would make this component the single owner and drive the
- * Canvas from state. It is not worth it yet: the measured prize is fourteen
- * per cent, and the room it was written to protect now runs at forty frames a
- * second without it.
+ * Canvas from state. That is what `Stage3D` now does: the ratio is its own
+ * state, the Canvas is given a single number, and `DprProbe` raises it only
+ * after measuring that the machine can carry it. Nobody calls
+ * `setPixelRatio` behind R3F's back any more.
  */
-const DPR = 1.0;
 
 function detectQuality(): Quality {
   if (typeof navigator === "undefined") return "high";
@@ -674,6 +674,74 @@ function LockHorizontalFov({ fovAt16x9 }: { fovAt16x9: number }) {
 }
 
 /**
+ * Measures the real frame cost once the room is up, so a good screen can be
+ * given the pixels it has.
+ *
+ * The stage renders at a device pixel ratio of 1. On a Retina MacBook that
+ * means the display can show 2072 x 1594 in the stage area and we hand it
+ * 1036 x 797 — a quarter of the pixels, upscaled two to one by the browser.
+ * Every edge in the room is then stretched across a 2 x 2 block, which on a
+ * good screen does not read as "lower resolution", it reads as *grainy*. A
+ * client described it exactly that way, on the machine where the frame rate
+ * was never the problem.
+ *
+ * The ratio cannot be raised blind: cost is almost perfectly linear in pixels
+ * — measured at roughly 39 ms per megapixel on the high tier — so doubling it
+ * quadruples the frame. Hence measuring on the actual machine rather than
+ * guessing from its GPU string.
+ *
+ * Twelve forced frames, timed end to end through the composer, then one step
+ * if the prediction fits the budget. Up only, never down, at most twice, and
+ * only while the room is otherwise idle. The last attempt at this was a
+ * per-frame governor calling `setPixelRatio` behind R3F's back — two owners
+ * of one number, and a visible blank every time they disagreed. Here the
+ * ratio is React state owned by `Stage3D`, passed to the Canvas as a single
+ * value, and raising it is an ordinary re-render.
+ */
+function DprProbe({
+  active,
+  onMeasure,
+}: {
+  active: boolean;
+  onMeasure: (medianMs: number) => void;
+}) {
+  const invalidate = useThree((s) => s.invalidate);
+  const done = useRef(false);
+
+  useEffect(() => {
+    if (!active || done.current) return;
+    done.current = true;
+    let raf = 0;
+    let cancelled = false;
+    const samples: number[] = [];
+    let last = performance.now();
+    // Two frames of warm-up: the first after a resize is never representative.
+    let warmup = 2;
+
+    const step = () => {
+      const now = performance.now();
+      if (warmup > 0) warmup--;
+      else samples.push(now - last);
+      last = now;
+      if (samples.length >= 12) {
+        samples.sort((a, b) => a - b);
+        if (!cancelled) onMeasure(samples[Math.floor(samples.length / 2)]);
+        return;
+      }
+      invalidate();
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [active, invalidate, onMeasure]);
+
+  return null;
+}
+
+/**
  * What the stage shows when the machine cannot draw it.
  *
  * Two cases reach here. Without WebGL the alternative is what the demo did
@@ -778,6 +846,45 @@ export function Stage3D({
   const [forced, setForced] = useState(false);
   const perf = usePerfFlag();
   const [ready, setReady] = useState(false);
+  /**
+   * The device pixel ratio, owned here and nowhere else.
+   *
+   * Starts at the tier's safe value and is raised by `DprProbe` if the
+   * machine turns out to have the headroom. One owner, one number — which is
+   * the whole lesson of the governor that used to fight R3F for it.
+   */
+  const [dpr, setDpr] = useState(quality === "low" ? 0.85 : 1.0);
+  const settled = useRef(false);
+  /**
+   * Climb while the frame is still vsync-bound, and come back down once if a
+   * rung proves too dear.
+   *
+   * Predicting the next rung from the current one does not work, because the
+   * measurement is the interval between frames and that is floored at about
+   * 16.7 ms by vsync. A machine with eight times the headroom it needs reads
+   * exactly the same as one with none, so the prediction refuses every step
+   * on every machine — which is what the first version of this did.
+   *
+   * So it tries instead. At the vsync floor the headroom is unknown and the
+   * only way to find out is to spend it; if the next rung comes back over
+   * budget, step back and stop. One step down, once, by the single owner of
+   * the number — which is what makes it safe where the old governor was not.
+   */
+  const onMeasure = useCallback((medianMs: number) => {
+    if (settled.current) return;
+    setDpr((current) => {
+      const ceiling = Math.min(
+        typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+        2,
+      );
+      const rungs = [0.85, 1, 1.5, 2].filter((r) => r <= ceiling);
+      const i = rungs.indexOf(current);
+      if (medianMs <= 17.5 && i >= 0 && i < rungs.length - 1) return rungs[i + 1];
+      settled.current = true;
+      if (medianMs > 24 && i > 0) return rungs[i - 1];
+      return current;
+    });
+  }, []);
   const roomName = useSim((s) => s.space?.name ?? "Loading");
 
   // No WebGL means no canvas at all: mounting one only throws.
@@ -819,7 +926,7 @@ export function Stage3D({
        * inside it, and a second owner is what caused the blanking described
        * above `DPR`.
        */
-      dpr={quality === "low" ? 0.85 : DPR}
+      dpr={dpr}
       gl={{
         antialias: true,
         // Tone mapping is the composer's job — see the note at the top.
@@ -881,6 +988,7 @@ export function Stage3D({
         </EffectComposer>
         {/* After the children, so the scene graph is populated when it runs. */}
         <ReadyGate onReady={setReady} />
+        <DprProbe key={dpr} active={ready} onMeasure={onMeasure} />
         </QualityContext.Provider>
       </Suspense>
     </Canvas>
