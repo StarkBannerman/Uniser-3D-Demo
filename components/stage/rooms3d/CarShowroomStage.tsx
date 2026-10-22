@@ -47,7 +47,7 @@ import { CarShowroomLightRig, type ShowroomFixtures } from "./CarShowroomLightRi
  * down. The reference gives the floor about a third: enough to carry the
  * reflections, not so much that it becomes the subject.
  */
-const CAMERA: CameraSpec = {
+export const SHOWROOM_CAMERA: CameraSpec = {
   position: [13.2, 1.66, 20.8],
   target: [14.9, 1.5, 4.0],
   fov: 50,
@@ -55,7 +55,16 @@ const CAMERA: CameraSpec = {
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
 
-export function CarShowroomStage() {
+/**
+ * Everything the showroom derives from the simulation, in one place.
+ *
+ * Pulled out so the offline bake and the live stage agree by construction:
+ * the backplate is rendered from exactly the geometry, rig and fixture states
+ * the live layer will be drawn on top of. A plate that disagrees with what is
+ * composited over it is worse than no plate, and the surest way to disagree
+ * is to describe the room twice.
+ */
+export function useShowroomState() {
   const states = useSim((s) => s.states);
   const clockMin = useSim((s) => s.clockMin);
   const space = useSim((s) => s.space);
@@ -133,10 +142,56 @@ export function CarShowroomStage() {
    */
   const standardCri = !fixtures.product.on || fixtures.product.level < 5;
 
+  return {
+    ambient,
+    standardCri,
+    fixtures,
+    daylight,
+    focusId: focus?.on ? FOCUS_IDS[focus.source] : undefined,
+    lampsOn: fixtures.rgb.on && fixtures.rgb.level > 20,
+    screensOn: Boolean((states["cs-screens"] as { on?: boolean } | undefined)?.on),
+  };
+}
+
+/** The room itself: geometry and rig, with no stage or composer around it. */
+export function ShowroomScene({
+  state,
+}: {
+  state: ReturnType<typeof useShowroomState>;
+}) {
+  return (
+    <>
+      <CarShowroom3D
+        /**
+         * The hero car stands still.
+         *
+         * The turntable is still a device — it has a speed, the scenes set it
+         * and the controls show it — but the client asked for the car not to
+         * turn, and they are right: a slow rotation reads as drift on a
+         * screenshot and as a stutter on a weak GPU, and it costs a continuous
+         * frame loop for the whole session.
+         */
+        turntableRadiansPerSecond={0}
+        lampsOn={state.lampsOn}
+        screensOn={state.screensOn}
+      />
+      <CarShowroomLightRig
+        fixtures={state.fixtures}
+        daylight={state.daylight}
+        standardCri={state.standardCri}
+        focusId={state.focusId}
+      />
+    </>
+  );
+}
+
+export function CarShowroomStage() {
+  const state = useShowroomState();
+
   return (
     <Stage3D
-      camera={CAMERA}
-      ambient={ambient}
+      camera={SHOWROOM_CAMERA}
+      ambient={state.ambient}
       /**
        * Lower than the media rooms and a touch above the lobby.
        *
@@ -148,30 +203,7 @@ export function CarShowroomStage() {
       bloomIntensity={0.52}
       bloomThreshold={1.25}
     >
-      <CarShowroom3D
-        /**
-         * The hero car stands still.
-         *
-         * The turntable is still a device — it has a speed, the scenes set it
-         * and the controls show it — but the client asked for the car not to
-         * turn, and they are right: a slow rotation reads as drift on a
-         * screenshot and as a stutter on a weak GPU, and it costs a continuous
-         * frame loop for the whole session. Keeping the device and zeroing the
-         * motion is the cheap half of both.
-         */
-        turntableRadiansPerSecond={0}
-        // A car's own lamps belong to the moment it is being presented, not
-        // to the room's ambient state — so they follow the RGB feature
-        // circuit, which is only up in Launch and Event.
-        lampsOn={fixtures.rgb.on && fixtures.rgb.level > 20}
-        screensOn={Boolean((states["cs-screens"] as { on?: boolean } | undefined)?.on)}
-      />
-      <CarShowroomLightRig
-        fixtures={fixtures}
-        daylight={daylight}
-        standardCri={standardCri}
-        focusId={focus?.on ? FOCUS_IDS[focus.source] : undefined}
-      />
+      <ShowroomScene state={state} />
     </Stage3D>
   );
 }

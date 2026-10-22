@@ -57,12 +57,21 @@ importers:
       tailwindcss:
         specifier: ^4.1.13
         version: 4.3.3
+      three-gpu-pathtracer:
+        specifier: ^0.0.27
+        version: 0.0.27(three-mesh-bvh@0.9.16(three@0.185.1))(three@0.185.1)(xatlas-web@0.1.0)
+      three-mesh-bvh:
+        specifier: ^0.9.16
+        version: 0.9.16(three@0.185.1)
       tsx:
         specifier: ^4.23.13
         version: 4.23.13
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+      xatlas-web:
+        specifier: ^0.1.0
+        version: 0.1.0
 
 packages:
 
@@ -988,8 +997,20 @@ packages:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
 
+  three-gpu-pathtracer@0.0.27:
+    resolution: {integrity: sha512-NLUYnL9nSLcUFurIHHLHbnmpKLaXi8JbGqfTeWRSx4h+l7Ndpllwj2DK2uOYTSUaN5+PuZ1JRqv1ynHEB1XCwQ==}
+    peerDependencies:
+      three: '>=0.185.0'
+      three-mesh-bvh: '>=0.9.15'
+      xatlas-web: ^0.1.0
+
   three-mesh-bvh@0.8.3:
     resolution: {integrity: sha512-4G5lBaF+g2auKX3P0yqx+MJC6oVt6sB5k+CchS6Ob0qvH0YIhuUk1eYr7ktsIpY+albCqE80/FVQGV190PmiAg==}
+    peerDependencies:
+      three: '>= 0.159.0'
+
+  three-mesh-bvh@0.9.16:
+    resolution: {integrity: sha512-2RK+5MJOaiHJhopURn2CUkOHiF3tFloD0uZBfhebV0CKB7mgVLpWUWaDpOyhNJRDkKKe7x4rRfTHZ32GwpXdkw==}
     peerDependencies:
       three: '>= 0.159.0'
 
@@ -1052,6 +1073,9 @@ packages:
     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
     engines: {node: '>= 8'}
     hasBin: true
+
+  xatlas-web@0.1.0:
+    resolution: {integrity: sha512-PprVfuXbaIskxLTLBUQRaWfgSy9xUQqAMIRooOw0P6NYqwgh6T0voeer6+Z5M7AFt5SGXUybuww/uDGs1yw8vQ==}
 
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
@@ -1826,7 +1850,17 @@ snapshots:
 
   tapable@2.3.3: {}
 
+  three-gpu-pathtracer@0.0.27(three-mesh-bvh@0.9.16(three@0.185.1))(three@0.185.1)(xatlas-web@0.1.0):
+    dependencies:
+      three: 0.185.1
+      three-mesh-bvh: 0.9.16(three@0.185.1)
+      xatlas-web: 0.1.0
+
   three-mesh-bvh@0.8.3(three@0.185.1):
+    dependencies:
+      three: 0.185.1
+
+  three-mesh-bvh@0.9.16(three@0.185.1):
     dependencies:
       three: 0.185.1
 
@@ -1889,6 +1923,8 @@ snapshots:
   which@2.0.2:
     dependencies:
       isexe: 2.0.0
+
+  xatlas-web@0.1.0: {}
 
   zustand@4.5.7(@types/react@19.2.18)(react@19.2.8):
     dependencies:

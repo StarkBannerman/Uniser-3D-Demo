@@ -28,7 +28,10 @@
     "@types/react-dom": "^19.1.9",
     "@types/three": "^0.185.4",
     "tailwindcss": "^4.1.13",
+    "three-gpu-pathtracer": "^0.0.27",
+    "three-mesh-bvh": "^0.9.16",
     "tsx": "^4.23.13",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "xatlas-web": "^0.1.0"
   }
 }
