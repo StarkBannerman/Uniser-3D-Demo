@@ -20,10 +20,11 @@
  * reflection, not the diffuse.
  */
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { MAX_BLADE_STEP_RAD } from "@/lib/sim/fan";
+import { CAR_MODELS, CarModel } from "./CarModel";
 import { MeshReflectorMaterial } from "@react-three/drei";
 import { useQuality } from "../Stage3D";
 import {
@@ -592,6 +593,12 @@ export function Car({
   lampsOn: boolean;
 }) {
   const shape = CAR_SHAPES[kind] ?? CAR_SHAPES.saloon;
+  /**
+   * A modelled car if one has been supplied for this body type, the
+   * procedural loft otherwise. Suspended rather than gated on a loaded flag,
+   * so the room draws immediately and each car appears as its file arrives.
+   */
+  const model = CAR_MODELS[kind];
   const skins = useMemo(
     () => ({
       body: makeCarBody(shape.stations, shape.length, "body"),
@@ -732,6 +739,14 @@ export function Car({
    */
   const tyreW = 0.235;
   const track = widest.hw - tyreW / 2 - 0.03;
+
+  if (model) {
+    return (
+      <Suspense fallback={null}>
+        <CarModel url={model} colour={colour} length={shape.length} />
+      </Suspense>
+    );
+  }
 
   return (
     <group>
