@@ -48,10 +48,37 @@ import { ShowroomPlate } from "./ShowroomPlate";
  * down. The reference gives the floor about a third: enough to carry the
  * reflections, not so much that it becomes the subject.
  */
+/**
+ * Framed to take in the whole room, which is what the reference is.
+ *
+ * This stood at x = 13.2 with a 50° vertical field — 79° horizontal, so 39.6°
+ * either side of the sightline. The reception desk is at x = 28.4 and sits
+ * 60° off that axis; the customer lounge, the RGB wall and the left-hand
+ * foreground are all outside it too. None of that was dark in our render, it
+ * was off the edge of the picture, and no amount of work on the half of the
+ * room still in frame was going to put it back.
+ *
+ * So: wider, further back, and aimed right. 62° vertical is 94° horizontal,
+ * which is an architectural lens and the kind of lens the reference was shot
+ * on. Aiming at x = 16.5 rather than 14.9 brings the reception zone in on the
+ * right while keeping the display floor left of centre, which is the
+ * photograph's composition — cars left, customers right.
+ *
+ * Both numbers are a second pass. The first went to 68° aimed at x = 20,
+ * which did get the desk in and overshot: the hero and the ring were pushed
+ * against the left edge and the left-hand brand panel went out of frame on
+ * the other side. Swinging the aim 3.5 m back toward the middle and taking
+ * six degrees off the lens puts the hero 6° left of the axis and 43% across
+ * the frame, against roughly 40% in the reference.
+ *
+ * Checked rather than eyeballed, against a 46.9° half-field: desk 36.8° R,
+ * lounge 32.9° R, RGB wall 24.3° R, hero 6.1° L, far sedan 31.0° L, left
+ * brand panel 34.9° L. Everything the photograph shows is inside the frame.
+ */
 export const SHOWROOM_CAMERA: CameraSpec = {
-  position: [13.2, 1.66, 20.8],
-  target: [14.9, 1.5, 4.0],
-  fov: 50,
+  position: [10.0, 1.75, 23.2],
+  target: [16.5, 1.55, 7.0],
+  fov: 62,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };

@@ -182,7 +182,10 @@ const aperture = (s: LightState) => (s.on ? Math.pow(s.level / 100, 0.42) : 0);
 /** Fifty-four lenses on a 2.6 m grid; six of them carry a light. */
 const LENSES: { x: number; z: number }[] = [];
 for (let i = 0; i < 9; i++) {
-  for (let j = 0; j < 6; j++) {
+  // Eight rows, not six: the grid used to stop at z = 16.4, which was behind
+  // the old camera and is the middle of the frame for the new one. Instanced,
+  // so the extra eighteen housings cost one draw call between them.
+  for (let j = 0; j < 8; j++) {
     const x = 1.6 + i * 2.85;
     const z = 1.7 + j * 2.95;
     // The coffer is a hole in the ceiling; nothing is recessed into it.
@@ -193,13 +196,28 @@ for (let i = 0; i < 9; i++) {
   }
 }
 
+/**
+ * Six positions; the quality budget mounts the first three or all six.
+ *
+ * Two of them moved when the camera went wide. The lens now stands at z =
+ * 23.2 and takes in the whole room, and two thirds of what it added had no
+ * fitting over it: the foreground floor runs from z = 23 to z = 16 and the
+ * grid stopped at 16.4, while the reception zone at x = 28 had nothing nearer
+ * than x = 21.5. Measured, that corner came back at 57 against the
+ * photograph's 120.
+ *
+ * Moved rather than added. This room runs at 11.7 fps on the high tier and a
+ * spot costs about three milliseconds a frame, so the count is fixed and the
+ * question is only where the six go. The two that gave way were the back-left
+ * pair, which were lighting wall the graphics accent already grazes.
+ */
 const DOWN_EMITTERS = [
-  { x: 4.6, z: 4.4 },
+  { x: 6.0, z: 19.0 },
   { x: 4.6, z: 14.2 },
   { x: 11.5, z: 16.0 },
   { x: 19.0, z: 15.4 },
-  { x: 21.5, z: 7.0 },
-  { x: 13.0, z: 2.6 },
+  { x: 25.5, z: 12.0 },
+  { x: 16.5, z: 20.0 },
 ] as const;
 
 function Downlights({ state, gain }: { state: LightState; gain: number }) {

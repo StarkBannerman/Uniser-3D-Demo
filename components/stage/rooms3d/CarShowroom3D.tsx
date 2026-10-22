@@ -87,7 +87,10 @@ export const SH_PLAN = {
    * A portrait one reads as print, which is what a brand wall is.
    */
   graphics: [
-    { x: 4.6, w: 3.3, h: 4.3, y: 3.0, line: "DRIVEN\nBY A BRIGHTER\nTOMORROW" },
+    // x = 6.5, not 4.6: on the wider lens the panel sat against the frame
+    // edge and lost its left third. The reference puts it near the edge and
+    // whole, which is a different thing.
+    { x: 6.5, w: 3.3, h: 4.3, y: 3.0, line: "DRIVEN\nBY A BRIGHTER\nTOMORROW" },
     { x: 13.6, w: 2.9, h: 3.7, y: 2.8, line: "MORE\nTHAN\nA CAR\nA LIFESTYLE" },
   ],
   /** Tall black columns with vertical strips. */
@@ -233,7 +236,7 @@ const M = {
    * shared with seven approved rooms and is not ours to retune.
    */
   ceiling: new THREE.MeshStandardMaterial({
-    color: "#b3ada4",
+    color: "#c6c0b6",
     roughness: 0.94,
     envMapIntensity: 0.3,
   }),
@@ -1106,7 +1109,11 @@ function Reception({ on }: { on: boolean }) {
     });
   }, []);
   useLayoutEffect(() => {
-    mark.emissiveIntensity = on ? 0.5 : 0.08;
+    // 1.4, not 0.5. In the reference this wall is the brightest thing on the
+    // right-hand side and it is what makes the reception read as the second
+    // destination in the room; measured, that zone came back at 57 against
+    // the photograph's 120, and this is most of the difference.
+    mark.emissiveIntensity = on ? 1.4 : 0.1;
   });
 
   return (
@@ -1121,10 +1128,22 @@ function Reception({ on }: { on: boolean }) {
         <boxGeometry args={[d.d + 0.14, 0.05, len + 0.12]} />
         <primitive object={M.wall} attach="material" />
       </mesh>
-      {/* Recessed plinth, so it floats over its own underglow. */}
+      {/*
+        Recessed plinth, so it floats over its own underglow — which it now
+        has. The plinth was there and the glow was not: the desk sat on a
+        block of the darkest material in the file and read as furniture
+        pushed against a wall rather than as a lit object.
+      */}
       <mesh position={[d.x + 0.05, 0.03, mid]}>
         <boxGeometry args={[d.d - 0.2, 0.06, len - 0.12]} />
         <primitive object={M.darker} attach="material" />
+      </mesh>
+      <mesh
+        position={[d.x - d.d / 2 + 0.06, 0.07, mid]}
+        rotation={[0, -Math.PI / 2, 0]}
+      >
+        <planeGeometry args={[len - 0.1, 0.1]} />
+        <meshBasicMaterial color="#ffe6c4" toneMapped={false} />
       </mesh>
       <mesh position={[d.x - d.d / 2 - 0.002, d.h * 0.52, mid]} rotation={[0, -Math.PI / 2, 0]}>
         <planeGeometry args={[len * 0.62, 0.42]} />
