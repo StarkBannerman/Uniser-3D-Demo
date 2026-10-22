@@ -47,6 +47,8 @@ export const carShowroom: Space = {
   blurb:
     "A 520 m² car showroom in real-time 3D — nine separately controlled lighting layers over a hero turntable, a track-lit display floor, a customer lounge and a mezzanine, with the high-CRI comparison a dealership actually buys on.",
   renderer: "3d",
+  /** The flat compositor uses this when `?photo=1` routes the room to it. */
+  illustration: "car-showroom",
   model: "car-showroom",
 
   keypad: {
@@ -77,7 +79,25 @@ export const carShowroom: Space = {
       wattsEach: 16,
       lumensEach: 1700,
       baselineWattsEach: 80,
-      glow: [],
+      /**
+       * Intensities are low on purpose. `glowAlpha` already takes a circuit at
+       * 72 per cent to about 0.84 opacity, and this room runs eight circuits
+       * at once where the illustrated living room runs three — left at the
+       * default of 1 they stacked into white discs and washed the plate out
+       * completely. Each glow here contributes a fraction and the sum does the
+       * work.
+       *
+       * A cone's `radius` is the disc at its *source*, not the beam. The plate
+       * already draws the fittings, so anything bigger than a few pixels there
+       * reads as a grey smudge on the ceiling rather than as a lamp.
+       */
+      glow: [
+        { shape: "cone", x: 0.17, y: 0.1, spread: 62, reach: 0.78, radius: 0.012, intensity: 0.16 },
+        { shape: "cone", x: 0.27, y: 0.06, spread: 62, reach: 0.8, radius: 0.012, intensity: 0.16 },
+        { shape: "cone", x: 0.64, y: 0.07, spread: 58, reach: 0.74, radius: 0.012, intensity: 0.14 },
+        { shape: "cone", x: 0.75, y: 0.1, spread: 58, reach: 0.7, radius: 0.012, intensity: 0.13 },
+        { shape: "pool", x: 0.45, y: 0.78, radius: 0.42, intensity: 0.1, blur: 0.07 },
+      ],
     },
     {
       id: "cs-spots",
@@ -94,7 +114,11 @@ export const carShowroom: Space = {
       wattsEach: 24,
       lumensEach: 2400,
       baselineWattsEach: 70,
-      glow: [],
+      glow: [
+        { shape: "cone", x: 0.45, y: 0.07, angle: -15, spread: 20, reach: 0.7, radius: 0.012, intensity: 0.2 },
+        { shape: "cone", x: 0.5, y: 0.13, angle: -12, spread: 20, reach: 0.67, radius: 0.012, intensity: 0.2 },
+        { shape: "cone", x: 0.55, y: 0.2, angle: -9, spread: 20, reach: 0.62, radius: 0.012, intensity: 0.18 },
+      ],
     },
     {
       id: "cs-product",
@@ -119,7 +143,12 @@ export const carShowroom: Space = {
       fixtures: 12,
       wattsEach: 28,
       lumensEach: 2200,
-      glow: [],
+      glow: [
+        { shape: "strip", x: 0.41, y: 0.33, w: 0.26, h: 0.01, intensity: 0.5 },
+        { shape: "cone", x: 0.36, y: 0.36, spread: 28, reach: 0.36, radius: 0.012, intensity: 0.2 },
+        { shape: "cone", x: 0.46, y: 0.36, spread: 28, reach: 0.36, radius: 0.012, intensity: 0.2 },
+        { shape: "pool", x: 0.41, y: 0.64, radius: 0.15, intensity: 0.26, blur: 0.05 },
+      ],
     },
     {
       id: "cs-linear",
@@ -136,7 +165,12 @@ export const carShowroom: Space = {
       fixtures: 68,
       wattsEach: 9,
       lumensEach: 950,
-      glow: [],
+      glow: [
+        { shape: "strip", x: 0.37, y: 0.19, w: 0.18, h: 0.012, intensity: 0.46 },
+        { shape: "strip", x: 0.79, y: 0.06, w: 0.19, h: 0.009, intensity: 0.4 },
+        { shape: "strip", x: 0.85, y: 0.14, w: 0.17, h: 0.009, intensity: 0.36 },
+        { shape: "pool", x: 0.8, y: 0.38, radius: 0.2, intensity: 0.1, blur: 0.07 },
+      ],
     },
     {
       id: "cs-accent",
@@ -152,7 +186,10 @@ export const carShowroom: Space = {
       fixtures: 16,
       wattsEach: 12,
       lumensEach: 900,
-      glow: [],
+      glow: [
+        { shape: "panel", x: 0.155, y: 0.4, w: 0.12, h: 0.28, intensity: 0.26 },
+        { shape: "panel", x: 0.555, y: 0.47, w: 0.085, h: 0.16, intensity: 0.26 },
+      ],
     },
     {
       id: "cs-floor",
@@ -169,7 +206,10 @@ export const carShowroom: Space = {
       fixtures: 24,
       wattsEach: 8,
       lumensEach: 520,
-      glow: [],
+      glow: [
+        { shape: "strip", x: 0.41, y: 0.675, w: 0.16, h: 0.008, intensity: 0.46 },
+        { shape: "pool", x: 0.41, y: 0.7, radius: 0.13, intensity: 0.16, blur: 0.05 },
+      ],
     },
     {
       id: "cs-arch",
@@ -186,7 +226,11 @@ export const carShowroom: Space = {
       fixtures: 22,
       wattsEach: 10,
       lumensEach: 700,
-      glow: [],
+      glow: [
+        { shape: "strip", x: 0.905, y: 0.73, w: 0.13, h: 0.01, intensity: 0.42 },
+        { shape: "strip", x: 0.8, y: 0.45, w: 0.15, h: 0.007, intensity: 0.3 },
+        { shape: "pool", x: 0.9, y: 0.66, radius: 0.14, intensity: 0.12, blur: 0.07 },
+      ],
     },
     {
       id: "cs-rgb",
@@ -203,7 +247,10 @@ export const carShowroom: Space = {
       fixtures: 18,
       wattsEach: 14,
       lumensEach: 620,
-      glow: [],
+      glow: [
+        { shape: "panel", x: 0.975, y: 0.42, w: 0.045, h: 0.36, intensity: 0.5 },
+        { shape: "pool", x: 0.94, y: 0.56, radius: 0.13, intensity: 0.18, blur: 0.08 },
+      ],
     },
 
     {
