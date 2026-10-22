@@ -37,7 +37,7 @@ import {
   makeRugSlab,
   sweepProfile,
 } from "./geometry";
-import { useContinuousMotion } from "../Stage3D";
+import { useContinuousMotion, useQuality } from "../Stage3D";
 
 /* ------------------------------------------------------------------ */
 /* Dimensions                                                          */
@@ -1562,12 +1562,23 @@ export function WaterWall({
     mat.uniforms.uLevel.value = Math.max(level, 0.05);
   });
 
-  // Only while it is actually lit: a dark water wall has nothing to animate,
-  // and registering motion would hold the whole room at the reduced frame rate
-  // for no visible reason.
-  useContinuousMotion("hl-water", level > 0.02);
+  /**
+   * Only while it is lit, and only on a machine that can afford it.
+   *
+   * A dark water wall has nothing to animate, and registering motion would
+   * hold the whole room at the reduced frame rate for no visible reason.
+   *
+   * The tier check matters more than it looks. Continuous motion means the
+   * room never stops rendering, and this room costs 127 ms a frame — so on a
+   * laptop with integrated graphics the lobby is a permanently animating
+   * scene at eight frames a second, which is a machine with its fans on from
+   * the moment the page opens. On the low tier the water holds a still frame
+   * and the room goes idle between presses like every other room.
+   */
+  const animated = level > 0.02 && useQuality() === "high";
+  useContinuousMotion("hl-water", animated);
   useFrame((_, dt) => {
-    if (level > 0.02) mat.uniforms.uTime.value += dt * 0.42;
+    if (animated) mat.uniforms.uTime.value += dt * 0.42;
   });
 
   return (

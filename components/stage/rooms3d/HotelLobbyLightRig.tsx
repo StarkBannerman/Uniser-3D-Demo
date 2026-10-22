@@ -33,6 +33,7 @@ import type { LightState } from "@/lib/sim/types";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { useEmissiveMaterial, useShadeMaterial } from "./lightMaterials";
 import { Spot } from "./Spot";
+import { useQuality } from "../Stage3D";
 import { COFFER, HL, HL_PLAN, LAMPS, WaterWall } from "./HotelLobby3D";
 
 const GAIN = {
@@ -152,6 +153,16 @@ const EMITTERS = [
 ] as const;
 
 function Downlights({ state, gain }: { state: LightState; gain: number }) {
+  /**
+   * One shadow map here, and only on the high tier.
+   *
+   * This room renders 168 shadow-casting meshes into 5.2 megapixels of depth
+   * a frame, on top of a frame that already costs 127 ms. On a machine with
+   * integrated graphics that is a cost with nothing to show for it: the lobby
+   * is lit by ten rect-area sources that cast no shadow in three.js at all,
+   * so what this map contributes is one soft pool under the seating.
+   */
+  const detailed = useQuality() === "high";
   const ref = useRef<THREE.InstancedMesh>(null);
   const colour = colourOf(state);
   const out = output(state);
@@ -206,7 +217,7 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
                * open floor it gives the furniture contact shadows without
                * putting a line through anything.
                */
-              castShadow={i === 1}
+              castShadow={i === 1 && detailed}
             />
           )}
         </group>

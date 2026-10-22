@@ -25,10 +25,12 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
 import type { LightState } from "@/lib/sim/types";
+import type { Quality } from "@/lib/device";
 import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { useEmissiveMaterial } from "./lightMaterials";
 import { Spot } from "./Spot";
 import { SH, SH_CARS, SH_PLAN } from "./CarShowroom3D";
+import { useQuality } from "../Stage3D";
 
 const GAIN = {
   downlight: 44,
@@ -65,7 +67,7 @@ const GAIN = {
   archEmissive: 3.6,
   rgb: 24,
   rgbEmissive: 4.4,
-} as const;
+};
 
 /**
  * Lights stay mounted and are driven to zero rather than removed.
@@ -79,6 +81,52 @@ const GAIN = {
  * 2,684 ms.
  */
 const MOUNTED = true;
+
+/**
+ * How many lights each tier is allowed to switch on.
+ *
+ * Measured on this room: twenty-two lights cost about 60 ms a frame. Hiding
+ * the five rect-area lights took that to 28.8 ms; hiding the fourteen spots
+ * took it to the 16.7 ms rAF floor. So a rect-area light is worth roughly
+ * 6 ms and a spot roughly 3 ms, and *light count is the entire frame budget*
+ * — the floor reflector, the ambient occlusion, the multisampling and the
+ * shadow maps together were worth about 10 ms of the 60.
+ *
+ * Which is why the old low tier barely helped: it dropped all the cheap
+ * things and none of the expensive one. It took a frame from 61.8 ms to
+ * 51.8 ms, 16 per cent, on exactly the machines that needed four times that.
+ *
+ * What gets cut is chosen so the room still *reads* the same. Every fitting
+ * stays mounted and every lens, strip and panel keeps its emissive material,
+ * so the ceiling looks identical — what thins out is how many of them cast
+ * light into the room. A showroom lit by three downlights instead of six is
+ * a slightly flatter showroom; a showroom at nine frames a second is a
+ * broken demo.
+ */
+const BUDGET: Record<Quality, {
+  downlights: number;
+  heads: number;
+  washers: number;
+  linear: number;
+  accentWall: boolean;
+  rgb: boolean;
+  /**
+   * How many lights may cast a shadow.
+   *
+   * Each one re-renders all 84 shadow-casting meshes into its own map, and
+   * the three together are 6.3 megapixels of depth a frame — more pixels than
+   * the picture itself. That was 10 per cent of a 60 ms frame and barely
+   * worth chasing; it is a third of a 18 ms one, which is what the low tier
+   * now runs at. The one that stays is the head over the hero platform,
+   * because the shadow under the car on the turntable is the only one anybody
+   * looks at.
+   */
+  shadows: number;
+}> = {
+  high: { downlights: 6, heads: 4, washers: 2, linear: 2, accentWall: true, rgb: true, shadows: 3 },
+  low: { downlights: 3, heads: 2, washers: 0, linear: 1, accentWall: false, rgb: false, shadows: 1 },
+} as const;
+
 
 /**
  * How far each light is pulled toward white. 0 is the raw illuminant.
@@ -146,6 +194,7 @@ const DOWN_EMITTERS = [
 ] as const;
 
 function Downlights({ state, gain }: { state: LightState; gain: number }) {
+  const budget = BUDGET[useQuality()];
   const ref = useRef<THREE.InstancedMesh>(null);
   const colour = colourOf(state);
   const out = output(state);
@@ -172,7 +221,7 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
         <circleGeometry args={[0.075, 14]} />
         <primitive object={lens} attach="material" />
       </instancedMesh>
-      {DOWN_EMITTERS.map((p, i) => (
+      {DOWN_EMITTERS.slice(0, budget.downlights).map((p, i) => (
         <group key={`dl-${i}`}>
           {MOUNTED && (
             <Spot
@@ -185,7 +234,7 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
               intensity={GAIN.downlight * out * gain}
               // One shadow caster. More maps cost far more at this scale than
               // the extra shadows contribute.
-              castShadow={i === 2}
+              castShadow={i === 2 && budget.shadows > 2}
               color={colour}
             />
           )}
@@ -239,6 +288,7 @@ function Spotlights({
    */
   tint: THREE.Color;
 }) {
+  const budget = BUDGET[useQuality()];
   const ref = useRef<THREE.InstancedMesh>(null);
   const colour = colourOf(state).clone().multiply(tint);
   const out = output(state);
@@ -280,7 +330,7 @@ function Spotlights({
         </mesh>
       ))}
 
-      {aims.map((aim, i) => (
+      {aims.slice(0, budget.heads).map((aim, i) => (
         <group key={`sp-${i}`}>
           {MOUNTED && (
             <Spot
@@ -413,6 +463,7 @@ const LINES = [
 ] as const;
 
 function Linear({ state, gain }: { state: LightState; gain: number }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
@@ -437,7 +488,7 @@ function Linear({ state, gain }: { state: LightState; gain: number }) {
               <primitive object={mat} attach="material" />
             </mesh>
             {/* Two of the five carry a light; the rest are their own aperture. */}
-            {MOUNTED && (i === 0 || i === 3) && (
+            {MOUNTED && (i === 0 || (i === 3 && budget.linear > 1)) && (
               <rectAreaLight
                 position={[mid[0], mid[1] - 0.02, mid[2]]}
                 rotation={[-Math.PI / 2, 0, -angle]}
@@ -460,6 +511,7 @@ function Linear({ state, gain }: { state: LightState; gain: number }) {
 
 /** Grazing on the brand graphics. */
 function Accent({ state, gain }: { state: LightState; gain: number }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
 
@@ -467,7 +519,7 @@ function Accent({ state, gain }: { state: LightState; gain: number }) {
     <group>
       {SH_PLAN.graphics.map((g, i) => (
         <group key={`ac-${i}`}>
-          {MOUNTED && (
+          {MOUNTED && i < budget.washers && (
             <Spot
               position={[g.x, SH.h - 0.5, 2.2]}
               target={[g.x, g.y, 0.2]}
@@ -539,6 +591,7 @@ function FloorLighting({ state, gain }: { state: LightState; gain: number }) {
 
 /** Cove along the coffer edge, and the vertical strips in every column. */
 function Architectural({ state, gain }: { state: LightState; gain: number }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
@@ -553,7 +606,7 @@ function Architectural({ state, gain }: { state: LightState; gain: number }) {
         <ringGeometry args={[c.r - 0.11, c.r - 0.01, 64]} />
         <primitive object={mat} attach="material" />
       </mesh>
-      {MOUNTED && (
+      {MOUNTED && budget.accentWall && (
         <rectAreaLight
           position={[h.x, c.y - 0.05, h.z]}
           rotation={[-Math.PI / 2, 0, 0]}
@@ -592,6 +645,7 @@ function Architectural({ state, gain }: { state: LightState; gain: number }) {
 
 /** Full-colour panels on the far right wall. */
 function RgbFeature({ state, gain }: { state: LightState; gain: number }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
@@ -620,7 +674,7 @@ function RgbFeature({ state, gain }: { state: LightState; gain: number }) {
         -X, into the room. This project has got that axis wrong seven times;
         the sign is worked out here rather than in somebody's head.
       */}
-      {MOUNTED && (
+      {MOUNTED && budget.rgb && (
         <rectAreaLight
           position={[w.x - 0.1, (w.y0 + w.y1) / 2, (w.z0 + w.z1) / 2]}
           rotation={[0, Math.PI / 2, 0]}
@@ -640,6 +694,7 @@ function RgbFeature({ state, gain }: { state: LightState; gain: number }) {
 
 /** Sun and sky through the glazed frontage behind the camera. */
 function Daylight({ amount }: { amount: number }) {
+  const budget = BUDGET[useQuality()];
   if (amount <= 0.004) return null;
 
   return (
@@ -648,7 +703,7 @@ function Daylight({ amount }: { amount: number }) {
         position={[SH.w / 2 + 6, 14, SH.d + 16]}
         intensity={2.2 * amount}
         color={new THREE.Color("#fff2dd")}
-        castShadow
+        castShadow={budget.shadows > 1}
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0011}
         shadow-camera-left={-16}

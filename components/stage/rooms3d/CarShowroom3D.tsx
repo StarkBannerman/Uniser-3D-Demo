@@ -160,6 +160,24 @@ const M = {
     clearcoatRoughness: 0.05,
     envMapIntensity: 1.3,
   }),
+  /**
+   * The floor without a reflector, for machines that cannot afford one.
+   *
+   * Not `floor` with the mirror switched off: the reflector's own base colour
+   * is #15171a and almost everything you see in it is *reflected* light, so
+   * dropping the second pass and keeping the pale diffuse gave the low tier a
+   * flat sheet at roughly twice the value of the high tier's floor — the
+   * bottom third of the frame went white. This sits between the two and leans
+   * on the environment map for its sheen instead.
+   */
+  floorFlat: new THREE.MeshPhysicalMaterial({
+    color: "#56534f",
+    roughness: 0.12,
+    metalness: 0.0,
+    clearcoat: 1,
+    clearcoatRoughness: 0.06,
+    envMapIntensity: 2.4,
+  }),
   /** The hero platform deck: the same concrete, a shade deeper and glossier. */
   deck: new THREE.MeshPhysicalMaterial({
     color: "#726e69",
@@ -279,7 +297,7 @@ function Shell() {
             metalness={0.1}
           />
         ) : (
-          <primitive object={M.floor} attach="material" />
+          <primitive object={M.floorFlat} attach="material" />
         )}
       </mesh>
 
