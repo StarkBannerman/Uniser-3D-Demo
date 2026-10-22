@@ -59,12 +59,36 @@ export const SH = {
 export const SH_PLAN = {
   /** The raised circular hero platform, 6 m across and only 150 mm proud. */
   hero: { x: 13.5, z: 10.5, r: 3.0, h: 0.15 },
-  /** The ceiling ring above it: 8 m across, a slim raised disc. */
-  coffer: { r: 4.0, y: 6.6, drop: 0.3 },
-  /** Backlit graphic panels. On the back wall — see the note in `Graphics`. */
+  /**
+   * The track ring above it. Suspended, not cut in — see `Shell`.
+   *
+   * `band` is the width of the rail itself, not of an annulus. It was 0.85,
+   * which is a metre of plaster painted the same colour as the ceiling eighty
+   * centimetres behind it; at eye level the two tones differ by six values and
+   * the ring disappeared into the soffit. In the reference it is a slim dark
+   * rail read against pale plaster, and the contrast is the whole of why it
+   * is the most recognisable thing in the photograph.
+   *
+   * 5 m across, not 8, and hung at 5.1 rather than 5.35. Apparent size is
+   * radius over distance: the camera stands 10.3 m from the middle of it, so
+   * 8 m spanned 51% of the frame where the reference spans 26%. Height is not
+   * a free parameter either — the near arc is only 7.8 m away, and at 5.5 m
+   * it sat 28° above the lens against a 25° half-field, so the top of the
+   * ring was cropped off by the frame edge.
+   */
+  coffer: { r: 2.5, band: 0.18, y: 5.1, drop: 0.22 },
+  /**
+   * Backlit graphic panels. On the back wall — see the note in `Graphics`.
+   *
+   * Portrait, both of them. These were 7.0 × 3.4 and 6.0 × 3.0, which is
+   * landscape at two to one; in the reference the left panel measures roughly
+   * 153 × 280 px and the right one is taller than it is wide as well. A
+   * landscape panel reads as a television, and the room already has screens.
+   * A portrait one reads as print, which is what a brand wall is.
+   */
   graphics: [
-    { x: 5.4, w: 7.0, h: 3.4, y: 2.8, line: "DRIVEN BY A\nBRIGHTER TOMORROW" },
-    { x: 13.8, w: 6.0, h: 3.0, y: 2.6, line: "MORE THAN A CAR,\nA LIFESTYLE" },
+    { x: 4.6, w: 3.3, h: 4.3, y: 3.0, line: "DRIVEN\nBY A BRIGHTER\nTOMORROW" },
+    { x: 13.6, w: 2.9, h: 3.7, y: 2.8, line: "MORE\nTHAN\nA CAR\nA LIFESTYLE" },
   ],
   /** Tall black columns with vertical strips. */
   /**
@@ -91,6 +115,17 @@ export const SH_PLAN = {
   rgbWall: { x: SH.w - 0.1, z0: 1.4, z1: 7.2, y0: 0.2, y1: 3.4 },
   /** Dark walnut slat bay over the right-hand ceiling. */
   slats: { x0: 18.0, x1: SH.w, z0: 0.4, z1: 16.0, y: 6.8 },
+  /**
+   * The dropped soffit over the left bay: a band across the back and one down
+   * the left, stepping the ceiling down 400 mm around the display floor.
+   *
+   * The linear runs sit on its underside at its inner edge — see `LINES` in
+   * the light rig, which reads `drop` from here so the two cannot part
+   * company. 400 mm because it has to read as a step from a lens 1.66 m off
+   * the floor and twenty metres away, and because anything deeper starts
+   * eating into the ring's headroom.
+   */
+  soffit: { drop: 0.4, zBack: 4.6, xLeft: 2.6, zFront: 17.2, xRight: 16.2 },
 } as const;
 
 /**
@@ -135,64 +170,102 @@ export const SH_CARS = [
 /* ------------------------------------------------------------------ */
 
 /**
- * A dark room with a light floor — which is what the reference actually is.
+ * Light above, darker below — which is what the reference actually is.
  *
- * The first build shipped cream walls and read as a lit warehouse, so the
- * rebuild took everything to charcoal. That overcorrected: with the floor at
- * 0.05 as well, the room had nothing in it brighter than the cars and no
- * surface for their reflections to live on, and the whole frame went to mud
- * under a warm scene.
+ * This room was built dark on the theory that a showroom reads as premium
+ * through contrast: charcoal everything, with the cars the brightest thing in
+ * the frame. Measured against the client's own reference photograph, that is
+ * backwards. Sampled from it: ceiling 103, upper wall 111, floor 113. Sampled
+ * from ours at the same points: ceiling **8**, wall **15**, floor 133.
  *
- * The reference splits it. Walls, ceiling and columns are charcoal — the cars
- * are still the brightest thing in the room — but the floor is *pale polished
- * concrete*, and it is the single most important surface in the picture: it
- * carries every reflection, it is where the floor lighting shows, and it is
- * where the frame gets its depth. Those are the real reflectances too:
- * charcoal paint is 0.08 to 0.12, and ground-and-sealed concrete is 0.30 to
- * 0.40 whatever anybody would like it to be.
+ * So the real room has a lit pale ceiling and pale walls, and a floor that is
+ * no brighter than they are. Ours had a near-black lid over a bright floor —
+ * the inverse — and the inverse reads as a basement, however good the cars in
+ * it are. Plaster and painted board are 0.6 to 0.75 reflectance; only the
+ * feature walls and the slatted bay are dark, and those stay dark.
  */
 const M = {
-  /** Pale polished concrete, warm grey. The most important surface here. */
+  /**
+   * Polished concrete, and darker than it looks like it should be.
+   *
+   * Measured against the reference at the same points: its floor reads 111 in
+   * the foreground and 97 in the middle distance. Ours read 139 and 123 — the
+   * right shape, a quarter too bright, so this is a straight scale of the
+   * albedo rather than anything done to the lighting.
+   */
   floor: new THREE.MeshPhysicalMaterial({
-    color: "#8a8681",
+    color: "#4d4a45",
     roughness: 0.14,
     metalness: 0.0,
     clearcoat: 1,
     clearcoatRoughness: 0.05,
     envMapIntensity: 1.3,
   }),
-  /**
-   * The floor without a reflector, for machines that cannot afford one.
-   *
-   * Not `floor` with the mirror switched off: the reflector's own base colour
-   * is #15171a and almost everything you see in it is *reflected* light, so
-   * dropping the second pass and keeping the pale diffuse gave the low tier a
-   * flat sheet at roughly twice the value of the high tier's floor — the
-   * bottom third of the frame went white. This sits between the two and leans
-   * on the environment map for its sheen instead.
-   */
+  /** The floor without a reflector, for machines that cannot afford one. */
   floorFlat: new THREE.MeshPhysicalMaterial({
-    color: "#56534f",
+    color: "#4e4b47",
     roughness: 0.12,
     metalness: 0.0,
     clearcoat: 1,
     clearcoatRoughness: 0.06,
     envMapIntensity: 2.4,
   }),
-  /** The hero platform deck: the same concrete, a shade deeper and glossier. */
+  /** The hero platform deck. */
   deck: new THREE.MeshPhysicalMaterial({
-    color: "#726e69",
+    color: "#575350",
     roughness: 0.1,
     metalness: 0,
     clearcoat: 1,
     clearcoatRoughness: 0.035,
     envMapIntensity: 1.5,
   }),
-  /** Dark charcoal matte ceiling. */
-  ceiling: new THREE.MeshStandardMaterial({ color: "#212326", roughness: 0.96 }),
-  coffer: new THREE.MeshStandardMaterial({ color: "#191b1e", roughness: 0.9 }),
-  /** Deep charcoal walls. */
-  wall: new THREE.MeshStandardMaterial({ color: "#232528", roughness: 0.94 }),
+  /**
+   * Pale plaster, not charcoal — and the ceiling is the *only* surface that
+   * wanted inverting. Measured against the reference it now lands at 73–97
+   * against its 83–99, which is as close as this gets.
+   *
+   * `envMapIntensity` is pulled down because the shared procedural
+   * environment carries a deliberately cool fill from the glazing side, which
+   * is right in the rooms it was built for and wrong here: it is the only
+   * light a downward-facing surface receives in a room whose fittings all
+   * point at the floor, and it left a cool ceiling (B/R 1.04) in a room whose
+   * reference holds B/R 0.76 on every surface. The environment itself is
+   * shared with seven approved rooms and is not ours to retune.
+   */
+  ceiling: new THREE.MeshStandardMaterial({
+    color: "#b3ada4",
+    roughness: 0.94,
+    envMapIntensity: 0.3,
+  }),
+  /**
+   * The ring rail: matt black, like the track heads bolted to it.
+   *
+   * It was pale plaster on the reading that the ring is a soffit. It is not —
+   * the reference shows an extruded rail hung on rods, the same profile and
+   * the same finish as the straight track runs crossing the ceiling beside
+   * it. One component, bent into a circle.
+   */
+  coffer: new THREE.MeshStandardMaterial({
+    color: "#121316",
+    roughness: 0.45,
+    metalness: 0.35,
+  }),
+  /**
+   * Painted board, and dark after all.
+   *
+   * This went pale with the ceiling, on the reading that the reference's
+   * upper register is light throughout. It is not. Sampled at matching
+   * points, the reference's ceiling runs 83–99 and its back wall 65; ours
+   * came back at 188, which is three times the figure and was the largest
+   * single error in the room. The pale band in the photograph is the ceiling
+   * soffit; the wall hanging beneath it is charcoal, and the backlit graphic
+   * panels only read because of it.
+   */
+  wall: new THREE.MeshStandardMaterial({
+    color: "#3a3733",
+    roughness: 0.93,
+    envMapIntensity: 0.3,
+  }),
   dark: new THREE.MeshStandardMaterial({ color: "#191b1e", roughness: 0.6 }),
   darker: new THREE.MeshStandardMaterial({ color: "#0d0e10", roughness: 0.7 }),
   /** Dark walnut on the slat bay. */
@@ -252,6 +325,7 @@ const M = {
  */
 function Shell() {
   const c = SH_PLAN.coffer;
+  const sf = SH_PLAN.soffit;
   const hero = SH_PLAN.hero;
   const quality = useQuality();
 
@@ -303,49 +377,103 @@ function Shell() {
       </mesh>
 
       {/*
-        Ceiling, as a ring around the coffer.
+        A solid ceiling, with the ring hung beneath it.
 
-        `ringGeometry` would be neater and is wrong here: the ceiling is
-        rectangular and the opening is round, so the band between them is not a
-        ring. Four rectangles around the circle's bounding box plus a true ring
-        inside it is the shape, and the join is hidden by the coffer's own
-        return.
+        It used to be four bands and an annulus around a circular opening,
+        with the coffer pushed *up* into the hole. The reference does the
+        opposite: the ceiling runs through, and a white ring is suspended
+        below it with the track heads on its underside. That ring is the most
+        recognisable thing in the photograph — the hero car stands inside it —
+        and a recess cut into the ceiling reads as nothing at all from eye
+        level, which is why ours never showed.
       */}
-      {[
-        { x: SH.w / 2, z: (hero.z - c.r) / 2, w: SH.w, d: hero.z - c.r },
-        { x: SH.w / 2, z: (hero.z + c.r + SH.d) / 2, w: SH.w, d: SH.d - hero.z - c.r },
-        { x: (hero.x - c.r) / 2, z: hero.z, w: hero.x - c.r, d: c.r * 2 },
-        { x: (hero.x + c.r + SH.w) / 2, z: hero.z, w: SH.w - hero.x - c.r, d: c.r * 2 },
-      ].map((b, i) => (
-        <mesh
-          key={`ceil-${i}`}
-          position={[b.x, SH.h, b.z]}
-          rotation={[Math.PI / 2, 0, 0]}
-          receiveShadow
-        >
-          <planeGeometry args={[b.w, b.d]} />
-          <primitive object={M.ceiling} attach="material" />
-        </mesh>
-      ))}
-      {/* The square corners the four bands leave around the circle. */}
       <mesh
-        position={[hero.x, SH.h, hero.z]}
+        position={[SH.w / 2, SH.h, SH.d / 2]}
         rotation={[Math.PI / 2, 0, 0]}
         receiveShadow
       >
-        <ringGeometry args={[c.r, c.r * 1.42, 48, 1]} />
+        <planeGeometry args={[SH.w, SH.d]} />
         <primitive object={M.ceiling} attach="material" />
       </mesh>
 
-      {/* The coffer: a raised disc with a vertical return down to the ceiling. */}
-      <mesh position={[hero.x, c.y + c.drop, hero.z]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[c.r, 56]} />
-        <primitive object={M.coffer} attach="material" />
-      </mesh>
-      <mesh position={[hero.x, c.y + c.drop / 2, hero.z]}>
-        <cylinderGeometry args={[c.r, c.r, c.drop, 56, 1, true]} />
-        <primitive object={M.coffer} attach="material" />
-      </mesh>
+      {/*
+        The stepped soffit over the left bay.
+
+        Four planes rather than two boxes: the undersides are all anyone sees
+        from eye level and the fascias are what make the step read, while the
+        top faces would be inside the void between soffit and slab, where
+        nothing can look at them.
+      */}
+      {[
+        // Back band, and its fascia facing into the room.
+        { p: [sf.xLeft + (sf.xRight - sf.xLeft) / 2, SH.h - sf.drop, sf.zBack / 2] as [number, number, number],
+          r: [Math.PI / 2, 0, 0] as [number, number, number], a: sf.xRight - sf.xLeft, b: sf.zBack },
+        { p: [sf.xLeft + (sf.xRight - sf.xLeft) / 2, SH.h - sf.drop / 2, sf.zBack] as [number, number, number],
+          r: [0, 0, 0] as [number, number, number], a: sf.xRight - sf.xLeft, b: sf.drop },
+        // Left band, running forward from the back one, and its fascia.
+        { p: [sf.xLeft / 2, SH.h - sf.drop, (sf.zBack + sf.zFront) / 2] as [number, number, number],
+          r: [Math.PI / 2, 0, 0] as [number, number, number], a: sf.xLeft, b: sf.zFront - sf.zBack },
+        { p: [sf.xLeft, SH.h - sf.drop / 2, (sf.zBack + sf.zFront) / 2] as [number, number, number],
+          r: [0, Math.PI / 2, 0] as [number, number, number], a: sf.zFront - sf.zBack, b: sf.drop },
+      ].map((f, i) => (
+        <mesh key={`sf-${i}`} position={f.p} rotation={f.r} receiveShadow>
+          <planeGeometry args={[f.a, f.b]} />
+          <primitive object={M.ceiling} attach="material" />
+        </mesh>
+      ))}
+
+      {/*
+        The ring: a rail, a cove and the rods that hang them.
+
+        The rail is a square extrusion — `band` wide, `drop` deep — closed top
+        and bottom so it has a visible soffit for the heads to hang from. The
+        lit cove that runs outboard of it is not here: it belongs to the light
+        rig, because in the photograph it is a *circuit*, and a circuit has to
+        go out when the scene says so. Building it here as plain emissive
+        geometry would have left a white line burning through Closing.
+
+        The rods are 0.016 m and there are eight, because six left a span long
+        enough to read as a sag.
+
+        `ringGeometry` is drawn in the XY plane and faces +Z, so the soffit
+        takes +PI/2 about X to face down and the top face -PI/2. Getting that
+        backwards leaves both faces culled and the ring reads as two floating
+        cylinders, which is how the first pass of this looked.
+      */}
+      <group position={[hero.x, c.y, hero.z]}>
+        {/* Soffit and top of the rail. */}
+        <mesh rotation={[Math.PI / 2, 0, 0]} receiveShadow>
+          <ringGeometry args={[c.r - c.band, c.r, 72, 1]} />
+          <primitive object={M.coffer} attach="material" />
+        </mesh>
+        <mesh position={[0, c.drop, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[c.r - c.band, c.r, 72, 1]} />
+          <primitive object={M.coffer} attach="material" />
+        </mesh>
+        {/* Its outer and inner faces. */}
+        <mesh position={[0, c.drop / 2, 0]}>
+          <cylinderGeometry args={[c.r, c.r, c.drop, 72, 1, true]} />
+          <primitive object={M.coffer} attach="material" />
+        </mesh>
+        <mesh position={[0, c.drop / 2, 0]}>
+          <cylinderGeometry args={[c.r - c.band, c.r - c.band, c.drop, 72, 1, true]} />
+          <primitive object={M.coffer} attach="material" />
+        </mesh>
+        {Array.from({ length: 8 }, (_, i) => {
+          const ang = (i * Math.PI * 2) / 8 + Math.PI / 16;
+          const rr = c.r - c.band / 2;
+          const rod = SH.h - c.y - c.drop;
+          return (
+            <mesh
+              key={`rod-${i}`}
+              position={[Math.cos(ang) * rr, c.drop + rod / 2, Math.sin(ang) * rr]}
+            >
+              <cylinderGeometry args={[0.016, 0.016, rod, 6]} />
+              <primitive object={M.darker} attach="material" />
+            </mesh>
+          );
+        })}
+      </group>
 
       {/* Back wall, and the left wall the graphics hang on. */}
       <mesh position={[SH.w / 2, SH.h / 2, 0]} receiveShadow>
@@ -919,7 +1047,10 @@ function Graphics({ on }: { on: boolean }) {
   const panels = useMemo(
     () =>
       SH_PLAN.graphics.map((g) => {
-        const map = makeBrandGraphic(g.line, Math.round(g.x * 7));
+        // Portrait canvas for a portrait panel. A 16:9 texture on a 3.3 × 4.3
+        // plane squashes the ridgeline to about half its width, and a
+        // mountain range is the one thing in the frame you cannot stretch.
+        const map = makeBrandGraphic(g.line, Math.round(g.x * 7), 1536, 2048);
         return new THREE.MeshStandardMaterial({
           map,
           emissive: new THREE.Color("#ffffff"),
@@ -1067,13 +1198,21 @@ function Mezzanine() {
         <boxGeometry args={[w, 0.28, d]} />
         <primitive object={M.wall} attach="material" />
       </mesh>
-      {/* The soffit under it is dark, so the lounge below reads as sheltered. */}
+      {/*
+        The soffit under it reads as sheltered, not as a hole.
+
+        It was `darker`, which is #0d0e10, and against a room that now sits at
+        77 overall it was simply absent — the right-hand third of the frame
+        measured 27 where the reference measures 61, and most of that third is
+        this plane and what is under it. Sheltered means in shadow, and a
+        surface in shadow still has a value.
+      */}
       <mesh
         position={[m.x0 + w / 2, m.y - 0.29, m.z0 + d / 2]}
         rotation={[Math.PI / 2, 0, 0]}
       >
         <planeGeometry args={[w, d]} />
-        <primitive object={M.darker} attach="material" />
+        <primitive object={M.dark} attach="material" />
       </mesh>
       {/* Glass balustrade along its open edge. */}
       <mesh position={[m.x0 + w / 2, m.y + 0.56, m.z1]}>
@@ -1112,10 +1251,36 @@ function Mezzanine() {
           </mesh>
         </group>
       ))}
-      {/* The feature line under its edge. */}
+      {/*
+        The offices behind the glazing, as a lit wall rather than a lit room.
+
+        Measured at the same point, the reference's mezzanine reads 61 and
+        ours read 29 — the darkest part of the frame against one of the
+        brighter parts of the photograph, and the right-hand third of the shot
+        is a third of the shot. The honest fix is a fitting up there, and the
+        honest fix is not affordable: this room runs at 11.7 fps on the high
+        tier and a rect-area light costs about six milliseconds a frame.
+
+        An emissive plane costs a draw call and no light at all. It cannot
+        illuminate the chairs in front of it, which is exactly why it is
+        placed *behind* them — what the camera gets is backlit furniture
+        against a glowing wall, which is what the photograph shows, and the
+        one thing an emitter of this kind is genuinely good at.
+      */}
+      <mesh position={[m.x0 + w / 2, m.y + 1.3, m.z0 + 0.08]}>
+        <planeGeometry args={[w - 0.6, 2.2]} />
+        <meshBasicMaterial color="#6d6256" toneMapped={false} />
+      </mesh>
+      {/*
+        The feature line under its edge, and it is a *line*, which is to say
+        it is lit. It was painted in the darkest material in the file, which
+        made it a feature nobody could see. In the reference this edge is the
+        brightest thing on the right-hand side and it is what separates the
+        mezzanine from the lounge beneath it.
+      */}
       <mesh position={[m.x0 + w / 2, m.y - 0.5, m.z1 - 0.02]}>
-        <planeGeometry args={[w * 0.6, 0.3]} />
-        <primitive object={M.darker} attach="material" />
+        <planeGeometry args={[w * 0.6, 0.12]} />
+        <meshBasicMaterial color="#ffecd2" toneMapped={false} />
       </mesh>
     </group>
   );

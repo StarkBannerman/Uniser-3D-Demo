@@ -116,21 +116,41 @@ export function useShowroomState() {
     : 0;
 
   /**
-   * Fill, scaled back hard for this room.
+   * Fill, scaled back hard for this room, and warmed.
    *
    * `roomAmbience` derives bounce from illuminance against the space's design
-   * lux, which is right in a room with ordinary surfaces and wrong here: the
-   * ceiling, walls and columns are all charcoal at a reflectance of 0.08 to
-   * 0.12, so there is a fraction of the inter-reflection the model assumes.
-   * Left alone it sat at its cap and lit every car from every direction at
-   * once — the coupé's bonnet and its flank came back eleven values apart,
-   * which is a car with no form in it. Light that arrives from everywhere
-   * cannot model anything, and modelling is the entire job of a display rig.
+   * lux, which is right in a room with ordinary surfaces. It was scaled back
+   * here because the room used to be charcoal throughout and there was a
+   * fraction of the inter-reflection the model assumes; left alone it lit
+   * every car from every direction at once, and light that arrives from
+   * everywhere cannot model anything.
+   *
+   * The colour is forced warm against the reference. `roomAmbience` returns
+   * something near neutral, and bounced light is not neutral: it is the
+   * illuminant, minus whatever the surfaces took out of it. The photograph
+   * holds B ≈ 0.68R on its ceiling, its wall and its floor alike — one warm
+   * source, everywhere — where ours came back at B ≈ 1.03R, a cool ceiling in
+   * a warm room.
+   *
+   * The level is 0.38 and the history is worth keeping, because the obvious
+   * reading of it is wrong. A hemisphere light has no inverse square, so it
+   * looked like the reason our floor held 158 → 145 across the depth of the
+   * room where the reference falls off; it was cut to 0.2 on that reasoning
+   * and the floor moved by three values. It was never the floor. What it
+   * actually carries is the *ceiling* — a downward-facing surface in a room
+   * whose fittings all point at the floor receives nothing else — and cutting
+   * it left the ceiling 25 values dark and still neutral. Hence 0.38: below
+   * the old 0.55, which did flatten the cars, and well above the cut that
+   * bought nothing and cost the one surface this term exists to light.
    */
   const bounced = space
     ? roomAmbience(space, states, clockMin)
     : { level: 0, color: [255, 245, 230] as [number, number, number], lux: 0 };
-  const ambient = { ...bounced, level: bounced.level * 0.55 };
+  const ambient = {
+    ...bounced,
+    level: bounced.level * 0.38,
+    color: [255, 214, 172] as [number, number, number],
+  };
 
   /**
    * High-CRI is a circuit that is *on*; standard CRI is what you get when it

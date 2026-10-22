@@ -149,7 +149,16 @@ const BUDGET: Record<Quality, {
  * were tuned by eye against the unadapted colours and signed off that way;
  * changing the constant under them would shift seven approved scenes apiece.
  */
-const ADAPT = 0.45;
+/*
+ * Reduced from 0.45 against the reference.
+ *
+ * 0.45 did take the saturation out, and it took the room's colour with it:
+ * sampled at matching points the photograph holds B/R ≈ 0.76 on its ceiling,
+ * its wall and its floor alike — one warm source, everywhere — where ours
+ * came back at 1.03, a cool room. Adaptation is meant to stop a warm room
+ * reading *orange*, not to stop it reading warm.
+ */
+const ADAPT = 0.26;
 
 function colourOf(state: LightState): THREE.Color {
   const adapt = (c: THREE.Color) => c.lerp(new THREE.Color(1, 1, 1), ADAPT);
@@ -379,25 +388,42 @@ function ProductLighting({
   const c = SH_PLAN.coffer;
   const lens = useEmissiveMaterial(colour, 5.5 * glow);
 
-  /** Twelve heads ringed inside the coffer. Two of them are lights. */
+  /**
+   * Twelve heads on the ring. Two of them are lights.
+   *
+   * On the centreline of the rail, not 0.75 m inboard of it. That offset was
+   * right while the ring was a metre-wide soffit with room to recess things
+   * into; the rail is 180 mm wide now and the heads were hanging in clear air
+   * well inside it, which is the one detail in the reference you cannot
+   * mistake — every head is bolted to the rail.
+   */
   const ring = useMemo(
-    () =>
-      Array.from({ length: 12 }, (_, i) => {
+    () => {
+      const rr = c.r - c.band / 2;
+      return Array.from({ length: 12 }, (_, i) => {
         const a = (i / 12) * Math.PI * 2;
-        return { x: h.x + Math.cos(a) * (c.r - 0.75), z: h.z + Math.sin(a) * (c.r - 0.75) };
-      }),
-    [h.x, h.z, c.r],
+        return { x: h.x + Math.cos(a) * rr, z: h.z + Math.sin(a) * rr };
+      });
+    },
+    [h.x, h.z, c.r, c.band],
   );
 
   return (
     <group>
+      {/*
+        Hung under the rail, not standing on top of it.
+        
+        These sat at `c.y + 0.3`, which was inside the old soffit's depth and
+        is now 80 mm clear above the rail's top face — twelve heads floating
+        above the ring, lit side up.
+      */}
       {ring.map((p, i) => (
         <group key={`pr-${i}`}>
-          <mesh position={[p.x, c.y + 0.3, p.z]} castShadow>
-            <cylinderGeometry args={[0.05, 0.07, 0.18, 10]} />
+          <mesh position={[p.x, c.y - 0.1, p.z]} castShadow>
+            <cylinderGeometry args={[0.05, 0.07, 0.2, 10]} />
             <primitive object={M_TRACK} attach="material" />
           </mesh>
-          <mesh position={[p.x, c.y + 0.2, p.z]} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh position={[p.x, c.y - 0.201, p.z]} rotation={[Math.PI / 2, 0, 0]}>
             <circleGeometry args={[0.045, 10]} />
             <primitive object={lens} attach="material" />
           </mesh>
@@ -454,8 +480,20 @@ const M_TRACK = new THREE.MeshStandardMaterial({
 
 /** Continuous runs across the flat ceiling and down the slatted bay. */
 const LINES = [
-  { x0: 1.4, z0: 2.4, x1: 15.6, z1: 2.4 },
-  { x0: 1.4, z0: 17.4, x1: 15.6, z1: 17.4 },
+  /**
+   * The chevron in the dropped soffit, which is the ceiling's whole structure
+   * in the reference: one long run across the back and one down the left,
+   * meeting at a corner that frames the display floor.
+   *
+   * These used to be two parallel runs lying flat on the ceiling at z = 2.4
+   * and z = 17.4. Flush strips on a flat plane read as strip lights; the same
+   * strips in the corner of a 400 mm step read as architecture, which is what
+   * the photograph shows and what the left half of our frame was missing —
+   * it was an unbroken grey field with nothing in it but downlight housings.
+   * They sit on the soffit's underside now; see `SH_PLAN.soffit`.
+   */
+  { x0: 2.4, z0: 4.4, x1: 15.9, z1: 4.4 },
+  { x0: 2.4, z0: 16.9, x1: 2.4, z1: 4.4 },
   // The diagonals in the slatted bay, which is what the sheet shows.
   { x0: 16.4, z0: 1.0, x1: 25.4, z1: 5.4 },
   { x0: 16.4, z0: 5.0, x1: 25.4, z1: 9.4 },
@@ -478,7 +516,7 @@ function Linear({ state, gain }: { state: LightState; gain: number }) {
         const angle = Math.atan2(dz, dx);
         const mid: [number, number, number] = [
           (l.x0 + l.x1) / 2,
-          i >= 2 ? SH_PLAN.slats.y - 0.17 : SH.h - 0.03,
+          i >= 2 ? SH_PLAN.slats.y - 0.17 : SH.h - SH_PLAN.soffit.drop - 0.03,
           (l.z0 + l.z1) / 2,
         ];
         return (
@@ -601,9 +639,23 @@ function Architectural({ state, gain }: { state: LightState; gain: number }) {
 
   return (
     <group>
-      {/* The lit edge of the circular coffer — the room's signature line. */}
-      <mesh position={[h.x, c.y + 0.03, h.z]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[c.r - 0.11, c.r - 0.01, 64]} />
+      {/*
+        The lit edge of the ring — the room's signature line.
+
+        Outboard of the rail, which is where the reference puts it: the white
+        line reads *around* the dark rail, not down the middle of it. It used
+        to sit at `c.r - 0.11`, inside the old wide soffit; against a 180 mm
+        rail that is the same surface, and the two coplanar faces z-fought
+        along the whole circumference.
+
+        Facing down, and that is the whole of it. `ringGeometry` is drawn in
+        the XY plane facing +Z, so -PI/2 about X points it at the sky: the
+        first pass put this above the rail with that rotation and the cove was
+        simply not there from eye level, on a ring whose brightest feature in
+        the photograph is this line.
+      */}
+      <mesh position={[h.x, c.y + 0.02, h.z]} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[c.r + 0.10, c.r + 0.21, 64]} />
         <primitive object={mat} attach="material" />
       </mesh>
       {MOUNTED && budget.accentWall && (
@@ -713,13 +765,24 @@ function Daylight({ amount }: { amount: number }) {
         shadow-camera-near={1}
         shadow-camera-far={60}
       />
-      {/* The frontage is at z = d, so -Z is into the room. No rotation. */}
+      {/*
+        The frontage is at z = d, so -Z is into the room. No rotation.
+
+        Toned down and taken most of the way to white against the reference.
+        This is a 28 m emitter and at intensity 9 it was the largest single
+        source in the room — the ceiling came back at B/R 1.00 in the morning
+        scene, bluer than its own paint, against 0.76 in the photograph, and
+        the evening scenes measured 0.60 because they switch this off and show
+        what the fittings alone are doing. North light really is that blue;
+        a showroom's frontage is also tinted glass with a canopy over it, and
+        the reference is the client's own picture of what they expect to see.
+      */}
       <rectAreaLight
         position={[SH.w / 2, 2.6, SH.d - 0.3]}
         width={SH.w - 2}
         height={4.6}
-        intensity={9 * amount}
-        color={new THREE.Color("#d8e6f6")}
+        intensity={5.5 * amount}
+        color={new THREE.Color("#e9edf3")}
       />
     </group>
   );

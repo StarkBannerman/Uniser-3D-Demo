@@ -1964,7 +1964,16 @@ export function makeBrandGraphic(
   const rows = lines.split("\n");
   g.textAlign = "left";
   g.textBaseline = "middle";
-  const size = Math.round(height * 0.072);
+  /**
+   * Sized off the width, because the text runs across it.
+   *
+   * This was `height * 0.072`, which is the same number at 16:9 — 104 px on
+   * the 2560 × 1440 canvas this was written for — and comes apart the moment
+   * the panel is portrait. On a 1536 × 2048 canvas it gives 147 px type, and
+   * "BRIGHTER TOMORROW" at that size and this tracking is 2040 px wide on a
+   * 1536 px canvas: a tagline running off both edges of the brand wall.
+   */
+  const size = Math.round(width * 0.0406);
   const spacing = size * 0.22;
   rows.forEach((row, i) => {
     g.font = `300 ${size}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
