@@ -122,14 +122,31 @@ function detectQuality(): Quality {
    */
   const byGpu = classifyRenderer(rendererString());
   if (byGpu) return byGpu;
+  /**
+   * Any touch device takes the low tier, deliberately and unconditionally.
+   *
+   * iPads are the case this is for. Safari reports its renderer as the
+   * uninformative string "Apple GPU" — no model, no generation — so the
+   * classifier above can tell us nothing, and an iPad Pro and a six-year-old
+   * base iPad look identical from here.
+   *
+   * They were already landing on the low tier, but by accident: Safari does
+   * not implement `deviceMemory`, so it defaulted to 4 and tripped the
+   * `memory <= 4` test below. That is a correct outcome resting on a missing
+   * API, and the day Safari ships `deviceMemory` every iPad silently jumps to
+   * the full path. Better to mean it.
+   *
+   * Conservative on purpose: a tablet is thermally limited in a way a desktop
+   * is not — it will hold 60 fps for a minute and then quietly halve it — and
+   * this is hardware we have not been able to measure. `?q=high` overrides it
+   * for anyone who wants to find out.
+   */
+  if (typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches) {
+    return "low";
+  }
   const nav = navigator as Navigator & { deviceMemory?: number };
   const cores = nav.hardwareConcurrency ?? 4;
   const memory = nav.deviceMemory ?? 4;
-  const touchOnly =
-    typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
-  // A tablet with four cores is the case this is for: it will run, and it will
-  // not run this at full resolution with a second depth pass on top.
-  if (touchOnly && (cores <= 6 || memory <= 4)) return "low";
   return cores <= 4 || memory <= 4 ? "low" : "high";
 }
 
