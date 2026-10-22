@@ -168,7 +168,7 @@ export function useShowroomState() {
     : { level: 0, color: [255, 245, 230] as [number, number, number], lux: 0 };
   const ambient = {
     ...bounced,
-    level: bounced.level * 0.95,
+    level: bounced.level * 1.25,
     color: [255, 214, 172] as [number, number, number],
   };
 
@@ -221,6 +221,14 @@ export function ShowroomScene({
         daylight={state.daylight}
         standardCri={state.standardCri}
         focusId={state.focusId}
+        /**
+         * Exposure, measured rather than felt: with the shell rebuilt to the
+         * reference's geometry the frame averaged 58 against the photograph's
+         * 84, and every zone was short by about the same ratio - ceiling,
+         * rug, mid floor alike - which is the signature of an exposure gap,
+         * not a misplaced fitting. 84 / 58 is this number.
+         */
+        gain={1.45}
       />
     </>
   );

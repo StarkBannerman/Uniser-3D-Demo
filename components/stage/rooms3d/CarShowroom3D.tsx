@@ -174,7 +174,7 @@ const M = {
    * albedo rather than anything done to the lighting.
    */
   floor: new THREE.MeshPhysicalMaterial({
-    color: "#aaa49a",
+    color: "#9b968d",
     roughness: 0.14,
     metalness: 0.0,
     clearcoat: 1,
@@ -213,7 +213,7 @@ const M = {
    * shared with seven approved rooms and is not ours to retune.
    */
   ceiling: new THREE.MeshStandardMaterial({
-    color: "#ded9d1",
+    color: "#f4eee4",
     roughness: 0.94,
     envMapIntensity: 0.3,
   }),
@@ -242,7 +242,7 @@ const M = {
    * panels only read because of it.
    */
   wall: new THREE.MeshStandardMaterial({
-    color: "#2e2b28",
+    color: "#242220",
     roughness: 0.93,
     envMapIntensity: 0.3,
   }),
@@ -1314,7 +1314,7 @@ function Lounge() {
     <group position={[x, 0, z]} rotation={[0, -0.5, 0]}>
       <mesh position={[0, 0.006, 0]} receiveShadow>
         <cylinderGeometry args={[r, r, 0.012, 48]} />
-        <meshStandardMaterial color="#525356" roughness={1} />
+        <meshStandardMaterial color="#85868a" roughness={1} />
       </mesh>
       {SEATS.map((a, i) => (
         <group

@@ -225,8 +225,8 @@ const DOWN_EMITTERS = [
    * already works. One now stands over the lounge and one between the desk
    * and the rug, which is where the photograph's pools are.
    */
-  { x: 4.0, z: 14.0 },
-  { x: 7.5, z: 15.5 },
+  { x: 4.5, z: 12.5 },
+  { x: 8.0, z: 13.8 },
   { x: 6.0, z: 8.0 },
   { x: 11.5, z: 11.0 },
   { x: 14.0, z: 13.5 },
