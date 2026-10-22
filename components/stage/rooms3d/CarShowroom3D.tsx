@@ -43,129 +43,106 @@ import {
 /* ------------------------------------------------------------------ */
 
 /**
- * The shell.
+ * The shell, solved from the reference image rather than taken from the
+ * brief's figures - the brief itself says the image wins where they differ,
+ * and they differ by about a factor of two.
  *
- * `x` runs from the graphic wall on the left (0) to the feature wall on the
- * right (w); `z` runs from the back wall (0) to the glazed frontage behind the
- * camera (d).
+ * Three measurements fix the geometry. The platform's ellipse spans y
+ * 0.63-0.69 of the frame, which for any eye-level camera is impossible at the
+ * stated 7.5 m diameter: solving the pair gives a lens about 2.35 m up. The
+ * hero's height in frame then puts it 11.5 m away, and the floor-to-back-wall
+ * junction at y 0.65 puts the back wall 4-5 m behind the platform. A 78
+ * degree lens at x = 16.5 of a 29 m room also, simply, cannot see the x = 0
+ * wall (the half-field runs out 20 m down-range of a 17 m offset), and the
+ * reference plainly shows that wall's panel - so the room is about 19.5 m
+ * wide, not 29, and the lens stands 8.3 m off the left wall.
+ *
+ * Corner origin as ever: x = 0 is the left wall the big panel hangs on,
+ * z = 0 the back wall, and the camera stands near z = 17.5 looking down -Z.
  */
 export const SH = {
-  w: 30,
-  d: 25,
-  h: 7,
-} as const;
-
-/** Where everything stands. Shared with the light rig. */
-export const SH_PLAN = {
-  /** The raised circular hero platform, 6 m across and only 150 mm proud. */
-  hero: { x: 13.5, z: 10.5, r: 3.0, h: 0.15 },
-  /**
-   * The track ring above it. Suspended, not cut in — see `Shell`.
-   *
-   * `band` is the width of the rail itself, not of an annulus. It was 0.85,
-   * which is a metre of plaster painted the same colour as the ceiling eighty
-   * centimetres behind it; at eye level the two tones differ by six values and
-   * the ring disappeared into the soffit. In the reference it is a slim dark
-   * rail read against pale plaster, and the contrast is the whole of why it
-   * is the most recognisable thing in the photograph.
-   *
-   * 5 m across, not 8, and hung at 5.1 rather than 5.35. Apparent size is
-   * radius over distance: the camera stands 10.3 m from the middle of it, so
-   * 8 m spanned 51% of the frame where the reference spans 26%. Height is not
-   * a free parameter either — the near arc is only 7.8 m away, and at 5.5 m
-   * it sat 28° above the lens against a 25° half-field, so the top of the
-   * ring was cropped off by the frame edge.
-   */
-  coffer: { r: 2.5, band: 0.18, y: 5.1, drop: 0.22 },
-  /**
-   * Backlit graphic panels. On the back wall — see the note in `Graphics`.
-   *
-   * Portrait, both of them. These were 7.0 × 3.4 and 6.0 × 3.0, which is
-   * landscape at two to one; in the reference the left panel measures roughly
-   * 153 × 280 px and the right one is taller than it is wide as well. A
-   * landscape panel reads as a television, and the room already has screens.
-   * A portrait one reads as print, which is what a brand wall is.
-   */
-  graphics: [
-    // x = 6.5, not 4.6: on the wider lens the panel sat against the frame
-    // edge and lost its left third. The reference puts it near the edge and
-    // whole, which is a different thing.
-    { x: 6.5, w: 3.3, h: 4.3, y: 3.0, line: "DRIVEN\nBY A BRIGHTER\nTOMORROW" },
-    { x: 13.6, w: 2.9, h: 3.7, y: 2.8, line: "MORE\nTHAN\nA CAR\nA LIFESTYLE" },
-  ],
-  /** Tall black columns with vertical strips. */
-  /**
-   * Clear of the sightline to the graphics.
-   *
-   * The first of these stood at x = 8.6, which from a camera at x = 7 is
-   * almost dead ahead — it ran straight down the middle of the left graphic
-   * panel and cut the tagline in half. A column is structure; it is allowed
-   * to be in the picture, and it is not allowed to be in front of the one
-   * thing on that wall worth reading.
-   */
-  columns: [
-    { x: 5.0, z: 3.4 },
-    { x: 20.6, z: 13.2 },
-    { x: 20.6, z: 4.2 },
-  ],
-  /** Mezzanine, back right. */
-  mezz: { x0: 20.2, x1: SH.w, z0: 0, z1: 7.6, y: 3.6 },
-  /** Customer lounge on the floor, forward of it. */
-  lounge: { x: 23.6, z: 13.6 },
-  /** Reception desk against the right wall. */
-  desk: { x: 28.4, z0: 9.0, z1: 15.4, h: 1.08, d: 0.9 },
-  /** RGB feature panels beside the mezzanine. */
-  rgbWall: { x: SH.w - 0.1, z0: 1.4, z1: 7.2, y0: 0.2, y1: 3.4 },
-  /** Dark walnut slat bay over the right-hand ceiling. */
-  slats: { x0: 18.0, x1: SH.w, z0: 0.4, z1: 16.0, y: 6.8 },
-  /**
-   * The dropped soffit over the left bay: a band across the back and one down
-   * the left, stepping the ceiling down 400 mm around the display floor.
-   *
-   * The linear runs sit on its underside at its inner edge — see `LINES` in
-   * the light rig, which reads `drop` from here so the two cannot part
-   * company. 400 mm because it has to read as a step from a lens 1.66 m off
-   * the floor and twenty metres away, and because anything deeper starts
-   * eating into the ring's headroom.
-   */
-  soffit: { drop: 0.4, zBack: 4.6, xLeft: 2.6, zFront: 17.2, xRight: 16.2 },
+  w: 19.5,
+  d: 22,
+  h: 5.8,
 } as const;
 
 /**
- * The cars. Generic forms with no badge, grille or marque on any of them.
- *
- * `kind` picks a silhouette rather than a model: the proportions of a coupé,
- * a saloon and a tall estate are different enough to read across a room, and
- * that is the whole requirement. Anything more specific would be somebody's
- * design.
+ * SCAFFOLDING. The stock is off while the room is built against the
+ * reference; the brief for this pass is the shell, not the cars.
+ */
+const SHOW_CARS = true;
+
+/** Where everything stands. Shared with the light rig. */
+export const SH_PLAN = {
+  /** The circular hero platform, 150 mm proud, 4-5 m clear of the back wall. */
+  hero: { x: 6.5, z: 6.0, r: 2.9, h: 0.15 },
+  /** The oval drop-ceiling soffit over it, recessed 400 mm into the slab. */
+  coffer: { rx: 3.5, rz: 2.3, band: 0.18, y: SH.h - 0.4, drop: 0.4 },
+  /**
+   * Backlit graphic panels. `face` says which plane a panel hangs on: "left"
+   * is the x = 0 wall facing into the room, "back" the z = 0 wall facing the
+   * camera.
+   */
+  graphics: [
+    {
+      face: "left" as const,
+      x: 0.12,
+      z: 2.9,
+      w: 4.5,
+      h: 5.2,
+      y: 2.9,
+      line: "DRIVEN\nBY A BRIGHTER\nTOMORROW",
+    },
+    {
+      face: "back" as const,
+      x: 10.0,
+      z: 0.1,
+      w: 3.5,
+      h: 3.5,
+      y: 2.4,
+      line: "MORE\nTHAN\nA CAR\nA LIFESTYLE",
+    },
+  ],
+  /** The dark-blue sign under the mezzanine. */
+  sign: {
+    x: 15.2,
+    z: 0.3,
+    w: 4.0,
+    h: 1.8,
+    y: 1.7,
+    line: "EXPERIENCE\nTHE EXTRAORDINARY",
+  },
+  /** The big clad pillar, and the narrower lit fin beside it. */
+  columns: [
+    { x: 10.6, z: 5.8, w: 1.5 },
+    { x: 12.0, z: 5.8, w: 0.5 },
+  ],
+  /** Mezzanine, back right: slab at 3.6, balustrade 1.1 above it. */
+  mezz: { x0: 12, x1: SH.w, z0: 0, z1: 5, y: 3.6, rail: 1.1 },
+  /** Customer lounge: a round rug with chairs on it, right foreground. */
+  lounge: { x: 11.6, z: 11.2, r: 1.9 },
+  /** Reception desk, right foreground, 4.5 m of it. */
+  desk: { x: 13.6, z0: 10.0, z1: 14.3, h: 1.1, d: 0.9 },
+  /** The blue-to-magenta LED wall on the right, behind the lounge. */
+  rgbWall: { x: SH.w - 0.1, z0: 2.5, z1: 7.5, y0: 0.3, y1: 5.5 },
+  /** Dark walnut slat ceiling over the right bay. */
+  slats: { x0: 10.8, x1: SH.w, z0: 0, z1: 10.0, y: SH.h },
+  /** The stepped soffit band around the white ceiling. */
+  soffit: { drop: 0.3, zBack: 2.4, xLeft: 1.6, zFront: 16.0, xRight: 10.8 },
+} as const;
+
+/**
+ * The cars, placed around the solved platform. Off for now - see SHOW_CARS -
+ * but kept current so switching the stock back on lands it in the room the
+ * shell actually is, not the one the brief described.
  */
 export const SH_CARS = [
-  /**
-   * Laid out to the reference photograph, which is a near-axial view.
-   *
-   * The first arrangement was built around a hard diagonal camera and put the
-   * white saloon across the whole bottom of the frame — the fault the brief
-   * names. In the reference the coupé sits in the *left third*, nearer the
-   * lens than the hero and turned so its nose comes toward the camera and its
-   * tail recedes to the upper left.
-   *
-   * Every heading here is set *relative to the lens*, not to the room. The
-   * first pass picked them by eye against the plan and three of the six came
-   * out within ten degrees of pointing straight down the camera axis — and a
-   * car seen head-on is a slab, because the one view that shows none of its
-   * flank is the one view with no length in it. Each is now turned 40 to 45
-   * degrees off the sightline, which is the three-quarter the reference uses
-   * on all six of its vehicles and the angle every showroom parks to.
-   *
-   * Every car is on the floor. The pair on the right stand under the
-   * mezzanine, past the lounge, as the smaller vehicles do in the reference.
-   */
-  { id: "coupe", kind: "coupe", x: 9.8, z: 10.2, rot: 1.181, colour: "#70767d", hero: false },
-  { id: "sedan", kind: "saloon", x: 7.4, z: 7.0, rot: 1.349, colour: "#33373d", hero: false },
-  { id: "suv", kind: "suv", x: 13.5, z: 10.5, rot: 1.822, colour: "#28382d", hero: true },
-  { id: "sport", kind: "coupe", x: 18.5, z: 11.4, rot: 1.807, colour: "#8e1c13", hero: false },
-  { id: "white", kind: "saloon", x: 24.6, z: 4.2, rot: 1.669, colour: "#9ea0a0", hero: false },
-  { id: "black", kind: "saloon", x: 27.4, z: 7.2, rot: 1.514, colour: "#141619", hero: false },
+  { id: "coupe", kind: "coupe", x: 4.6, z: 9.2, rot: 1.432, colour: "#969ba3", hero: false },
+  { id: "sedan", kind: "saloon", x: 4.2, z: 4.6, rot: 1.571, colour: "#1b1d21", hero: false },
+  { id: "suv", kind: "suv", x: 6.5, z: 6.0, rot: 1.466, colour: "#28382d", hero: true },
+  { id: "sport", kind: "coupe", x: 10.0, z: 1.6, rot: 0.973, colour: "#8e1c13", hero: false },
+  { id: "white", kind: "suv", x: 16.0, z: 1.3, rot: 1.16, colour: "#c9ccce", hero: false },
+  { id: "black", kind: "saloon", x: 18.6, z: 1.8, rot: 1.431, colour: "#141619", hero: false },
 ] as const;
 
 /* ------------------------------------------------------------------ */
@@ -197,7 +174,7 @@ const M = {
    * albedo rather than anything done to the lighting.
    */
   floor: new THREE.MeshPhysicalMaterial({
-    color: "#4d4a45",
+    color: "#aaa49a",
     roughness: 0.14,
     metalness: 0.0,
     clearcoat: 1,
@@ -206,7 +183,7 @@ const M = {
   }),
   /** The floor without a reflector, for machines that cannot afford one. */
   floorFlat: new THREE.MeshPhysicalMaterial({
-    color: "#4e4b47",
+    color: "#9c968c",
     roughness: 0.12,
     metalness: 0.0,
     clearcoat: 1,
@@ -236,7 +213,7 @@ const M = {
    * shared with seven approved rooms and is not ours to retune.
    */
   ceiling: new THREE.MeshStandardMaterial({
-    color: "#c6c0b6",
+    color: "#ded9d1",
     roughness: 0.94,
     envMapIntensity: 0.3,
   }),
@@ -265,14 +242,19 @@ const M = {
    * panels only read because of it.
    */
   wall: new THREE.MeshStandardMaterial({
-    color: "#3a3733",
+    color: "#2e2b28",
     roughness: 0.93,
     envMapIntensity: 0.3,
   }),
   dark: new THREE.MeshStandardMaterial({ color: "#191b1e", roughness: 0.6 }),
   darker: new THREE.MeshStandardMaterial({ color: "#0d0e10", roughness: 0.7 }),
-  /** Dark walnut on the slat bay. */
-  wood: new THREE.MeshStandardMaterial({ color: "#2f2016", roughness: 0.58 }),
+  /**
+   * Warm oak, for the desk. The slat ceiling keeps its own darker pair of
+   * walnut tones (see `SlatCeiling`); this one was shared with it at #2f2016,
+   * which under the room's light is a crate, and the reference's desk is the
+   * warmest object in its corner.
+   */
+  wood: new THREE.MeshStandardMaterial({ color: "#6b4a2c", roughness: 0.52 }),
   track: new THREE.MeshStandardMaterial({
     color: "#101113",
     roughness: 0.42,
@@ -443,40 +425,57 @@ function Shell() {
         backwards leaves both faces culled and the ring reads as two floating
         cylinders, which is how the first pass of this looked.
       */}
-      <group position={[hero.x, c.y, hero.z]}>
+      {/*
+        Drawn as a unit ring inside a group scaled on X and Z, so the oval is
+        one definition rather than two. The rail's apparent width then varies
+        between the major and minor axes by the ratio of the radii - 180 mm
+        across the ends, 120 mm down the sides - which is a detail nobody
+        measures and far less code than extruding a true offset curve.
+      */}
+      <group position={[hero.x, c.y, hero.z]} scale={[c.rx, 1, c.rz]}>
         {/* Soffit and top of the rail. */}
         <mesh rotation={[Math.PI / 2, 0, 0]} receiveShadow>
-          <ringGeometry args={[c.r - c.band, c.r, 72, 1]} />
+          <ringGeometry args={[1 - c.band / c.rx, 1, 72, 1]} />
           <primitive object={M.coffer} attach="material" />
         </mesh>
         <mesh position={[0, c.drop, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[c.r - c.band, c.r, 72, 1]} />
+          <ringGeometry args={[1 - c.band / c.rx, 1, 72, 1]} />
           <primitive object={M.coffer} attach="material" />
         </mesh>
         {/* Its outer and inner faces. */}
         <mesh position={[0, c.drop / 2, 0]}>
-          <cylinderGeometry args={[c.r, c.r, c.drop, 72, 1, true]} />
+          <cylinderGeometry args={[1, 1, c.drop, 72, 1, true]} />
           <primitive object={M.coffer} attach="material" />
         </mesh>
         <mesh position={[0, c.drop / 2, 0]}>
-          <cylinderGeometry args={[c.r - c.band, c.r - c.band, c.drop, 72, 1, true]} />
+          <cylinderGeometry
+            args={[1 - c.band / c.rx, 1 - c.band / c.rx, c.drop, 72, 1, true]}
+          />
           <primitive object={M.coffer} attach="material" />
         </mesh>
-        {Array.from({ length: 8 }, (_, i) => {
-          const ang = (i * Math.PI * 2) / 8 + Math.PI / 16;
-          const rr = c.r - c.band / 2;
-          const rod = SH.h - c.y - c.drop;
-          return (
-            <mesh
-              key={`rod-${i}`}
-              position={[Math.cos(ang) * rr, c.drop + rod / 2, Math.sin(ang) * rr]}
-            >
-              <cylinderGeometry args={[0.016, 0.016, rod, 6]} />
-              <primitive object={M.darker} attach="material" />
-            </mesh>
-          );
-        })}
       </group>
+      {/*
+        The rods hang outside that group, because a group scaled 4.5 by 3 turns
+        a round rod into a ribbon.
+      */}
+      {Array.from({ length: 8 }, (_, i) => {
+        const ang = (i * Math.PI * 2) / 8 + Math.PI / 16;
+        const rr = 1 - c.band / c.rx / 2;
+        const rod = SH.h - c.y - c.drop;
+        return (
+          <mesh
+            key={`rod-${i}`}
+            position={[
+              hero.x + Math.cos(ang) * rr * c.rx,
+              c.y + c.drop + rod / 2,
+              hero.z + Math.sin(ang) * rr * c.rz,
+            ]}
+          >
+            <cylinderGeometry args={[0.016, 0.016, rod, 6]} />
+            <primitive object={M.darker} attach="material" />
+          </mesh>
+        );
+      })}
 
       {/* Back wall, and the left wall the graphics hang on. */}
       <mesh position={[SH.w / 2, SH.h / 2, 0]} receiveShadow>
@@ -515,18 +514,27 @@ function SlatCeiling() {
   const ref = useRef<THREE.InstancedMesh>(null);
   const s = SH_PLAN.slats;
   const pitch = SLAT.w + SLAT.gap;
-  const count = Math.floor((s.z1 - s.z0) / pitch);
-  const span = s.x1 - s.x0;
+  /**
+   * The fins run along Z, and that is the whole of this change.
+   *
+   * They used to be long in X and repeat in Z, which puts them square across
+   * the view: a ladder of horizontal bars. In the reference they recede with
+   * the room and only read as diagonal because of perspective, which means
+   * they run the other way - long in Z, repeating across X. The linear strips
+   * in the next component follow them for the same reason.
+   */
+  const count = Math.floor((s.x1 - s.x0) / pitch);
+  const span = s.z1 - s.z0;
 
   useLayoutEffect(() => {
     const mesh = ref.current;
     if (!mesh) return;
     const m = new THREE.Matrix4();
     const colour = new THREE.Color();
-    const a = new THREE.Color("#5a4028");
-    const b = new THREE.Color("#33240f");
+    const a = new THREE.Color("#4a3722");
+    const b = new THREE.Color("#2a1d0e");
     for (let i = 0; i < count; i++) {
-      m.makeTranslation(s.x0 + span / 2, s.y - SLAT.d / 2, s.z0 + SLAT.w / 2 + i * pitch);
+      m.makeTranslation(s.x0 + SLAT.w / 2 + i * pitch, s.y - SLAT.d / 2, s.z0 + span / 2);
       mesh.setMatrixAt(i, m);
       const t = ((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1;
       colour.copy(a).lerp(b, t).multiplyScalar(0.9 + t * 0.2);
@@ -538,17 +546,29 @@ function SlatCeiling() {
 
   return (
     <group>
+      {/*
+        The plane behind the fins glows faintly warm, and this is most of what
+        makes the reference's timber ceiling read as a lit object rather than
+        black bars: the light sits *between* the slats. Emissive geometry, not
+        a light - a fitting up here would spend milliseconds on a surface that
+        only ever needs to be seen, never to illuminate.
+      */}
       <mesh
-        position={[s.x0 + span / 2, s.y - 0.005, (s.z0 + s.z1) / 2]}
+        position={[s.x0 + (s.x1 - s.x0) / 2, s.y - 0.005, s.z0 + span / 2]}
         rotation={[Math.PI / 2, 0, 0]}
       >
-        <planeGeometry args={[span, s.z1 - s.z0]} />
-        <primitive object={M.darker} attach="material" />
+        <planeGeometry args={[s.x1 - s.x0, span]} />
+        <meshBasicMaterial color="#6a4a24" toneMapped={false} />
       </mesh>
       <instancedMesh ref={ref} args={[undefined, undefined, count]} castShadow receiveShadow>
-        <boxGeometry args={[span, SLAT.d, SLAT.w]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.6} />
+        <boxGeometry args={[SLAT.w, SLAT.d, span]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.62} />
       </instancedMesh>
+      {/* The deep dark fascia along the bay's open edge. */}
+      <mesh position={[s.x0 - 0.12, s.y - 0.34, s.z0 + span / 2]}>
+        <boxGeometry args={[0.24, 0.68, span]} />
+        <primitive object={M.darker} attach="material" />
+      </mesh>
     </group>
   );
 }
@@ -564,16 +584,22 @@ function Columns() {
       {SH_PLAN.columns.map((c, i) => (
         <group key={`col-${i}`} position={[c.x, 0, c.z]}>
           <mesh position={[0, SH.h / 2, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.78, SH.h, 0.78]} />
+            <boxGeometry args={[c.w, SH.h, c.w]} />
             <primitive object={M.dark} attach="material" />
           </mesh>
-          {/* Dark recess on two faces; the strip sits inside it. */}
+          {/*
+            A dark recess on the two faces the lens can see, with the lit strip
+            sitting inside it - the strips themselves belong to the light rig,
+            because they are a circuit. The offsets come off `c.w` now; they
+            were hard-coded at 0.4 for a single 780 mm column and the plan
+            carries a 1.6 m pillar and a 500 mm fin.
+          */}
           {[
-            { p: [-0.395, SH.h / 2, 0] as [number, number, number], r: -Math.PI / 2 },
-            { p: [0, SH.h / 2, 0.395] as [number, number, number], r: 0 },
+            { p: [-c.w / 2 - 0.005, SH.h / 2, 0] as [number, number, number], r: -Math.PI / 2 },
+            { p: [0, SH.h / 2, c.w / 2 + 0.005] as [number, number, number], r: 0 },
           ].map((f, j) => (
             <mesh key={j} position={f.p} rotation={[0, f.r, 0]}>
-              <planeGeometry args={[0.11, SH.h - 0.5]} />
+              <planeGeometry args={[Math.min(0.14, c.w * 0.34), SH.h - 0.5]} />
               <primitive object={M.darker} attach="material" />
             </mesh>
           ))}
@@ -1050,10 +1076,15 @@ function Graphics({ on }: { on: boolean }) {
   const panels = useMemo(
     () =>
       SH_PLAN.graphics.map((g) => {
-        // Portrait canvas for a portrait panel. A 16:9 texture on a 3.3 × 4.3
-        // plane squashes the ridgeline to about half its width, and a
-        // mountain range is the one thing in the frame you cannot stretch.
-        const map = makeBrandGraphic(g.line, Math.round(g.x * 7), 1536, 2048);
+        // Portrait canvas for a portrait panel, landscape for a landscape
+        // one, so the ridgeline is never stretched to fit.
+        const portrait = g.h >= g.w;
+        const map = makeBrandGraphic(
+          g.line,
+          Math.round(g.z * 7),
+          portrait ? 1536 : 2048,
+          portrait ? 2048 : 1536,
+        );
         return new THREE.MeshStandardMaterial({
           map,
           emissive: new THREE.Color("#ffffff"),
@@ -1067,26 +1098,50 @@ function Graphics({ on }: { on: boolean }) {
   );
   useLayoutEffect(() => {
     panels.forEach((p) => {
-      // Backlit, not lightbox. Past about 1.2 the sky clips and the ridge
-      // behind it disappears, which is the whole subject of the graphic.
       p.emissiveIntensity = on ? 0.95 : 0.06;
     });
   });
 
   return (
     <group>
-      {SH_PLAN.graphics.map((g, i) => (
-        <group key={`gp-${i}`}>
-          <mesh position={[g.x, g.y, 0.06]} receiveShadow>
-            <planeGeometry args={[g.w + 0.55, g.h + 0.55]} />
-            <primitive object={M.darker} attach="material" />
-          </mesh>
-          <mesh position={[g.x, g.y, 0.1]}>
-            <planeGeometry args={[g.w, g.h]} />
-            <primitive object={panels[i]} attach="material" />
-          </mesh>
-        </group>
-      ))}
+      {/*
+        Each panel on the plane its plan says, which is the whole of this.
+        
+        Both of these used to be pinned to the back wall at z = 0.06 with only
+        `x` varying - the component was written when both were back-wall art
+        and never caught up with the plan, so the left wall's panel was lying
+        flat on the far wall thirty-four metres away. It is 4.5 x 5.2 m and it
+        was rendering as a postage stamp in the corner of the frame.
+      */}
+      {SH_PLAN.graphics.map((g, i) => {
+        const left = g.face === "left";
+        const pos: [number, number, number] = left
+          ? [g.x, g.y, g.z]
+          : [g.x, g.y, g.z];
+        const rot: [number, number, number] = left ? [0, Math.PI / 2, 0] : [0, 0, 0];
+        const nudge: [number, number, number] = left ? [0.04, 0, 0] : [0, 0, 0.04];
+        return (
+          <group key={`gp-${i}`} position={pos} rotation={rot}>
+            {/* Dark reveal behind, so the panel has an edge against the wall. */}
+            <mesh receiveShadow>
+              <planeGeometry args={[g.w + 0.5, g.h + 0.5]} />
+              <primitive object={M.darker} attach="material" />
+            </mesh>
+            <mesh position={[0, 0, 0.04]}>
+              <planeGeometry args={[g.w, g.h]} />
+              <primitive object={panels[i]} attach="material" />
+            </mesh>
+            {/* Warm graze down each side, as the reference has. */}
+            {[-1, 1].map((sx) => (
+              <mesh key={sx} position={[(sx * (g.w + 0.42)) / 2, 0, 0.05]}>
+                <planeGeometry args={[0.06, g.h + 0.3]} />
+                <meshBasicMaterial color="#ffdcae" toneMapped={false} />
+              </mesh>
+            ))}
+            <primitive object={new THREE.Object3D()} position={nudge} />
+          </group>
+        );
+      })}
     </group>
   );
 }
@@ -1096,9 +1151,21 @@ function Reception({ on }: { on: boolean }) {
   const d = SH_PLAN.desk;
   const len = d.z1 - d.z0;
   const mid = (d.z0 + d.z1) / 2;
+  /**
+   * Gently curved, because the reference's desk is.
+   *
+   * Built as a segment of a big cylinder whose centre sits behind the desk, so
+   * the face that meets the room bows toward it. The radius is 7 m over 5 m of
+   * desk, which is 450 mm of bow - enough to read as a curve in the frame and
+   * shallow enough that the wordmark can stay on a flat plane across the
+   * nearest part of it without looking stuck on.
+   */
+  const CURVE_R = 7;
+  const arc = len / CURVE_R;
+  const cx = d.x + CURVE_R;
 
   const mark = useMemo(() => {
-    const map = makeWordmark("UNISER", "SMART SPACES — FOR A BRIGHTER TOMORROW");
+    const map = makeWordmark("UNISER", "SMART SPACES - FOR A BRIGHTER TOMORROW");
     return new THREE.MeshStandardMaterial({
       map,
       emissive: new THREE.Color("#ffffff"),
@@ -1109,44 +1176,68 @@ function Reception({ on }: { on: boolean }) {
     });
   }, []);
   useLayoutEffect(() => {
-    // 1.4, not 0.5. In the reference this wall is the brightest thing on the
-    // right-hand side and it is what makes the reception read as the second
-    // destination in the room; measured, that zone came back at 57 against
-    // the photograph's 120, and this is most of the difference.
     mark.emissiveIntensity = on ? 1.4 : 0.1;
   });
 
+  /** Vertical timber slats across the curved face, as the reference has. */
+  const SLATS = 54;
+
   return (
     <group>
-      {/* Body, with a stone top oversailing the front — the shadow line under
-          a worktop is most of what makes it read as stone. */}
-      <mesh position={[d.x, d.h / 2 + 0.06, mid]} castShadow receiveShadow>
-        <boxGeometry args={[d.d, d.h - 0.12, len]} />
-        <primitive object={M.dark} attach="material" />
+      {/* The curved body. */}
+      <mesh position={[cx, d.h / 2 + 0.06, mid]} castShadow receiveShadow>
+        <cylinderGeometry
+          args={[CURVE_R, CURVE_R, d.h - 0.12, 64, 1, true, Math.PI - arc / 2, arc]}
+        />
+        <primitive object={M.wood} attach="material" />
       </mesh>
-      <mesh position={[d.x - 0.03, d.h + 0.02, mid]} castShadow receiveShadow>
-        <boxGeometry args={[d.d + 0.14, 0.05, len + 0.12]} />
+      {/* Its slats, stood just proud of that face. */}
+      {Array.from({ length: SLATS }, (_, i) => {
+        const t = (i + 0.5) / SLATS - 0.5;
+        const a = Math.PI + t * arc;
+        return (
+          <mesh
+            key={`ds-${i}`}
+            position={[
+              cx + Math.cos(a) * (CURVE_R + 0.012),
+              d.h / 2 + 0.06,
+              mid + Math.sin(a) * (CURVE_R + 0.012),
+            ]}
+            rotation={[0, -a, 0]}
+          >
+            <boxGeometry args={[0.024, d.h - 0.22, 0.03]} />
+            <primitive object={M.track} attach="material" />
+          </mesh>
+        );
+      })}
+      {/* Stone top, oversailing the front. */}
+      <mesh position={[cx, d.h + 0.02, mid]} castShadow receiveShadow>
+        <cylinderGeometry
+          args={[CURVE_R + 0.07, CURVE_R + 0.07, 0.05, 64, 1, true, Math.PI - arc / 2, arc]}
+        />
         <primitive object={M.wall} attach="material" />
       </mesh>
       {/*
-        Recessed plinth, so it floats over its own underglow — which it now
-        has. The plinth was there and the glow was not: the desk sat on a
-        block of the darkest material in the file and read as furniture
-        pushed against a wall rather than as a lit object.
+        Two lines of light, which is what makes the desk read as an object
+        rather than a block: one under the lip of the top, one at the recessed
+        base. Both are emissive only - the desk lights itself in the
+        photograph, it does not light the room.
       */}
-      <mesh position={[d.x + 0.05, 0.03, mid]}>
-        <boxGeometry args={[d.d - 0.2, 0.06, len - 0.12]} />
-        <primitive object={M.darker} attach="material" />
-      </mesh>
-      <mesh
-        position={[d.x - d.d / 2 + 0.06, 0.07, mid]}
-        rotation={[0, -Math.PI / 2, 0]}
-      >
-        <planeGeometry args={[len - 0.1, 0.1]} />
-        <meshBasicMaterial color="#ffe6c4" toneMapped={false} />
-      </mesh>
-      <mesh position={[d.x - d.d / 2 - 0.002, d.h * 0.52, mid]} rotation={[0, -Math.PI / 2, 0]}>
-        <planeGeometry args={[len * 0.62, 0.42]} />
+      {[d.h - 0.04, 0.09].map((y, i) => (
+        <mesh
+          key={`dg-${i}`}
+          position={[cx, y, mid]}
+          rotation={[0, 0, 0]}
+        >
+          <cylinderGeometry
+            args={[CURVE_R + 0.02, CURVE_R + 0.02, 0.05, 64, 1, true, Math.PI - arc / 2, arc]}
+          />
+          <meshBasicMaterial color="#ffdfb4" toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+      {/* The wordmark, across the nearest part of the curve. */}
+      <mesh position={[d.x - 0.02, d.h * 0.56, mid]} rotation={[0, -Math.PI / 2, 0]}>
+        <planeGeometry args={[len * 0.6, 0.44]} />
         <primitive object={mark} attach="material" />
       </mesh>
     </group>
@@ -1154,53 +1245,131 @@ function Reception({ on }: { on: boolean }) {
 }
 
 /** Dark leather tub chairs round a low table, on a thin rug. */
+/**
+ * The dark-blue sign under the mezzanine.
+ *
+ * Emissive only, and deliberately dim: in the reference this panel is lit by
+ * a blue wash rather than being a lightbox, and the text sits on it quietly.
+ * Driven by the same display flag as the graphics and the desk, so Closing
+ * takes it down with everything else.
+ */
+function Sign({ on }: { on: boolean }) {
+  const g = SH_PLAN.sign;
+  const mark = useMemo(() => {
+    const map = makeWordmark("EXPERIENCE", "THE EXTRAORDINARY");
+    return new THREE.MeshStandardMaterial({
+      map,
+      emissive: new THREE.Color("#5f86c8"),
+      emissiveMap: map,
+      emissiveIntensity: 0,
+      roughness: 0.6,
+    });
+  }, []);
+  useLayoutEffect(() => {
+    mark.emissiveIntensity = on ? 0.8 : 0.08;
+  });
+
+  return (
+    <group position={[g.x, g.y, g.z]}>
+      {/* The blue ground, washed from below. */}
+      <mesh position={[0, 0, -0.02]}>
+        <planeGeometry args={[g.w + 0.5, g.h + 0.6]} />
+        <meshStandardMaterial color="#11223f" roughness={0.85} />
+      </mesh>
+      <mesh>
+        <planeGeometry args={[g.w, g.h]} />
+        <primitive object={mark} attach="material" />
+      </mesh>
+      <mesh position={[0, -g.h / 2 - 0.26, 0.02]}>
+        <planeGeometry args={[g.w + 0.4, 0.07]} />
+        <meshBasicMaterial color="#8fb8ff" toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
 function Lounge() {
-  const { x, z } = SH_PLAN.lounge;
+  const { x, z, r } = SH_PLAN.lounge;
   const leather = useMemo(
     () =>
       new THREE.MeshPhysicalMaterial({
-        color: "#2b2724",
-        roughness: 0.55,
-        clearcoat: 0.3,
-        clearcoatRoughness: 0.5,
+        color: "#3b332c",
+        roughness: 0.5,
+        clearcoat: 0.35,
+        clearcoatRoughness: 0.45,
       }),
     [],
   );
 
+  /**
+   * Three chairs, not four, and a round rug rather than a rectangle.
+   *
+   * The reference seats three in an open C that faces the desk, with the low
+   * table off the rug's centre. A closed ring of four reads as a meeting; an
+   * open three reads as somewhere to wait, which is what this corner is.
+   */
+  const SEATS = [-0.55, 0.35, 1.5];
+
   return (
     <group position={[x, 0, z]} rotation={[0, -0.5, 0]}>
-      {/* 9 mm, bevelled. A thick slab reads as a plinth; see the lobby. */}
-      <mesh position={[0, 0.0045, 0]} receiveShadow>
-        <boxGeometry args={[4.4, 0.009, 4.0]} />
-        <meshStandardMaterial color="#4e5054" roughness={1} />
+      <mesh position={[0, 0.006, 0]} receiveShadow>
+        <cylinderGeometry args={[r, r, 0.012, 48]} />
+        <meshStandardMaterial color="#525356" roughness={1} />
       </mesh>
-      {[0, 1, 2, 3].map((i) => {
-        const a = (i / 4) * Math.PI * 2 + 0.5;
-        return (
-          <group key={i} position={[Math.cos(a) * 1.45, 0, Math.sin(a) * 1.45]} rotation={[0, -a + Math.PI, 0]}>
-            <mesh position={[0, 0.44, -0.05]} castShadow receiveShadow>
-              <cylinderGeometry args={[0.42, 0.4, 0.7, 24, 1, false, Math.PI * 0.2, Math.PI * 1.3]} />
-              <primitive object={leather} attach="material" />
-            </mesh>
-            <mesh position={[0, 0.43, 0.04]} castShadow>
-              <cylinderGeometry args={[0.36, 0.36, 0.14, 22]} />
-              <primitive object={leather} attach="material" />
-            </mesh>
-            <mesh position={[0, 0.15, 0]}>
-              <cylinderGeometry args={[0.26, 0.31, 0.3, 18]} />
+      {SEATS.map((a, i) => (
+        <group
+          key={i}
+          position={[Math.cos(a) * 1.3, 0, Math.sin(a) * 1.3]}
+          rotation={[0, -a + Math.PI, 0]}
+        >
+          {/*
+            Barrel back, and visibly a chair rather than a drum: the back
+            rises past the seat, rolls over at an arm-height lip, and the seat
+            cushion sits inside it with a shadow gap all round.
+          */}
+          <mesh position={[0, 0.52, -0.03]} castShadow receiveShadow>
+            <cylinderGeometry args={[0.42, 0.38, 0.62, 26, 1, true, Math.PI * 0.16, Math.PI * 1.4]} />
+            <primitive object={leather} attach="material" />
+          </mesh>
+          {/* The rolled rim: the same arc as the shell, flared a little, so
+              the two can never part company the way a torus at its own start
+              angle did. */}
+          <mesh position={[0, 0.85, -0.03]} castShadow>
+            <cylinderGeometry args={[0.45, 0.41, 0.09, 26, 1, true, Math.PI * 0.16, Math.PI * 1.4]} />
+            <primitive object={leather} attach="material" />
+          </mesh>
+          <mesh position={[0, 0.42, 0.06]} castShadow>
+            <cylinderGeometry args={[0.34, 0.34, 0.13, 24]} />
+            <primitive object={leather} attach="material" />
+          </mesh>
+          {/* Four slim legs, which is what lifts it off the rug. */}
+          {[0.6, 2.0, 3.5, 4.9].map((la, j) => (
+            <mesh
+              key={j}
+              position={[Math.cos(la) * 0.3, 0.14, Math.sin(la) * 0.3]}
+              castShadow
+            >
+              <cylinderGeometry args={[0.022, 0.018, 0.28, 8]} />
               <primitive object={M.track} attach="material" />
             </mesh>
-          </group>
-        );
-      })}
-      <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.58, 0.58, 0.06, 32]} />
-        <primitive object={M.darker} attach="material" />
-      </mesh>
-      <mesh position={[0, 0.18, 0]} castShadow>
-        <cylinderGeometry args={[0.2, 0.26, 0.3, 20]} />
-        <primitive object={M.chrome} attach="material" />
-      </mesh>
+          ))}
+        </group>
+      ))}
+      {/* Low round table, off centre, with a tray on it. */}
+      <group position={[0.35, 0, 0.5]}>
+        <mesh position={[0, 0.4, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.37, 0.37, 0.05, 30]} />
+          <meshStandardMaterial color="#3e2c1c" roughness={0.5} />
+        </mesh>
+        <mesh position={[0, 0.2, 0]} castShadow>
+          <cylinderGeometry args={[0.055, 0.055, 0.4, 14]} />
+          <primitive object={M.track} attach="material" />
+        </mesh>
+        <mesh position={[0, 0.3, 0]}>
+          <cylinderGeometry args={[0.3, 0.3, 0.025, 24]} />
+          <meshStandardMaterial color="#3e2c1c" roughness={0.5} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -1241,6 +1410,12 @@ function Mezzanine() {
       <mesh position={[m.x0 + w / 2, m.y + 1.12, m.z1]}>
         <boxGeometry args={[w, 0.05, 0.06]} />
         <primitive object={M.chrome} attach="material" />
+      </mesh>
+      {/* The warm line along the balustrade's base, which in the reference is
+          what draws the mezzanine's edge across the frame. */}
+      <mesh position={[m.x0 + w / 2, m.y + 0.04, m.z1 + 0.01]}>
+        <planeGeometry args={[w - 0.2, 0.05]} />
+        <meshBasicMaterial color="#ffd9a4" toneMapped={false} />
       </mesh>
       <mesh position={[m.x0, m.y + 0.56, m.z0 + d / 2]}>
         <boxGeometry args={[0.02, 1.1, d]} />
@@ -1286,9 +1461,52 @@ function Mezzanine() {
         against a glowing wall, which is what the photograph shows, and the
         one thing an emitter of this kind is genuinely good at.
       */}
-      <mesh position={[m.x0 + w / 2, m.y + 1.3, m.z0 + 0.08]}>
-        <planeGeometry args={[w - 0.6, 2.2]} />
-        <meshBasicMaterial color="#6d6256" toneMapped={false} />
+      {/*
+        The offices behind the glazing.
+
+        Three layers, because that is what reads from the floor: a warm lit
+        back wall, a brighter band where the ceiling cove washes down it, and
+        the furniture in front as silhouettes. None of it is a light - an
+        emitter here would cost six milliseconds a frame to illuminate a room
+        nobody can walk into. What the camera gets is backlit furniture
+        against a glowing wall, which is exactly what the photograph shows.
+      */}
+      <mesh position={[m.x0 + w / 2, m.y + 1.35, m.z0 + 0.08]}>
+        <planeGeometry args={[w - 0.5, 2.3]} />
+        <meshBasicMaterial color="#8a7254" toneMapped={false} />
+      </mesh>
+      <mesh position={[m.x0 + w / 2, m.y + 2.3, m.z0 + 0.1]}>
+        <planeGeometry args={[w - 0.8, 0.32]} />
+        <meshBasicMaterial color="#ffe3bc" toneMapped={false} />
+      </mesh>
+      {/* Desks and task chairs, seen through the glass. */}
+      {[1.8, 4.2, 6.6, 8.6].map((o, i) => (
+        <group key={`mo-${i}`} position={[m.x0 + o, m.y, m.z0 + 1.5]}>
+          <mesh position={[0, 0.62, 0]} castShadow>
+            <cylinderGeometry args={[0.26, 0.24, 0.5, 14, 1, false, Math.PI * 0.2, Math.PI * 1.3]} />
+            <primitive object={M.darker} attach="material" />
+          </mesh>
+          <mesh position={[0, 0.2, 0]}>
+            <cylinderGeometry args={[0.04, 0.05, 0.4, 8]} />
+            <primitive object={M.darker} attach="material" />
+          </mesh>
+          {i % 2 === 0 && (
+            <mesh position={[0.5, 0.74, -0.7]}>
+              <boxGeometry args={[1.5, 0.04, 0.75]} />
+              <primitive object={M.dark} attach="material" />
+            </mesh>
+          )}
+        </group>
+      ))}
+      {/* Glazing across the front of it. */}
+      <mesh position={[m.x0 + w / 2, m.y + 1.5, m.z1 - 0.04]}>
+        <boxGeometry args={[w - 0.3, 2.6, 0.02]} />
+        <primitive object={M.glass} attach="material" />
+      </mesh>
+      {/* The warm cove that washes down the slab's face. */}
+      <mesh position={[m.x0 + w / 2, m.y - 0.3, m.z1 - 0.03]}>
+        <planeGeometry args={[w - 0.4, 0.1]} />
+        <meshBasicMaterial color="#ffdfb6" toneMapped={false} />
       </mesh>
       {/*
         The feature line under its edge, and it is a *line*, which is to say
@@ -1399,12 +1617,14 @@ function Foliage({ scale = 1 }: { scale?: number }) {
  * plan nothing is allowed to stand in.
  */
 const PLANTERS = [
-  { x: 1.5, z: 2.0, s: 1.15 },
-  { x: 1.5, z: 9.0, s: 1.0 },
-  { x: 1.5, z: 16.2, s: 1.2 },
-  { x: 21.2, z: 15.4, s: 0.95 },
-  { x: 24.6, z: 16.4, s: 1.15 },
-  { x: 24.6, z: 2.2, s: 0.95 },
+  // Left wall, flanking the big panel.
+  { x: 0.9, z: 1.2, s: 1.15 },
+  { x: 0.9, z: 6.0, s: 1.0 },
+  { x: 0.9, z: 12.5, s: 1.2 },
+  // In front of the LED wall, and by the fin pillar, as the crop shows.
+  { x: 18.4, z: 4.0, s: 1.1 },
+  { x: 18.4, z: 7.0, s: 0.95 },
+  { x: 11.0, z: 9.6, s: 0.9 },
 ] as const;
 
 function Planting() {
@@ -1474,14 +1694,22 @@ export function CarShowroom3D({
       <Columns />
       <Graphics on={screensOn} />
       <Reception on={screensOn} />
+      <Sign on={screensOn} />
       <Lounge />
       <Mezzanine />
       <Planting />
-      <Fleet lampsOn={lampsOn} />
+      {/*
+        SCAFFOLDING - the stock is switched off while the room itself is being
+        built against the reference, so the shell can be judged on its own.
+        Flip `SHOW_CARS` back to true to put the fleet and the hero back.
+      */}
+      {SHOW_CARS && <Fleet lampsOn={lampsOn} />}
       <HeroPlatform radiansPerSecond={turntableRadiansPerSecond}>
-        <group rotation={[0, hero.rot, 0]}>
-          <Car kind={hero.kind} colour={hero.colour} lampsOn={lampsOn} />
-        </group>
+        {SHOW_CARS && (
+          <group rotation={[0, hero.rot, 0]}>
+            <Car kind={hero.kind} colour={hero.colour} lampsOn={lampsOn} />
+          </group>
+        )}
       </HeroPlatform>
     </group>
   );

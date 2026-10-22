@@ -49,36 +49,29 @@ import { ShowroomPlate } from "./ShowroomPlate";
  * reflections, not so much that it becomes the subject.
  */
 /**
- * Framed to take in the whole room, which is what the reference is.
+ * Solved from the reference image, not copied from the brief.
  *
- * This stood at x = 13.2 with a 50° vertical field — 79° horizontal, so 39.6°
- * either side of the sightline. The reception desk is at x = 28.4 and sits
- * 60° off that axis; the customer lounge, the RGB wall and the left-hand
- * foreground are all outside it too. None of that was dark in our render, it
- * was off the edge of the picture, and no amount of work on the half of the
- * room still in frame was going to put it back.
+ * Three of its measurements pin the lens. The platform ellipse spans y
+ * 0.63-0.69, which no eye-level camera can produce - solving the pair puts
+ * the lens about 2.35 m up. The hero's height in frame puts it 11.5 m away,
+ * and the floor-to-back-wall junction at y 0.65 puts the wall 4-5 m behind
+ * the platform. The brief's own rule is that the image wins where its numbers
+ * disagree with it, and they disagree by about a factor of two.
  *
- * So: wider, further back, and aimed right. 62° vertical is 94° horizontal,
- * which is an architectural lens and the kind of lens the reference was shot
- * on. Aiming at x = 16.5 rather than 14.9 brings the reception zone in on the
- * right while keeping the display floor left of centre, which is the
- * photograph's composition — cars left, customers right.
- *
- * Both numbers are a second pass. The first went to 68° aimed at x = 20,
- * which did get the desk in and overshot: the hero and the ring were pushed
- * against the left edge and the left-hand brand panel went out of frame on
- * the other side. Swinging the aim 3.5 m back toward the middle and taking
- * six degrees off the lens puts the hero 6° left of the axis and 43% across
- * the frame, against roughly 40% in the reference.
- *
- * Checked rather than eyeballed, against a 46.9° half-field: desk 36.8° R,
- * lounge 32.9° R, RGB wall 24.3° R, hero 6.1° L, far sedan 31.0° L, left
- * brand panel 34.9° L. Everything the photograph shows is inside the frame.
+ * Zero yaw - position and target share an x - and the slight upward pitch
+ * falls out of the target's height. 78 degrees horizontal, expressed as 49
+ * vertical at 16:9 because `LockHorizontalFov` reads it that way.
  */
 export const SHOWROOM_CAMERA: CameraSpec = {
-  position: [10.0, 1.75, 23.2],
-  target: [16.5, 1.55, 7.0],
-  fov: 62,
+  /*
+   * Pulled back 1.5 m after the room read as cramped: the near coupe was
+   * cropped by the frame and the pillar carried a fifth of the width. The
+   * extra depth went into the shell (d: 22), so the frontage stays 3 m
+   * behind the lens and never comes into shot.
+   */
+  position: [8.3, 2.35, 19.0],
+  target: [8.3, 2.6, 0],
+  fov: 49,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
@@ -175,7 +168,7 @@ export function useShowroomState() {
     : { level: 0, color: [255, 245, 230] as [number, number, number], lux: 0 };
   const ambient = {
     ...bounced,
-    level: bounced.level * 0.38,
+    level: bounced.level * 0.95,
     color: [255, 214, 172] as [number, number, number],
   };
 

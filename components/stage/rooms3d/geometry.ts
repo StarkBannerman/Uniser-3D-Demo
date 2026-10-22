@@ -1744,7 +1744,7 @@ export const CAR_SHAPES: Record<
   }
 > = {
   coupe: {
-    length: 4.72,
+    length: 4.5,
     doors: 2,
     wheelR: 0.355,
     pillars: [
@@ -1787,7 +1787,7 @@ export const CAR_SHAPES: Record<
     ],
   },
   saloon: {
-    length: 4.96,
+    length: 4.9,
     doors: 4,
     wheelR: 0.36,
     pillars: [
@@ -1831,7 +1831,7 @@ export const CAR_SHAPES: Record<
     ],
   },
   suv: {
-    length: 4.9,
+    length: 4.8,
     doors: 4,
     wheelR: 0.415,
     pillars: [

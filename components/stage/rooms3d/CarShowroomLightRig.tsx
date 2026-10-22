@@ -33,7 +33,7 @@ import { SH, SH_CARS, SH_PLAN } from "./CarShowroom3D";
 import { useQuality } from "../Stage3D";
 
 const GAIN = {
-  downlight: 44,
+  downlight: 100,
   downlightEmissive: 6,
   /**
    * Fifty-two, not seventy.
@@ -48,7 +48,7 @@ const GAIN = {
   spotEmissive: 5,
   product: 72,
   linear: 30,
-  linearEmissive: 4.2,
+  linearEmissive: 3.2,
   accent: 34,
   accentEmissive: 3,
   /**
@@ -64,7 +64,7 @@ const GAIN = {
   floor: 4,
   floorEmissive: 4,
   arch: 12,
-  archEmissive: 3.6,
+  archEmissive: 2.1,
   rgb: 24,
   rgbEmissive: 4.4,
 };
@@ -181,17 +181,23 @@ const aperture = (s: LightState) => (s.on ? Math.pow(s.level / 100, 0.42) : 0);
 
 /** Fifty-four lenses on a 2.6 m grid; six of them carry a light. */
 const LENSES: { x: number; z: number }[] = [];
-for (let i = 0; i < 9; i++) {
-  // Eight rows, not six: the grid used to stop at z = 16.4, which was behind
-  // the old camera and is the middle of the frame for the new one. Instanced,
-  // so the extra eighteen housings cost one draw call between them.
+/**
+ * Re-gridded for the new shell.
+ *
+ * The old array ran x 1.6..24.4 and z 1.7..22.3, which was the whole of a
+ * 30 x 25 room. This one is 29 x 36 and the lens stands at z = 34, so a third
+ * of the floor the camera now takes in had no fitting over it at all. The
+ * grid also stops at x = 17: beyond that is the timber slat bay, which gets
+ * its own linear runs rather than recessed cans.
+ */
+for (let i = 0; i < 5; i++) {
   for (let j = 0; j < 8; j++) {
-    const x = 1.6 + i * 2.85;
-    const z = 1.7 + j * 2.95;
-    // The coffer is a hole in the ceiling; nothing is recessed into it.
-    const dx = x - SH_PLAN.hero.x;
-    const dz = z - SH_PLAN.hero.z;
-    if (Math.hypot(dx, dz) < SH_PLAN.coffer.r + 0.5) continue;
+    const x = 1.4 + i * 2.35;
+    const z = 1.5 + j * 2.3;
+    // Nothing is recessed into the soffit; its own track heads light it.
+    const dx = (x - SH_PLAN.hero.x) / (SH_PLAN.coffer.rx + 0.5);
+    const dz = (z - SH_PLAN.hero.z) / (SH_PLAN.coffer.rz + 0.5);
+    if (dx * dx + dz * dz < 1) continue;
     LENSES.push({ x, z });
   }
 }
@@ -212,12 +218,19 @@ for (let i = 0; i < 9; i++) {
  * pair, which were lighting wall the graphics accent already grazes.
  */
 const DOWN_EMITTERS = [
-  { x: 6.0, z: 19.0 },
-  { x: 4.6, z: 14.2 },
-  { x: 11.5, z: 16.0 },
-  { x: 19.0, z: 15.4 },
-  { x: 25.5, z: 12.0 },
-  { x: 16.5, z: 20.0 },
+  /**
+   * Measured against the reference: our floor and walls matched but the rug
+   * zone sat 72 values dark and the mid floor 38, because two of the six
+   * cans were parked over the empty back-left where the graphics' own graze
+   * already works. One now stands over the lounge and one between the desk
+   * and the rug, which is where the photograph's pools are.
+   */
+  { x: 4.0, z: 14.0 },
+  { x: 7.5, z: 15.5 },
+  { x: 6.0, z: 8.0 },
+  { x: 11.5, z: 11.0 },
+  { x: 14.0, z: 13.5 },
+  { x: 13.5, z: 8.0 },
 ] as const;
 
 function Downlights({ state, gain }: { state: LightState; gain: number }) {
@@ -276,17 +289,29 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
 /* ------------------------------------------------------------------ */
 
 /** Where the track runs, and where its heads sit along it. */
+/**
+ * The track rails, as free segments rather than constant-z runs.
+ *
+ * Two things forced the rewrite. The old rails were still in the previous
+ * shell's coordinates - one ran at z 11.6, which in the solved room is a row
+ * of heads parked directly over the lens and looming across the top of every
+ * frame, and another reached x 25 in a room that now ends at 19.5. And the
+ * reference's main rail is *diagonal*: it runs from the upper left toward the
+ * soffit so its heads converge on the vanishing point, which a structure that
+ * only knows "x0 to x1 at one z" cannot say at all.
+ */
 const TRACKS = [
-  { x0: 2.2, x1: 16.0, z: 5.0 },
-  { x0: 2.2, x1: 16.0, z: 11.6 },
-  { x0: 17.0, x1: 25.0, z: 8.6 },
+  { x0: 1.8, z0: 13.8, x1: 7.2, z1: 3.2 },
+  { x0: 9.8, z0: 12.5, x1: 9.8, z1: 4.0 },
 ] as const;
 
 const HEADS: { x: number; z: number }[] = [];
 for (const t of TRACKS) {
-  const n = Math.round((t.x1 - t.x0) / 1.25);
+  const len = Math.hypot(t.x1 - t.x0, t.z1 - t.z0);
+  const n = Math.round(len / 1.25);
   for (let i = 0; i < n; i++) {
-    HEADS.push({ x: t.x0 + 0.6 + i * 1.25, z: t.z });
+    const f = (i + 0.5) / n;
+    HEADS.push({ x: t.x0 + (t.x1 - t.x0) * f, z: t.z0 + (t.z1 - t.z0) * f });
   }
 }
 
@@ -337,13 +362,21 @@ function Spotlights({
 
   return (
     <group>
-      {/* The track itself. */}
-      {TRACKS.map((t, i) => (
-        <mesh key={`tr-${i}`} position={[(t.x0 + t.x1) / 2, SH.h - 0.06, t.z]}>
-          <boxGeometry args={[t.x1 - t.x0, 0.1, 0.07]} />
-          <meshStandardMaterial color="#17181a" roughness={0.45} metalness={0.4} />
-        </mesh>
-      ))}
+      {/* The rails themselves, rotated to their own headings. */}
+      {TRACKS.map((t, i) => {
+        const len = Math.hypot(t.x1 - t.x0, t.z1 - t.z0);
+        const ang = Math.atan2(t.z1 - t.z0, t.x1 - t.x0);
+        return (
+          <mesh
+            key={`tr-${i}`}
+            position={[(t.x0 + t.x1) / 2, SH.h - 0.06, (t.z0 + t.z1) / 2]}
+            rotation={[0, -ang, 0]}
+          >
+            <boxGeometry args={[len, 0.1, 0.07]} />
+            <meshStandardMaterial color="#17181a" roughness={0.45} metalness={0.4} />
+          </mesh>
+        );
+      })}
       {/* Thirty-two heads, one draw. */}
       <instancedMesh ref={ref} args={[undefined, undefined, HEADS.length]} castShadow>
         <cylinderGeometry args={[0.055, 0.075, 0.2, 12]} />
@@ -417,13 +450,16 @@ function ProductLighting({
    */
   const ring = useMemo(
     () => {
-      const rr = c.r - c.band / 2;
+      const k = 1 - c.band / c.rx / 2;
       return Array.from({ length: 12 }, (_, i) => {
         const a = (i / 12) * Math.PI * 2;
-        return { x: h.x + Math.cos(a) * rr, z: h.z + Math.sin(a) * rr };
+        return {
+          x: h.x + Math.cos(a) * k * c.rx,
+          z: h.z + Math.sin(a) * k * c.rz,
+        };
       });
     },
-    [h.x, h.z, c.r, c.band],
+    [h.x, h.z, c.rx, c.rz, c.band],
   );
 
   return (
@@ -499,23 +535,21 @@ const M_TRACK = new THREE.MeshStandardMaterial({
 /** Continuous runs across the flat ceiling and down the slatted bay. */
 const LINES = [
   /**
-   * The chevron in the dropped soffit, which is the ceiling's whole structure
-   * in the reference: one long run across the back and one down the left,
-   * meeting at a corner that frames the display floor.
+   * Two runs in the white ceiling's step, then three down the timber bay.
    *
-   * These used to be two parallel runs lying flat on the ceiling at z = 2.4
-   * and z = 17.4. Flush strips on a flat plane read as strip lights; the same
-   * strips in the corner of a 400 mm step read as architecture, which is what
-   * the photograph shows and what the left half of our frame was missing —
-   * it was an unbroken grey field with nothing in it but downlight housings.
-   * They sit on the soffit's underside now; see `SH_PLAN.soffit`.
+   * All of these moved with the shell. The old array ran to x = 25.4 and
+   * z = 13 in a room that was 30 x 25; this one is 29 x 36 and the timber bay
+   * starts at x = 18, so the three "diagonals" were landing half on plaster.
+   *
+   * The bay's runs are long in Z, parallel to its fins, because that is what
+   * the reference shows: they only look diagonal because they recede. Laying
+   * them across the fins would have read as a grid, which it is not.
    */
-  { x0: 2.4, z0: 4.4, x1: 15.9, z1: 4.4 },
-  { x0: 2.4, z0: 16.9, x1: 2.4, z1: 4.4 },
-  // The diagonals in the slatted bay, which is what the sheet shows.
-  { x0: 16.4, z0: 1.0, x1: 25.4, z1: 5.4 },
-  { x0: 16.4, z0: 5.0, x1: 25.4, z1: 9.4 },
-  { x0: 16.4, z0: 9.0, x1: 25.4, z1: 13.0 },
+  { x0: 1.8, z0: 2.4, x1: 10.4, z1: 2.4 },
+  { x0: 1.8, z0: 15.6, x1: 1.8, z1: 2.4 },
+  { x0: 12.0, z0: 0.5, x1: 12.0, z1: 9.5 },
+  { x0: 14.8, z0: 0.5, x1: 14.8, z1: 9.5 },
+  { x0: 17.6, z0: 0.5, x1: 17.6, z1: 9.5 },
 ] as const;
 
 function Linear({ state, gain }: { state: LightState; gain: number }) {
@@ -672,43 +706,74 @@ function Architectural({ state, gain }: { state: LightState; gain: number }) {
         simply not there from eye level, on a ring whose brightest feature in
         the photograph is this line.
       */}
-      <mesh position={[h.x, c.y + 0.02, h.z]} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[c.r + 0.10, c.r + 0.21, 64]} />
+      <mesh
+        position={[h.x, c.y + 0.02, h.z]}
+        rotation={[Math.PI / 2, 0, 0]}
+        scale={[c.rx, c.rz, 1]}
+      >
+        <ringGeometry args={[1 + 0.1 / c.rx, 1 + 0.21 / c.rx, 64]} />
         <primitive object={mat} attach="material" />
       </mesh>
       {MOUNTED && budget.accentWall && (
         <rectAreaLight
           position={[h.x, c.y - 0.05, h.z]}
           rotation={[-Math.PI / 2, 0, 0]}
-          width={c.r * 2}
-          height={c.r * 2}
+          width={c.rx * 2}
+          height={c.rz * 2}
           intensity={GAIN.arch * out * gain}
           color={colour}
         />
       )}
 
-      {SH_PLAN.columns.map((col, i) => (
-        <group key={`cs-${i}`} position={[col.x, 0, col.z]}>
-          {[
-            { p: [-0.4, SH.h / 2, 0] as [number, number, number], r: -Math.PI / 2 },
-            { p: [0, SH.h / 2, 0.4] as [number, number, number], r: 0 },
-          ].map((f, j) => (
-            <mesh key={j} position={f.p} rotation={[0, f.r, 0]}>
-              <planeGeometry args={[0.055, SH.h - 0.7]} />
-              <primitive object={mat} attach="material" />
-            </mesh>
-          ))}
-          {MOUNTED && i === 1 && (
-            <pointLight
-              position={[-0.9, 2.6, 0]}
-              intensity={GAIN.arch * 0.5 * out * gain}
-              distance={7}
-              decay={1.6}
-              color={colour}
-            />
-          )}
-        </group>
-      ))}
+      {/*
+        The pillar lines.
+        
+        Offsets come off the pillar's own width - these were hard-coded at 0.4
+        for a single 780 mm column, and the plan now carries a 1.6 m clad
+        pillar and a 500 mm fin beside it, so both sets of strips were buried
+        inside the cladding on one and floating clear of it on the other.
+
+        The fin gets three strips rather than one. In the reference it is the
+        brightest vertical in that corner and it is plainly fluted: three
+        lines in a narrow dark reveal, which is a different object from the
+        single seam that runs down the big pillar.
+      */}
+      {SH_PLAN.columns.map((col, i) => {
+        const fin = col.w < 0.8;
+        const lines = fin ? [-0.14, 0, 0.14] : [0];
+        return (
+          <group key={`cs-${i}`} position={[col.x, 0, col.z]}>
+            {lines.map((o, j) => (
+              <mesh
+                key={`a-${j}`}
+                position={[-col.w / 2 - 0.008, SH.h / 2, o]}
+                rotation={[0, -Math.PI / 2, 0]}
+              >
+                <planeGeometry args={[0.055, SH.h - 0.7]} />
+                <primitive object={mat} attach="material" />
+              </mesh>
+            ))}
+            {lines.map((o, j) => (
+              <mesh
+                key={`b-${j}`}
+                position={[o, SH.h / 2, col.w / 2 + 0.008]}
+              >
+                <planeGeometry args={[0.055, SH.h - 0.7]} />
+                <primitive object={mat} attach="material" />
+              </mesh>
+            ))}
+            {MOUNTED && i === 1 && (
+              <pointLight
+                position={[-0.9, 2.6, 0]}
+                intensity={GAIN.arch * 0.5 * out * gain}
+                distance={7}
+                decay={1.6}
+                color={colour}
+              />
+            )}
+          </group>
+        );
+      })}
     </group>
   );
 }
@@ -719,14 +784,47 @@ function RgbFeature({ state, gain }: { state: LightState; gain: number }) {
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
-  const mat = useEmissiveMaterial(colour, GAIN.rgbEmissive * glow);
   const w = SH_PLAN.rgbWall;
   const span = w.z1 - w.z0;
-  const panels = 7;
+  const panels = 9;
+
+  /**
+   * A gradient across the bands, which is what the wall actually is.
+   *
+   * One shared emissive material gave nine identical stripes; the reference
+   * runs blue at one end to magenta at the other, and that sweep is most of
+   * why the wall reads as a feature rather than as a lit panel. Each band
+   * gets its own material, hue-shifted either side of whatever the circuit is
+   * set to, so a scene that recolours the circuit still recolours the wall and
+   * the sweep travels with it.
+   */
+  const bands = useMemo(
+    () =>
+      Array.from(
+        { length: panels },
+        () => new THREE.MeshBasicMaterial({ toneMapped: false }),
+      ),
+    [],
+  );
+  useLayoutEffect(() => {
+    /*
+     * Anchored on blue-to-magenta, NOT derived from the circuit colour.
+     *
+     * The first pass offset each band's hue from whatever the circuit was
+     * set to, and the circuit is tunable *white* - hue 0.07 or so - which
+     * put the sweep through red, yellow and green: a flag, not a feature
+     * wall. The reference runs blue through violet to magenta, so those are
+     * the fixed endpoints and the circuit contributes brightness alone.
+     */
+    bands.forEach((m, i) => {
+      const t = i / (panels - 1);
+      m.color.setHSL(0.62 + t * 0.26, 0.85, 0.42 * glow + 0.05);
+    });
+  });
 
   return (
     <group>
-      {Array.from({ length: panels }, (_, i) => {
+      {bands.map((m, i) => {
         const z = w.z0 + (span / panels) * (i + 0.5);
         return (
           <mesh
@@ -734,8 +832,8 @@ function RgbFeature({ state, gain }: { state: LightState; gain: number }) {
             position={[w.x, (w.y0 + w.y1) / 2, z]}
             rotation={[0, -Math.PI / 2, 0]}
           >
-            <planeGeometry args={[span / panels - 0.12, w.y1 - w.y0]} />
-            <primitive object={mat} attach="material" />
+            <planeGeometry args={[span / panels - 0.08, w.y1 - w.y0]} />
+            <primitive object={m} attach="material" />
           </mesh>
         );
       })}
@@ -751,7 +849,7 @@ function RgbFeature({ state, gain }: { state: LightState; gain: number }) {
           width={span}
           height={w.y1 - w.y0}
           intensity={GAIN.rgb * out * gain}
-          color={colour}
+          color={new THREE.Color("#7d5fe8")}
         />
       )}
     </group>
@@ -763,47 +861,18 @@ function RgbFeature({ state, gain }: { state: LightState; gain: number }) {
 /* ------------------------------------------------------------------ */
 
 /** Sun and sky through the glazed frontage behind the camera. */
-function Daylight({ amount }: { amount: number }) {
-  const budget = BUDGET[useQuality()];
-  if (amount <= 0.004) return null;
-
-  return (
-    <group>
-      <directionalLight
-        position={[SH.w / 2 + 6, 14, SH.d + 16]}
-        intensity={2.2 * amount}
-        color={new THREE.Color("#fff2dd")}
-        castShadow={budget.shadows > 1}
-        shadow-mapSize={[2048, 2048]}
-        shadow-bias={-0.0011}
-        shadow-camera-left={-16}
-        shadow-camera-right={16}
-        shadow-camera-top={16}
-        shadow-camera-bottom={-16}
-        shadow-camera-near={1}
-        shadow-camera-far={60}
-      />
-      {/*
-        The frontage is at z = d, so -Z is into the room. No rotation.
-
-        Toned down and taken most of the way to white against the reference.
-        This is a 28 m emitter and at intensity 9 it was the largest single
-        source in the room — the ceiling came back at B/R 1.00 in the morning
-        scene, bluer than its own paint, against 0.76 in the photograph, and
-        the evening scenes measured 0.60 because they switch this off and show
-        what the fittings alone are doing. North light really is that blue;
-        a showroom's frontage is also tinted glass with a canopy over it, and
-        the reference is the client's own picture of what they expect to see.
-      */}
-      <rectAreaLight
-        position={[SH.w / 2, 2.6, SH.d - 0.3]}
-        width={SH.w - 2}
-        height={4.6}
-        intensity={5.5 * amount}
-        color={new THREE.Color("#e9edf3")}
-      />
-    </group>
-  );
+function Daylight(_: { amount: number }) {
+  /**
+   * There is no daylight in this room, by the brief: the showroom reads as a
+   * sealed, evening space in every scene, and the time slider is allowed a
+   * trim of a few per cent on the ambient, nothing more.
+   *
+   * It is also what finally explained the pegs. A directional sun stood
+   * behind the camera here, and with shadows on it projected every track head
+   * and lens housing on the ceiling onto the back wall as a neat grid of
+   * small dark studs - furniture nobody placed, cast by a sun nobody wanted.
+   */
+  return null;
 }
 
 /* ------------------------------------------------------------------ */

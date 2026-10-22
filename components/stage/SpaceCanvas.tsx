@@ -22,6 +22,7 @@
  * photoreal renderer will ever need.
  */
 
+import { useEffect, useState } from "react";
 import type {
   AvDevice,
   AvState,
@@ -75,6 +76,21 @@ function RoomArt({ illustration }: { illustration?: string }) {
 
 export function SpaceCanvas() {
   const space = useSim((s) => s.space);
+  /**
+   * Capture harness only: `?stage=1264x843` pins the stage box to an exact
+   * pixel size so screenshots line up with a reference image. Applied after
+   * mount (never during SSR, so hydration stays clean), which also means the
+   * renderer and its composer see one early resize instead of a late style
+   * fight on the canvas element - the canvas belongs to the renderer and
+   * nothing else sizes it.
+   */
+  const [pin, setPin] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("stage");
+    if (!p) return;
+    const [w, h] = p.split("x").map(Number);
+    if (w > 0 && h > 0) setPin({ width: w, height: h });
+  }, []);
   // The canvas legitimately depends on almost every device, so it subscribes to
   // the whole state map rather than pretending otherwise with a dozen selectors.
   const states = useSim((s) => s.states);
@@ -105,7 +121,31 @@ export function SpaceCanvas() {
        * The illustrated renderer below keeps 16:9 at every width, because that
        * one is compositing a flat image whose aspect genuinely is fixed.
        */
-      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black ring-1 ring-shell-800 lg:aspect-auto lg:h-full lg:min-h-[340px]">
+      <div
+        /*
+          Keyed on the pin so applying it remounts the Canvas. The renderer
+          here is frame-pumped rather than free-running, and a resize that
+          arrives between pumps leaves the composer drawing its old viewport
+          into a larger, uncleared buffer - the capture came back as a stale
+          frame with a letterboxed corner. A remount brings renderer and
+          composer up together at the final size, and this path only ever runs
+          under the capture harness.
+        */
+        key={pin ? `pin-${pin.width}x${pin.height}` : "live"}
+        className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black ring-1 ring-shell-800 lg:aspect-auto lg:h-full lg:min-h-[340px]"
+        style={
+          pin
+            ? {
+                width: pin.width,
+                height: pin.height,
+                minHeight: 0,
+                maxHeight: "none",
+                aspectRatio: "auto",
+                flex: "none",
+              }
+            : undefined
+        }
+      >
         {space.model === "master-bedroom" ? (
           <BedroomStage />
         ) : space.model === "living-room" ? (
