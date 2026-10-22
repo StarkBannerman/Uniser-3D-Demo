@@ -55,13 +55,50 @@ export function rendererString(): string {
       canvas.getContext("webgl")) as WebGLRenderingContext | null;
     if (!gl) return "";
     const ext = gl.getExtension("WEBGL_debug_renderer_info");
-    const name = ext
-      ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) ?? "")
-      : String(gl.getParameter(gl.RENDERER) ?? "");
+    const name =
+      (ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) ?? "") : "") ||
+      String(gl.getParameter(gl.RENDERER) ?? "") ||
+      // A context that will not name itself is still a context.
+      "unknown renderer";
     const lose = gl.getExtension("WEBGL_lose_context");
     lose?.loseContext();
     return name;
   } catch {
     return "";
   }
+}
+
+/**
+ * How this machine can draw, if at all.
+ *
+ * Three outcomes, and they need different answers:
+ *
+ * - `"gpu"` — a real one. Pick a tier and render.
+ * - `"software"` — WebGL exists but it is a CPU rasteriser (SwiftShader on a
+ *   blocklisted driver, llvmpipe on a bare Linux box, most VDI and remote
+ *   desktop sessions). Measured on the car showroom at the low tier, with
+ *   thirteen lights and a 0.85 pixel ratio: **674 ms a frame, 1.5 fps** — and
+ *   only 2.4 ms of that was submission, the rest was fill. No light budget
+ *   rescues that, because the cost is per pixel on a CPU.
+ * - `"none"` — no WebGL. Today the stage threw "Error creating WebGL context"
+ *   and left "Building the room…" on screen for ever, which is the worst of
+ *   the three outcomes to put in front of a customer.
+ *
+ * Creating the probe context is the only way to know, and it is cheap: one
+ * throwaway canvas, released immediately.
+ */
+export type RenderPath = "gpu" | "software" | "none";
+
+export function detectRenderPath(): RenderPath {
+  if (typeof document === "undefined") return "gpu";
+  const name = rendererString();
+  if (!name) return "none";
+  return isSoftware(name) ? "software" : "gpu";
+}
+
+/** Renderer strings that mean "there is no graphics hardware here". */
+export function isSoftware(renderer: string): boolean {
+  return /swiftshader|llvmpipe|softpipe|basic render|microsoft basic|mesa offscreen|generic renderer/.test(
+    renderer.toLowerCase(),
+  );
 }

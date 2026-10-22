@@ -31,7 +31,8 @@ import {
 import * as THREE from "three";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useSim } from "@/lib/sim/store";
-import { classifyRenderer, rendererString } from "@/lib/device";
+import { classifyRenderer, detectRenderPath, rendererString } from "@/lib/device";
+import type { RenderPath } from "@/lib/device";
 import { hasActiveTweens } from "@/lib/sim/tween";
 import type { AvState, FanState, LightState, ShadeState } from "@/lib/sim/types";
 import { Environment, Lightformer } from "@react-three/drei";
@@ -656,6 +657,61 @@ function LockHorizontalFov({ fovAt16x9 }: { fovAt16x9: number }) {
 }
 
 /**
+ * What the stage shows when the machine cannot draw it.
+ *
+ * Two cases reach here. Without WebGL the alternative is what the demo did
+ * before: throw "Error creating WebGL context" into the console and leave
+ * "Building the room…" on screen for ever. With a software rasteriser the
+ * alternative is 1.5 frames a second, which is worse than not starting,
+ * because the salesperson does not find out until they are in front of the
+ * customer.
+ *
+ * The rest of the demo does not need a GPU — the scenes, the controls, the
+ * device states, the schedule and the energy figures are all ordinary DOM and
+ * go on working behind this panel. So this says what is wrong, in a sentence
+ * a salesperson can repeat, and gets out of the way.
+ */
+function StageUnavailable({
+  path,
+  onForce,
+}: {
+  path: RenderPath;
+  onForce: () => void;
+}) {
+  const software = path === "software";
+  return (
+    <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-shell-950 px-8 text-center">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-brass-500">
+        SmartSpaces
+      </div>
+      <div className="max-w-sm text-base font-medium text-shell-100">
+        {software
+          ? "This machine is drawing without a graphics card"
+          : "This browser cannot show 3D graphics"}
+      </div>
+      <p className="max-w-md text-xs leading-relaxed text-shell-400">
+        {software
+          ? "Windows has fallen back to software rendering, usually because the graphics driver is out of date or this is a remote desktop session. The room would run at about one frame a second."
+          : "WebGL is switched off or unavailable here. It is often disabled by policy on managed machines, or by hardware acceleration being turned off in the browser's settings."}
+      </p>
+      <p className="max-w-md text-xs leading-relaxed text-shell-500">
+        Everything else still works — scenes, controls, schedules and the
+        energy figures are all live on the right.
+      </p>
+      {software && (
+        <button
+          type="button"
+          onClick={onForce}
+          className="mt-2 rounded-full border border-shell-700 px-4 py-1.5 text-xs text-shell-300 transition-colors hover:border-brass-500 hover:text-brass-500"
+        >
+          Show the room anyway — it will be very slow
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * Note on exposure: it is not a prop here.
  *
  * With tone mapping moved into the composer, `renderer.toneMappingExposure` is
@@ -691,9 +747,30 @@ export function Stage3D({
    * device can change while the page is open anyway.
    */
   const [quality] = useState<Quality>(detectQuality);
+  /**
+   * Settled on mount alongside the tier: whether there is anything here that
+   * can draw at all. `?force3d=1` skips the check, for testing and for anyone
+   * who would rather have a slow room than no room.
+   */
+  const [path] = useState<RenderPath>(() =>
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("force3d")
+      ? "gpu"
+      : detectRenderPath(),
+  );
+  const [forced, setForced] = useState(false);
   const perf = usePerfFlag();
   const [ready, setReady] = useState(false);
   const roomName = useSim((s) => s.space?.name ?? "Loading");
+
+  // No WebGL means no canvas at all: mounting one only throws.
+  if (path === "none" || (path === "software" && !forced)) {
+    return (
+      <div className="relative h-full w-full bg-shell-950">
+        <StageUnavailable path={path} onForce={() => setForced(true)} />
+      </div>
+    );
+  }
 
   const fill = new THREE.Color(
     ambient.color[0] / 255,

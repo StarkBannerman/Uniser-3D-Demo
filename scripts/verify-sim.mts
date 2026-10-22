@@ -37,7 +37,7 @@ import { spaces } from "../lib/spaces";
 import { masterBedroom } from "../lib/spaces/residential/master-bedroom";
 import { bladeRadPerSec, MAX_BLADE_STEP_RAD } from "../lib/sim/fan";
 import { paceFade, paceHold } from "../lib/sim/pace";
-import { classifyRenderer } from "../lib/device";
+import { classifyRenderer, isSoftware } from "../lib/device";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail: string) {
@@ -987,6 +987,20 @@ console.log("\n19. The quality tier is chosen from the GPU, not the CPU");
     "discrete and Apple silicon come out high",
     badStrong.length === 0,
     badStrong.length ? `missed: ${badStrong.join(" | ")}` : `all ${strong.length} classified high`,
+  );
+  const soft = [
+    "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+    "Mesa/X.org, llvmpipe (LLVM 15.0.7, 256 bits)",
+    "Microsoft Basic Render Driver",
+  ];
+  const hardware = [
+    "ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "Apple M2 Pro",
+  ];
+  check(
+    "software rasterisers are recognised as having no GPU",
+    soft.every(isSoftware) && !hardware.some(isSoftware),
+    `${soft.length} software strings caught, ${hardware.length} hardware ones left alone`,
   );
   check(
     "an unknown renderer defers to the fallback",
