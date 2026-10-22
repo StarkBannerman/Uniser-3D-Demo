@@ -29,7 +29,13 @@ import { useTicker } from "@/lib/sim/useTicker";
 import { carShowroom } from "@/lib/spaces/hospitality/car-showroom";
 import { useShowroomState, ShowroomScene, SHOWROOM_CAMERA } from "@/components/stage/rooms3d/CarShowroomStage";
 
-function Tracer({ samples }: { samples: number }) {
+function Tracer({
+  samples,
+  onProgress,
+}: {
+  samples: number;
+  onProgress: (n: number) => void;
+}) {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
@@ -52,6 +58,7 @@ function Tracer({ samples }: { samples: number }) {
       tracer.renderSample();
       const w = (window as unknown as Record<string, { samples: number; done: boolean }>).__bake;
       w.samples = tracer.samples;
+      onProgress(tracer.samples);
       if (tracer.samples >= samples) {
         w.done = true;
         return;
@@ -60,7 +67,7 @@ function Tracer({ samples }: { samples: number }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [gl, scene, camera, samples]);
+  }, [gl, scene, camera, samples, onProgress]);
 
   return null;
 }
@@ -70,6 +77,7 @@ function Bake() {
   const sceneId = q.get("scene") ?? "showroom-open";
   const samples = Number(q.get("samples") ?? 300);
   const [loaded, setLoaded] = useState(false);
+  const [done, setDone] = useState(0);
   /**
    * The simulation has to actually run.
    *
@@ -92,6 +100,17 @@ function Bake() {
   }, [sceneId]);
 
   return (
+    <>
+      {/*
+        A bake takes minutes and gets quietly cleaner, which is
+        indistinguishable from being broken. The counter is the difference
+        between "it is working" and "something has hung".
+      */}
+      <div className="pointer-events-none fixed left-4 top-4 z-10 rounded bg-black/60 px-3 py-2 font-mono text-xs text-white/80">
+        {!loaded
+          ? "settling the scene…"
+          : `${Math.floor(done)} / ${samples} samples${done >= samples ? " — done, right-click to save" : ""}`}
+      </div>
     <Canvas
       gl={{ antialias: false, preserveDrawingBuffer: true }}
       dpr={1}
@@ -105,8 +124,9 @@ function Bake() {
     >
       <Environment preset="night" background={false} />
       <ShowroomScene state={state} />
-      {loaded && <Tracer samples={samples} />}
+      {loaded && <Tracer samples={samples} onProgress={setDone} />}
     </Canvas>
+    </>
   );
 }
 
