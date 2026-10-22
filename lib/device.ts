@@ -47,12 +47,21 @@ export function classifyRenderer(renderer: string): Quality | null {
   return null;
 }
 
-/** The renderer string this browser will admit to, or "" if it will not. */
+/**
+ * The renderer string this browser will admit to, or "" if it will not.
+ *
+ * Probes **WebGL 2 only**, deliberately. three.js dropped WebGL 1 at r163 and
+ * this project is on r185, so a WebGL 1 context is no use to the renderer —
+ * and accepting one here was worse than useless: the probe succeeded, named
+ * the GPU, classified it as hardware, and the stage then mounted a canvas
+ * that threw "Error creating WebGL context" and left "Building the room…" on
+ * screen for ever. Exactly the hang this module exists to prevent, reached by
+ * a different door.
+ */
 export function rendererString(): string {
   try {
     const canvas = document.createElement("canvas");
-    const gl = (canvas.getContext("webgl2") ??
-      canvas.getContext("webgl")) as WebGLRenderingContext | null;
+    const gl = canvas.getContext("webgl2") as WebGL2RenderingContext | null;
     if (!gl) return "";
     const ext = gl.getExtension("WEBGL_debug_renderer_info");
     const name =
