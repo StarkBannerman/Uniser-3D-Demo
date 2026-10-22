@@ -14,6 +14,7 @@ import { clamp01, daylightLux, sunElevation01 } from "@/lib/sim/photometry";
 import { Stage3D, useStillDevice, type CameraSpec } from "../Stage3D";
 import { CarShowroom3D } from "./CarShowroom3D";
 import { CarShowroomLightRig, type ShowroomFixtures } from "./CarShowroomLightRig";
+import { ShowroomPlate } from "./ShowroomPlate";
 
 /**
  * Near-axial, from the front of the floor at eye height.
@@ -189,21 +190,29 @@ export function CarShowroomStage() {
   const state = useShowroomState();
 
   return (
-    <Stage3D
-      camera={SHOWROOM_CAMERA}
-      ambient={state.ambient}
-      /**
-       * Lower than the media rooms and a touch above the lobby.
-       *
-       * The LED lines and the coffer ring are meant to bleed; polished
-       * concrete is not. A glossy floor returns a great many small highlights
-       * and bloom treats every one as a source, which is how the lobby's floor
-       * went milky before its threshold came up.
-       */
-      bloomIntensity={0.52}
-      bloomThreshold={1.25}
-    >
-      <ShowroomScene state={state} />
-    </Stage3D>
+    /*
+     * The plate sits over the live room rather than replacing it, and the
+     * wrapper is here rather than in `Stage3D` so this trial cannot reach any
+     * other room. Without `?plate=1` it renders nothing at all.
+     */
+    <div className="relative h-full w-full">
+      <Stage3D
+        camera={SHOWROOM_CAMERA}
+        ambient={state.ambient}
+        /**
+         * Lower than the media rooms and a touch above the lobby.
+         *
+         * The LED lines and the coffer ring are meant to bleed; polished
+         * concrete is not. A glossy floor returns a great many small
+         * highlights and bloom treats every one as a source, which is how the
+         * lobby's floor went milky before its threshold came up.
+         */
+        bloomIntensity={0.52}
+        bloomThreshold={1.25}
+      >
+        <ShowroomScene state={state} />
+      </Stage3D>
+      <ShowroomPlate />
+    </div>
   );
 }
