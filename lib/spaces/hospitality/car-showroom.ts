@@ -352,13 +352,23 @@ export const carShowroom: Space = {
        * what a control system is *for* — nobody walks a dealership switching
        * circuits in order every morning.
        */
+      /**
+       * Paced for a salesperson, not for a film.
+       *
+       * The three beats were authored at 1.8–2.0 s apiece, which with the
+       * opening fade put this scene at 8.9 s end to end. The client wants a
+       * press to read as instant, and nothing in this sequence drives a
+       * motor — it is all light — so there is no physical reason for it to
+       * take any longer than it takes to see. The staging survives; it just
+       * happens at conversation speed.
+       */
       id: "showroom-open",
       clockMin: 8 * 60 + 30,
       name: "Showroom Open",
       icon: "☀",
       blurb:
         "Three stages: the floor comes up neutral, then the architectural layers, then the spotlights onto the stock with the graphics and the music behind them. The morning routine as one button.",
-      fadeMs: 2200,
+      fadeMs: 1400,
       targets: {
         "cs-general": { on: true, level: 72, cct: 4600, sat: 0 },
         "cs-spots": { on: false, sat: 0 },
@@ -377,26 +387,26 @@ export const carShowroom: Space = {
       steps: [
         {
           label: "Architectural layers up",
-          holdMs: 1800,
+          holdMs: 740,
           targets: {
-            "cs-arch": { on: true, level: 72, cct: 3400, fadeMs: 1600, sat: 0 },
-            "cs-linear": { on: true, level: 75, cct: 4400, fadeMs: 1600, sat: 0 },
-            "cs-floor": { on: true, level: 55, cct: 3400, fadeMs: 1600, sat: 0 },
+            "cs-arch": { on: true, level: 72, cct: 3400, fadeMs: 760, sat: 0 },
+            "cs-linear": { on: true, level: 75, cct: 4400, fadeMs: 760, sat: 0 },
+            "cs-floor": { on: true, level: 55, cct: 3400, fadeMs: 760, sat: 0 },
           },
         },
         {
           label: "Spotlights onto the stock",
-          holdMs: 2000,
+          holdMs: 740,
           targets: {
-            "cs-spots": { on: true, level: 82, cct: 4200, fadeMs: 1800, sat: 0 },
-            "cs-product": { on: true, level: 88, cct: 4400, fadeMs: 1800, sat: 0 },
+            "cs-spots": { on: true, level: 82, cct: 4200, fadeMs: 760, sat: 0 },
+            "cs-product": { on: true, level: 88, cct: 4400, fadeMs: 760, sat: 0 },
           },
         },
         {
           label: "Graphics and music",
-          holdMs: 1500,
+          holdMs: 740,
           targets: {
-            "cs-accent": { on: true, level: 74, cct: 3400, fadeMs: 1400, sat: 0 },
+            "cs-accent": { on: true, level: 74, cct: 3400, fadeMs: 760, sat: 0 },
             "cs-screens": { on: true, source: "Brand Film", volume: 0 },
             "cs-music": { on: true, source: "Showroom Ambient", volume: 22 },
           },
@@ -421,7 +431,7 @@ export const carShowroom: Space = {
       icon: "◎",
       blurb:
         "The document's own sequence: the room dims, the selected car's spotlights come up, the accent narrows onto it, the surroundings step back, and the colour temperature settles where paint reads true.",
-      fadeMs: 1500,
+      fadeMs: 1400,
       targets: {
         "cs-general": { on: true, level: 60, cct: 4200, sat: 0 },
         "cs-spots": { on: true, level: 60, cct: 4000, sat: 0 },
@@ -438,42 +448,42 @@ export const carShowroom: Space = {
       steps: [
         {
           label: "General lighting dims",
-          holdMs: 1900,
-          targets: { "cs-general": { on: true, level: 22, cct: 3800, fadeMs: 1700, sat: 0 } },
+          holdMs: 740,
+          targets: { "cs-general": { on: true, level: 22, cct: 3800, fadeMs: 760, sat: 0 } },
         },
         {
           label: "Spotlights on the selected vehicle",
-          holdMs: 1900,
+          holdMs: 740,
           targets: {
-            "cs-spots": { on: true, level: 100, cct: 4000, fadeMs: 1600, sat: 0 },
-            "cs-product": { on: true, level: 100, cct: 4200, fadeMs: 1600, sat: 0 },
+            "cs-spots": { on: true, level: 100, cct: 4000, fadeMs: 760, sat: 0 },
+            "cs-product": { on: true, level: 100, cct: 4200, fadeMs: 760, sat: 0 },
           },
         },
         {
           label: "Accent focuses on the vehicle",
-          holdMs: 1800,
+          holdMs: 740,
           targets: {
-            "cs-accent": { on: true, level: 90, cct: 3200, fadeMs: 1600, sat: 0 },
-            "cs-floor": { on: true, level: 95, cct: 3000, fadeMs: 1600, sat: 0 },
+            "cs-accent": { on: true, level: 90, cct: 3200, fadeMs: 760, sat: 0 },
+            "cs-floor": { on: true, level: 95, cct: 3000, fadeMs: 760, sat: 0 },
           },
         },
         {
           label: "Surrounding lighting reduces",
-          holdMs: 1800,
+          holdMs: 740,
           targets: {
-            "cs-linear": { on: true, level: 22, cct: 3200, fadeMs: 1700, sat: 0 },
-            "cs-arch": { on: true, level: 30, cct: 2800, fadeMs: 1700, sat: 0 },
+            "cs-linear": { on: true, level: 22, cct: 3200, fadeMs: 760, sat: 0 },
+            "cs-arch": { on: true, level: 30, cct: 2800, fadeMs: 760, sat: 0 },
           },
         },
         {
           label: "Colour temperature for optimum presentation",
-          holdMs: 1600,
+          holdMs: 740,
           targets: {
             // 4000 K is where metallic paint reads closest to daylight without
             // going clinical, which is the number a manufacturer's merchandising
             // standard usually writes down.
-            "cs-spots": { on: true, level: 100, cct: 4000, fadeMs: 2200, sat: 0 },
-            "cs-product": { on: true, level: 100, cct: 4000, fadeMs: 2200, sat: 0 },
+            "cs-spots": { on: true, level: 100, cct: 4000, fadeMs: 760, sat: 0 },
+            "cs-product": { on: true, level: 100, cct: 4000, fadeMs: 760, sat: 0 },
           },
         },
       ],
@@ -492,7 +502,7 @@ export const carShowroom: Space = {
       icon: "✦",
       blurb:
         "Four stages after the room drops away: a single beam finds the hero platform, the turntable starts, colour washes the walls and rings, and the car's own lights come on with the music.",
-      fadeMs: 1600,
+      fadeMs: 1400,
       targets: {
         "cs-general": { on: true, level: 8, cct: 3000, sat: 0 },
         "cs-spots": { on: true, level: 25, cct: 3600, sat: 0 },
@@ -510,26 +520,26 @@ export const carShowroom: Space = {
       steps: [
         {
           label: "A beam finds the platform",
-          holdMs: 2200,
+          holdMs: 740,
           targets: {
-            "cs-product": { on: true, level: 100, cct: 4200, fadeMs: 1400, sat: 0 },
-            "cs-floor": { on: true, level: 100, cct: 3000, fadeMs: 1400, sat: 0 },
+            "cs-product": { on: true, level: 100, cct: 4200, fadeMs: 760, sat: 0 },
+            "cs-floor": { on: true, level: 100, cct: 3000, fadeMs: 760, sat: 0 },
           },
         },
-        { label: "The turntable starts", holdMs: 2000, targets: { "cs-turntable": { on: true, speed: 2 } } },
+        { label: "The turntable starts", holdMs: 740, targets: { "cs-turntable": { on: true, speed: 2 } } },
         {
           label: "Colour across the walls",
-          holdMs: 2100,
+          holdMs: 740,
           targets: {
-            "cs-rgb": { on: true, level: 95, hue: 268, sat: 90, fadeMs: 1800 },
-            "cs-floor": { on: true, level: 100, hue: 268, sat: 70, fadeMs: 1800 },
+            "cs-rgb": { on: true, level: 95, hue: 268, sat: 90, fadeMs: 760 },
+            "cs-floor": { on: true, level: 100, hue: 268, sat: 70, fadeMs: 760 },
           },
         },
         {
           label: "Headlights and sound",
-          holdMs: 1600,
+          holdMs: 740,
           targets: {
-            "cs-spots": { on: true, level: 70, cct: 4000, fadeMs: 1500, sat: 0 },
+            "cs-spots": { on: true, level: 70, cct: 4000, fadeMs: 760, sat: 0 },
             "cs-music": { on: true, source: "Launch Set", volume: 72 },
           },
         },

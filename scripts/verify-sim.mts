@@ -36,6 +36,8 @@ import { livingRoomIllustrated as livingRoom } from "../lib/spaces/residential/l
 import { spaces } from "../lib/spaces";
 import { masterBedroom } from "../lib/spaces/residential/master-bedroom";
 import { bladeRadPerSec, MAX_BLADE_STEP_RAD } from "../lib/sim/fan";
+import { paceFade, paceHold } from "../lib/sim/pace";
+import { classifyRenderer } from "../lib/device";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail: string) {
@@ -548,6 +550,15 @@ function runMs(ms: number) {
   run(Math.ceil(ms / FRAME));
 }
 
+/**
+ * The holds are authored at 400 ms and the engine plays them at `PACE.hold`,
+ * so every wait below is expressed as a fraction of the *paced* hold rather
+ * than as a wall-clock figure. The question these checks ask — does a stage
+ * fire before its pause has elapsed? — is about ordering, and it should not
+ * need rewriting every time the demo is dialled faster or slower.
+ */
+const HOLD = paceHold(400);
+
 store.getState().loadSpace(stagedSpace);
 store.getState().applyScene("t-goodnight");
 
@@ -563,14 +574,14 @@ check(
 );
 
 // Two thirds of the way through the first hold: nothing should have moved.
-runMs(260);
+runMs(HOLD * 0.6);
 check(
   "a stage does not fire early",
   lightOf("t-general").level === 80,
-  `at 260ms of a 400ms hold, general=${lightOf("t-general").level}`,
+  `at ${Math.round(HOLD * 0.6)}ms of a ${HOLD}ms hold, general=${lightOf("t-general").level}`,
 );
 
-runMs(220); // now past 400ms
+runMs(HOLD * 0.7); // now past the hold
 check(
   "stage 1 fires on time, and only stage 1",
   lightOf("t-general").level === 30 && lightOf("t-bedside").level === 80,
@@ -583,7 +594,7 @@ check(
   JSON.stringify(store.getState().sequence),
 );
 
-runMs(400);
+runMs(HOLD);
 check(
   "stage 2 follows, still in order",
   lightOf("t-bedside").level === 10 &&
@@ -591,8 +602,9 @@ check(
   `bedside=${lightOf("t-bedside").level}, curtain untouched`,
 );
 
-// Past the remaining three stages, plus the curtain's own travel time.
-runMs(1400);
+// Past the remaining three stages, plus the curtain's own travel time — and
+// that travel is *not* paced, so it stays a wall-clock figure.
+runMs(HOLD * 3 + 800);
 const acEnd = store.getState().states["t-ac"] as ClimateState;
 check(
   "every stage has run by the end",
@@ -612,7 +624,7 @@ check(
 // Cancellation 1: another scene pressed mid-sequence.
 store.getState().loadSpace(stagedSpace);
 store.getState().applyScene("t-goodnight");
-runMs(500); // stage 1 has fired, stage 2 has not
+runMs(HOLD * 1.5); // stage 1 has fired, stage 2 has not
 store.getState().applyScene("t-on");
 runMs(3000);
 check(
@@ -627,7 +639,7 @@ check(
 // Cancellation 2: a manual control touched mid-sequence.
 store.getState().loadSpace(stagedSpace);
 store.getState().applyScene("t-goodnight");
-runMs(500);
+runMs(HOLD * 1.5);
 store.getState().patch("t-general", { level: 55 }, 0);
 runMs(3000);
 check(
@@ -882,6 +894,106 @@ check(
   (rates[4] / 60) < MAX_BLADE_STEP_RAD,
   `${((rates[4] / 60) * (180 / Math.PI)).toFixed(1)}° per frame at 60fps`,
 );
+
+/* ------------------------------------------------------------------ */
+console.log("\n18. A scene that only moves light settles inside two seconds");
+/*
+ * The client's requirement, made into a gate.
+ *
+ * Fades and the pauses between a staged scene's beats are design and are
+ * scaled by `PACE`. Shade and screen travel is not: a blind takes eight and a
+ * half seconds because that is how long the motor takes. So this checks the
+ * scenes we actually control — the ones that drive nothing but light — and
+ * leaves the ones waiting on a motor out of it, because the honest figure
+ * there is the motor's, not ours.
+ */
+{
+  type Step = { holdMs?: number; targets: Record<string, Record<string, unknown>> };
+  const movesAMotor = (
+    space: (typeof spaces)[number],
+    targets: Record<string, Record<string, unknown>>,
+  ) =>
+    Object.entries(targets).some(([id, patch]) => {
+      const device = space.devices.find((d) => d.id === id);
+      if (!device) return false;
+      if (device.kind === "shade") {
+        return ["sheer", "blackout"].some((p) => typeof patch[p] === "number");
+      }
+      return device.kind === "av" && typeof patch.screen === "number";
+    });
+
+  let worstName = "";
+  let worst = 0;
+  let counted = 0;
+  for (const space of spaces) {
+    for (const scene of space.scenes) {
+      const steps = (scene as unknown as { steps?: Step[] }).steps ?? [];
+      const all = [scene.targets as Record<string, Record<string, unknown>>, ...steps.map((s) => s.targets)];
+      if (all.some((t) => movesAMotor(space, t))) continue;
+      let total = paceFade(scene.fadeMs ?? 0);
+      for (const step of steps) {
+        const fades = Object.values(step.targets).map((t) => paceFade(Number(t.fadeMs ?? 0)));
+        total += Math.max(paceHold(step.holdMs ?? 0), fades.length ? Math.max(...fades) : 0);
+      }
+      counted++;
+      if (total > worst) {
+        worst = total;
+        worstName = `${space.name} / ${scene.name}`;
+      }
+    }
+  }
+  check(
+    "every light-only scene lands under two seconds",
+    worst < 2000,
+    `slowest of ${counted} is ${worstName} at ${worst}ms`,
+  );
+  check(
+    "the pace actually compresses the authored timings",
+    paceFade(4000) < 1600 && paceHold(2000) < 800,
+    `a 4 s fade plays in ${paceFade(4000)}ms, a 2 s hold in ${paceHold(2000)}ms`,
+  );
+}
+
+/* ------------------------------------------------------------------ */
+console.log("\n19. The quality tier is chosen from the GPU, not the CPU");
+/*
+ * This is the one part of the device check that can be tested without the
+ * device. The client's report — fine on a Mac, very slow on an HP — is the
+ * signature of a machine with plenty of cores and an integrated GPU being
+ * handed the full path, so these are the strings that have to come out low.
+ */
+{
+  const weak = [
+    "ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "ANGLE (Intel, Intel(R) HD Graphics 5500 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "Google SwiftShader",
+    "Mali-G52",
+    "Adreno (TM) 619",
+  ];
+  const strong = [
+    "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "ANGLE (AMD, AMD Radeon RX 6700 XT Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "Apple M2 Pro",
+  ];
+  const badWeak = weak.filter((r) => classifyRenderer(r) !== "low");
+  const badStrong = strong.filter((r) => classifyRenderer(r) !== "high");
+  check(
+    "integrated and software renderers come out low",
+    badWeak.length === 0,
+    badWeak.length ? `missed: ${badWeak.join(" | ")}` : `all ${weak.length} classified low`,
+  );
+  check(
+    "discrete and Apple silicon come out high",
+    badStrong.length === 0,
+    badStrong.length ? `missed: ${badStrong.join(" | ")}` : `all ${strong.length} classified high`,
+  );
+  check(
+    "an unknown renderer defers to the fallback",
+    classifyRenderer("Some Unreleased Thing 9000") === null && classifyRenderer("") === null,
+    "returns null rather than guessing",
+  );
+}
 
 console.log(
   failures === 0

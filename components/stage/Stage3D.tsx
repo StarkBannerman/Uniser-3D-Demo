@@ -31,6 +31,7 @@ import {
 import * as THREE from "three";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useSim } from "@/lib/sim/store";
+import { classifyRenderer, rendererString } from "@/lib/device";
 import { hasActiveTweens } from "@/lib/sim/tween";
 import type { AvState, FanState, LightState, ShadeState } from "@/lib/sim/types";
 import { Environment, Lightformer } from "@react-three/drei";
@@ -113,6 +114,13 @@ function detectQuality(): Quality {
    */
   const forced = new URLSearchParams(window.location.search).get("q");
   if (forced === "low" || forced === "high") return forced;
+
+  /**
+   * Ask the GPU first. It is the thing we are limited by, and cores and
+   * memory say nothing about it — see `lib/device.ts`.
+   */
+  const byGpu = classifyRenderer(rendererString());
+  if (byGpu) return byGpu;
   const nav = navigator as Navigator & { deviceMemory?: number };
   const cores = nav.hardwareConcurrency ?? 4;
   const memory = nav.deviceMemory ?? 4;

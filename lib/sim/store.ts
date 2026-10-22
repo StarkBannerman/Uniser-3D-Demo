@@ -48,6 +48,7 @@ import {
 } from "./tween";
 import { evaluateRules, type RuleEvent, type RuleMemory } from "./automation";
 import { interiorDaylightLux } from "./daylight";
+import { paceFade, paceHold } from "./pace";
 import { commandedLevelFor } from "./intent";
 import {
   accumulate,
@@ -606,7 +607,7 @@ export const useSim = create<SimStore>((set, get) => ({
             return patchIsNoop(current, rest as StatePatch);
           })
             ? 0
-            : (first.holdMs ?? 900)),
+            : paceHold(first.holdMs ?? 900)),
         fadeMs: scene.fadeMs,
       };
       sequenceView = {
@@ -789,7 +790,7 @@ export const useSim = create<SimStore>((set, get) => ({
           // had nothing to do, because the pause exists to cover its travel.
           fireAt:
             pendingSequence.fireAt +
-            (empty ? 0 : (steps[index + 1].holdMs ?? 900)),
+            (empty ? 0 : paceHold(steps[index + 1].holdMs ?? 900)),
         };
       }
     }
@@ -930,7 +931,11 @@ function resolveFade(
   }
   // Everything else moves instantly unless asked otherwise — a slider drag is
   // its own animation, and adding a fade there just feels laggy.
-  return requested ?? 0;
+  //
+  // The two returns above are motor travel and are deliberately *not* paced:
+  // see `lib/sim/pace.ts`. This one is a lighting fade, which is design, and
+  // the demo plays it at pace.
+  return paceFade(requested ?? 0);
 }
 
 function easingFor(device: Device, prop: string) {
@@ -963,7 +968,18 @@ function applyPatchToState(
     const wantsOn = "on" in patchInput ? Boolean(patchInput.on) : light.on;
     const wantsLevel =
       "level" in patchInput ? Number(patchInput.level) : light.level;
-    const fade = fadeMs ?? 0;
+    /**
+     * Paced, like every other light fade.
+     *
+     * Levels and on/off ramps do not go through `resolveFade` — they have
+     * their own path because a light coming on has no numeric `from` to
+     * measure a distance against — so pacing them there missed them
+     * entirely. Measured after that first attempt: Premium / Luxury still
+     * took 3.0 s against the 0.98 s the report claimed, because the report
+     * was reading the authored number through the pace and the engine was
+     * not. This is the line that makes the two agree.
+     */
+    const fade = paceFade(fadeMs ?? 0);
 
     if (!light.on && wantsOn) {
       next.on = true;
@@ -1058,7 +1074,7 @@ function patchDurationMs(
       // A light switching on or off ramps over the requested fade even though
       // `on` itself is a boolean.
       if (device.kind === "light" && prop === "on" && from !== value) {
-        longest = Math.max(longest, fadeMs ?? 0);
+        longest = Math.max(longest, paceFade(fadeMs ?? 0));
       }
       continue;
     }
@@ -1168,7 +1184,7 @@ export function sceneDurationMs(
     // A stage that changes nothing is not waited for — see `patchIsNoop`. The
     // hold belongs to the stage before it, so it is that one's emptiness that
     // decides whether this pause happens at all.
-    offset += previousWasNoop ? 0 : (step.holdMs ?? 900);
+    offset += previousWasNoop ? 0 : paceHold(step.holdMs ?? 900);
     const s = stage(step.targets);
     total = Math.max(total, offset + s.longest);
     previousWasNoop = s.noop;
