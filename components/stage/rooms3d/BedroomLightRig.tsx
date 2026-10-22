@@ -29,6 +29,8 @@ import { COVE_Y, ROOM, emissive, shade } from "./materials";
 import { useEmissiveMaterial, useShadeMaterial } from "./lightMaterials";
 import { FIXTURES, HEADBOARD, PLAN, WINDOW } from "./MasterBedroom";
 import { Spot } from "./Spot";
+import { useQuality } from "../Stage3D";
+import type { Quality } from "@/lib/device";
 
 /* Tuning — the numbers that decide whether this reads as a render. ---- */
 
@@ -127,7 +129,27 @@ function apertureBrightness(state: LightState): number {
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * How many lights each tier may switch on.
+ *
+ * The bedroom's headline cost was never the lights — it was two transmissive
+ * materials, the sheer curtains and the wardrobe glass, which between them
+ * made three.js render the whole scene twice more and took 113 ms out of a
+ * 201 ms frame. With those on plain alpha the room runs at 32 fps on the low
+ * tier instead of 8, and what is left is ordinary light count.
+ *
+ * The cove already lights every other segment; on the low tier it lights
+ * every fourth. The downlights halve. The lamps, the reading lights and the
+ * path light all stay, because those *are* the demo — the whole room is sold
+ * on bedside control and a path light you can walk to the bathroom by.
+ */
+const BUDGET: Record<Quality, { cove: number; downlights: number }> = {
+  high: { cove: 2, downlights: 1 },
+  low: { cove: 4, downlights: 2 },
+};
+
 function CoveLight({ state, gain }: { state: LightState; gain: number }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const glow = apertureBrightness(state);
@@ -153,7 +175,7 @@ function CoveLight({ state, gain }: { state: LightState; gain: number }) {
               only. Measured, the ceiling wash is indistinguishable; the room
               is a third cheaper per pixel. The strips all stay, because what
               you see of a cove is the strip. */}
-          {MOUNTED && i % 2 === 0 && (
+          {MOUNTED && i % budget.cove === 0 && (
             <rectAreaLight
               position={s.pos as [number, number, number]}
               rotation={s.rot as [number, number, number]}
@@ -180,6 +202,7 @@ function CoveLight({ state, gain }: { state: LightState; gain: number }) {
 
 /** General lighting: the recessed heads. */
 function Downlights({ state, gain }: { state: LightState; gain: number }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const glow = apertureBrightness(state);

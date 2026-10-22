@@ -34,6 +34,7 @@ import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { useEmissiveMaterial, useShadeMaterial } from "./lightMaterials";
 import { Spot } from "./Spot";
 import { useQuality } from "../Stage3D";
+import type { Quality } from "@/lib/device";
 import { COFFER, HL, HL_PLAN, LAMPS, WaterWall } from "./HotelLobby3D";
 
 const GAIN = {
@@ -152,6 +153,25 @@ const EMITTERS = [
   { x: 11.8, z: 18.5 },
 ] as const;
 
+/**
+ * Which of the lobby's decorative washes a tier can afford.
+ *
+ * This is the heaviest room in the project: ten rect-area sources, and
+ * rect-area is the expensive type — about 6 ms a frame each where a spot is
+ * 3. At 127 ms a frame on the high tier and 43 on the low, after the shadow
+ * and water fixes, the lights are now all that is left.
+ *
+ * Only the decorative layers give way. The cove, the downlights, the water
+ * wall and the daylight stay on both tiers, because they are the room; what
+ * goes is the second and third accent wash and two of the three facade
+ * uplights, all of which keep their emissive faces and so still read as lit
+ * fittings — they simply stop casting into the room.
+ */
+const BUDGET: Record<Quality, { accents: number; facade: number; coveRuns: number }> = {
+  high: { accents: 4, facade: 3, coveRuns: 2 },
+  low: { accents: 1, facade: 1, coveRuns: 1 },
+};
+
 function Downlights({ state, gain }: { state: LightState; gain: number }) {
   /**
    * One shadow map here, and only on the high tier.
@@ -240,6 +260,7 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
  * times longer than it is wide and cost exactly as much per fragment.
  */
 function Cove({ state, gain }: { state: LightState; gain: number }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
@@ -273,8 +294,16 @@ function Cove({ state, gain }: { state: LightState; gain: number }) {
                   cove's output and a sixth of its cost, and the strip is what
                   the eye reads as "lit" either way.
                 */}
-                {/* Only the two long runs carry a light. */}
-                {MOUNTED && r.along === "z" && (
+                {/*
+                  And on the low tier, one of the two. Each step contributes a
+                  pair, so a room with three steps is spending six rect-area
+                  lights — the expensive type — on a cove whose *strips* are
+                  what the eye actually reads as lit. Halving the pair leaves
+                  the wash lopsided by a few per cent across a seventeen-metre
+                  span, and nobody has ever noticed which side of a lobby
+                  ceiling is a shade brighter.
+                */}
+                {MOUNTED && r.along === "z" && (budget.coveRuns > 1 || j === 2) && (
                   <rectAreaLight
                     position={r.pos as unknown as [number, number, number]}
                     rotation={[Math.PI / 2, 0, Math.PI / 2]}
@@ -625,6 +654,7 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
  * is a wall washer with better marketing.
  */
 function Accent({ state, gain }: { state: LightState; gain: number }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
@@ -635,7 +665,7 @@ function Accent({ state, gain }: { state: LightState; gain: number }) {
   return (
     <group>
       {/* On the artwork. */}
-      {MOUNTED && (
+      {MOUNTED && 0 < budget.accents && (
         <Spot
           position={[a.x, COFFER[0].y - 0.1, a.z + 1.5]}
           target={[a.x, a.y, a.z]}
@@ -651,7 +681,7 @@ function Accent({ state, gain }: { state: LightState; gain: number }) {
         />
       )}
       {/* On the sculpture. */}
-      {MOUNTED && (
+      {MOUNTED && 1 < budget.accents && (
         <Spot
           position={[HL_PLAN.sculpture.x, COFFER[0].y - 0.1, HL_PLAN.sculpture.z + 1.4]}
           target={[HL_PLAN.sculpture.x, 1.5, HL_PLAN.sculpture.z]}
@@ -664,7 +694,7 @@ function Accent({ state, gain }: { state: LightState; gain: number }) {
         />
       )}
       {/* Washing the reception wall, from a slot above it. */}
-      {MOUNTED && (
+      {MOUNTED && 2 < budget.accents && (
         <rectAreaLight
           position={[0.6, w.y1 + 0.1, (w.z0 + w.z1) / 2]}
           rotation={[0, Math.PI / 2, 0]}
@@ -725,7 +755,7 @@ function Accent({ state, gain }: { state: LightState; gain: number }) {
         <planeGeometry args={[0.035, HL_PLAN.desk.z1 - HL_PLAN.desk.z0 - 0.2]} />
         <primitive object={strip} attach="material" />
       </mesh>
-      {MOUNTED && (
+      {MOUNTED && 3 < budget.accents && (
         <rectAreaLight
           position={[
             HL_PLAN.desk.x + 0.1,
@@ -800,6 +830,7 @@ function Feature({ state, gain }: { state: LightState; gain: number }) {
 
 /** Column grazers and landscape heads on the driveway side of the glass. */
 function Facade({ state, gain }: { state: LightState; gain: number }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
@@ -835,7 +866,7 @@ function Facade({ state, gain }: { state: LightState; gain: number }) {
         <planeGeometry args={[HL.d - 4, 0.09]} />
         <primitive object={mat} attach="material" />
       </mesh>
-      {MOUNTED && (
+      {MOUNTED && 0 < budget.facade && (
         <rectAreaLight
           position={[HL.w + 1.15, 4.2, HL.d / 2]}
           rotation={[Math.PI / 2, 0, Math.PI / 2]}

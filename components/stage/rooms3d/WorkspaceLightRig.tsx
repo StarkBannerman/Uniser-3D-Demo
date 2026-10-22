@@ -41,6 +41,8 @@ import { cctToRgb, lightOutput, rgbToCss } from "@/lib/sim/photometry";
 import { emissive } from "./materials";
 import { Spot } from "./Spot";
 import { WS, WS_COVE_Y, WS_PLAN, WS_WINDOW } from "./Workspace3D";
+import { useQuality } from "../Stage3D";
+import type { Quality } from "@/lib/device";
 
 RectAreaLightUniformsLib.init();
 
@@ -152,7 +154,34 @@ const MOUNTED = true;
  * this plate is sixteen metres across and the far corners are genuinely out of
  * reach of the side runs.
  */
+/**
+ * How many lights each tier may switch on.
+ *
+ * This floor already had one light sweep — the general downlights went from
+ * forty-five to nine, which is why the comment below talks about three frames
+ * a second. It is still the heaviest room in the project after the lobby:
+ * twelve rect-area sources and seventeen spots, measured at 8.4 fps on the
+ * *low* tier, which is the tier a laptop with integrated graphics gets.
+ *
+ * Rect-area is the expensive type — about twice a spot each — so the cove and
+ * the linears give up the most. Every strip, lens and pendant keeps its
+ * emissive face at both tiers, so the ceiling looks the same; what thins out
+ * is how many of them light the room.
+ */
+const BUDGET: Record<Quality, {
+  cove: number;
+  linear: boolean;
+  general: number;
+  meeting: number;
+  task: number;
+  pendants: number;
+}> = {
+  high: { cove: 4, linear: true, general: 9, meeting: 2, task: 4, pendants: 3 },
+  low: { cove: 2, linear: false, general: 4, meeting: 1, task: 2, pendants: 1 },
+};
+
 function Cove({ state }: { state: LightState }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const face = useFace(colour, GAIN.coveEmissive * aperture(state));
@@ -167,7 +196,7 @@ function Cove({ state }: { state: LightState }) {
 
   return (
     <group>
-      {runs.map((r, i) => (
+      {runs.slice(0, budget.cove).map((r, i) => (
         <group key={i}>
           {/* The visible strip. */}
           <mesh position={r.pos} rotation={[0, r.along === "x" ? 0 : Math.PI / 2, 0]}>
@@ -203,6 +232,7 @@ function Cove({ state }: { state: LightState }) {
 /* ------------------------------------------------------------------ */
 
 function Linear({ state }: { state: LightState }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const face = useFace(colour, GAIN.linearEmissive * aperture(state));
@@ -261,7 +291,7 @@ function Linear({ state }: { state: LightState }) {
                 is the most expensive thing in any of these rooms; two of these
                 at 1.3x put the same light on the ceiling as four at 0.62, for
                 half the shader cost. */}
-            {MOUNTED && i % 2 === 0 && (
+            {MOUNTED && budget.linear && i % 2 === 0 && (
               <rectAreaLight
                 position={[r.x, r.y + 0.09, cz]}
                 rotation={[Math.PI / 2, 0, 0]}
@@ -353,6 +383,7 @@ function Downlights({
  * fitting would just be a dimmer version of the general layer.
  */
 function Task({ state }: { state: LightState }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const face = useFace(colour, GAIN.taskEmissive * aperture(state));
@@ -376,13 +407,13 @@ function Task({ state }: { state: LightState }) {
 
   return (
     <group>
-      {places.map((p) => (
+      {places.map((p, pi) => (
         <group key={p.key}>
           <mesh position={[p.x, b.h + 0.44, p.z]} rotation={[Math.PI / 2, 0, 0]}>
             <planeGeometry args={[0.26, 0.03]} />
             <primitive object={face} attach="material" />
           </mesh>
-          {MOUNTED && p.lit && (
+          {MOUNTED && p.lit && pi < budget.task && (
             <Spot
               position={[p.x, b.h + 0.42, p.z]}
               target={[p.x, b.h, p.z]}
@@ -405,6 +436,7 @@ function Task({ state }: { state: LightState }) {
 /* ------------------------------------------------------------------ */
 
 function Break({ state }: { state: LightState }) {
+  const budget = BUDGET[useQuality()];
   const colour = colourOf(state);
   const out = output(state);
   const face = useFace(colour, GAIN.breakEmissive * aperture(state));
@@ -540,6 +572,7 @@ export function WorkspaceLightRig({
   transmission: number;
   displayOn: boolean;
 }) {
+  const quality = useQuality();
   const p = WS_PLAN;
 
   const generalHeads = p.generalX.flatMap((x) => p.generalZ.map((z) => ({ x, z })));
@@ -583,7 +616,7 @@ export function WorkspaceLightRig({
       <Downlights
         state={fixtures.general}
         heads={generalHeads}
-        lit={generalLit}
+        lit={generalLit.slice(0, BUDGET[quality].general)}
         gain={GAIN.general}
         emissiveGain={GAIN.generalEmissive}
         angle={1.15}
@@ -593,7 +626,7 @@ export function WorkspaceLightRig({
       <Downlights
         state={fixtures.meeting}
         heads={meetingHeads}
-        lit={meetingLit}
+        lit={meetingLit.slice(0, BUDGET[quality].meeting)}
         gain={GAIN.meeting}
         emissiveGain={GAIN.meetingEmissive}
         angle={0.72}

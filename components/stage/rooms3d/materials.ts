@@ -285,17 +285,27 @@ export const materials = {
    *
    * The point of the whole assembly: with the interior strips off it is a dark
    * reflective slab, and with them on the shelves read through the tint. That
-   * before/after is the wardrobe-lighting demo in one press, so the glass has
-   * to transmit rather than merely be semi-transparent.
+   * before/after is the wardrobe-lighting demo in one press.
+   *
+   * It used to say so with `transmission: 0.8`, and plain alpha says the same
+   * thing for nothing. Transmission's advantage over alpha is refraction and a
+   * roughness-driven blur of what is behind — at roughness 0.1 over a 10 mm
+   * pane, neither is visible. What it costs is a second render of the entire
+   * scene into a transmission buffer, every frame, for one sheet of glass.
+   *
+   * Alpha still shows the shelves when the strips come on and still reads as a
+   * dark slab when they go off, which is the whole of what the demo needs.
+   * The clearcoat keeps the sheen that made it look like glass rather than
+   * tinted film.
    */
   wardrobeGlass: new THREE.MeshPhysicalMaterial({
     color: "#3b3630",
     roughness: 0.1,
     metalness: 0,
     transparent: true,
-    opacity: 0.34,
-    transmission: 0.8,
-    thickness: 0.01,
+    opacity: 0.42,
+    clearcoat: 1,
+    clearcoatRoughness: 0.06,
     ior: 1.5,
     side: THREE.DoubleSide,
   }),
@@ -372,20 +382,31 @@ export const materials = {
     side: THREE.DoubleSide,
   }),
   /**
-   * Sheer voile. Transmission rather than plain opacity, so city light behind it
-   * actually diffuses through the fabric instead of the fabric just being
-   * see-through.
+   * Sheer voile, on plain alpha — deliberately not `transmission`.
+   *
+   * It used to carry `transmission: 0.38`, so that city light behind it
+   * diffused through the fabric rather than the fabric simply being
+   * see-through. It looked better and it cost more than everything else in
+   * the room put together: a transmissive material makes three.js render the
+   * whole scene a second time into a transmission buffer, and these two
+   * curtain planes were **113 ms of a 201 ms frame** — 56 per cent, for two
+   * meshes. The bedroom ran at 5 fps on a machine that runs the car showroom
+   * at 16, and the cause was a fabric.
+   *
+   * The boardroom reached the same conclusion and wrote it down; this room
+   * predates that note. Alpha at 0.74 with a little sheen puts the skyline
+   * behind a fabric rather than behind glass, which is what the transmission
+   * was there to say.
    */
   curtainSheer: new THREE.MeshPhysicalMaterial({
     color: PALETTE.curtainSheer,
-    roughness: 0.55,
+    roughness: 0.62,
     metalness: 0,
     transparent: true,
-    // Enough to soften the skyline into a glow. At 0.42 the city read through
-    // it almost pin-sharp, which made a closed sheer look like an open window.
-    opacity: 0.66,
-    transmission: 0.38,
-    thickness: 0.02,
+    opacity: 0.74,
+    sheen: 0.5,
+    sheenRoughness: 0.8,
+    sheenColor: new THREE.Color("#ffffff"),
     side: THREE.DoubleSide,
   }),
   glass: new THREE.MeshPhysicalMaterial({
