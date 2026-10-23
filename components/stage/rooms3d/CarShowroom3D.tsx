@@ -158,10 +158,10 @@ export const SH_PLAN = {
  * shell actually is, not the one the brief described.
  */
 export const SH_CARS = [
-  { id: "coupe", kind: "coupe", x: 4.6, z: 9.2, rot: 1.432, colour: "#969ba3", hero: false },
-  { id: "sedan", kind: "saloon", x: 4.2, z: 4.6, rot: 1.571, colour: "#1b1d21", hero: false },
-  { id: "suv", kind: "suv", x: 6.5, z: 6.0, rot: 1.466, colour: "#28382d", hero: true },
-  { id: "sport", kind: "coupe", x: 10.0, z: 1.6, rot: 0.973, colour: "#8e1c13", hero: false },
+  { id: "coupe", kind: "coupe", x: 4.4, z: 10.8, rot: 1.41, colour: "#969ba3", hero: false },
+  { id: "sedan", kind: "saloon", x: 2.2, z: 5.4, rot: 1.571, colour: "#1b1d21", hero: false },
+  { id: "suv", kind: "suv", x: 6.5, z: 6.0, rot: 1.59, colour: "#28382d", hero: true },
+  { id: "sport", kind: "coupe", x: 10.2, z: 2.4, rot: 0.957, colour: "#8e1c13", hero: false },
   { id: "white", kind: "suv", x: 16.0, z: 1.3, rot: 1.16, colour: "#c9ccce", hero: false },
   { id: "black", kind: "saloon", x: 18.6, z: 1.8, rot: 1.431, colour: "#141619", hero: false },
 ] as const;

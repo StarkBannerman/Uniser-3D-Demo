@@ -232,12 +232,12 @@ const DOWN_EMITTERS: readonly {
    * hard source to return - the diagnosis panel's point was that paint
    * without a hotspot reads as clay whatever its material says.
    */
-  { x: 4.5, z: 12.5, tx: 4.6, ty: 0.9, tz: 9.2 },
+  { x: 4.5, z: 12.5, tx: 4.4, ty: 0.9, tz: 10.8 },
   { x: 8.0, z: 13.8 },
   { x: 6.0, z: 8.0, tx: 6.5, ty: 1.1, tz: 6.0 },
   { x: 11.5, z: 11.0 },
   { x: 14.0, z: 13.5 },
-  { x: 13.5, z: 8.0, tx: 10.0, ty: 0.9, tz: 1.6 },
+  { x: 13.5, z: 8.0, tx: 10.2, ty: 0.9, tz: 2.4 },
 ] as const;
 
 function Downlights({ state, gain }: { state: LightState; gain: number }) {
