@@ -24,6 +24,7 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import { WebGLPathTracer } from "three-gpu-pathtracer";
+import { LockHorizontalFov } from "@/components/stage/Stage3D";
 import { useSim } from "@/lib/sim/store";
 import { useTicker } from "@/lib/sim/useTicker";
 import { carShowroom } from "@/lib/spaces/hospitality/car-showroom";
@@ -242,6 +243,17 @@ function Bake() {
         <Environment preset="night" background={false} />
       </Suspense>
       {roomKey === "lobby" ? <LobbyScene /> : <ShowroomScene state={state} />}
+      {/*
+        The live stage reads `CameraSpec.fov` as the vertical field *at 16:9*
+        and re-solves it for the real aspect, so the sides never crop. Setting
+        it raw on the Canvas above is therefore not the same camera: at
+        1264x843 the stage solves to ~56.8 vertical where the raw value is 49,
+        and the trace came back a fifth more zoomed in with the chandelier
+        cropped off the top. It read as a missing fixture rather than a
+        tighter lens, which is the kind of mismatch that makes a bake
+        comparison quietly worthless.
+      */}
+      <LockHorizontalFov fovAt16x9={room.camera.fov} />
       {loaded && <Tracer samples={samples} onProgress={setDone} />}
     </Canvas>
     </>

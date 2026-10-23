@@ -717,7 +717,7 @@ function ProceduralEnvironment() {
  */
 const REFERENCE_ASPECT = 16 / 9;
 
-function LockHorizontalFov({ fovAt16x9 }: { fovAt16x9: number }) {
+export function LockHorizontalFov({ fovAt16x9 }: { fovAt16x9: number }) {
   const camera = useThree((s) => s.camera);
   const size = useThree((s) => s.size);
 
