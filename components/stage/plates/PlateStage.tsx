@@ -4,22 +4,26 @@
  * The plates stage.
  *
  * Fills whatever box it is given and owns one canvas. Everything live about
- * the room arrives through `useSim.subscribe` and leaves as twelve uniforms —
- * there is deliberately no React state in the hot path, because a store that
- * ticks at sixty hertz through a component tree is the one way to make a
- * renderer this cheap expensive again.
+ * the room arrives through `useSim.subscribe` and leaves as one uniform per
+ * layer — there is deliberately no React state in the hot path, because a
+ * store ticking at sixty hertz through a component tree is the one way to
+ * make a renderer this cheap expensive again.
  *
- * Three things are worth knowing before changing anything here:
+ * Four things are worth knowing before changing anything here:
  *
- *  1. **It draws on change, not on a clock.** A fade redraws every frame; an
- *     idle room redraws never. That is most of the battery argument for
- *     putting this room on a tablet at all.
- *  2. **It is interactive before it is complete.** The circuits the opening
- *     scene actually uses load first, and the still covers the gap. A plate
- *     that has not landed composites as black, which is exactly what a
- *     switched-off circuit looks like, so there is no wrong intermediate
- *     state to see.
- *  3. **Without WebGL2 it shows the still and says so.** See `Fallback`.
+ *  1. **The layer list comes from the manifest.** Not from a constant in this
+ *     repo. The set is re-rendered more often than this code changes, and the
+ *     last reissue moved the camera, rebuilt the room and added `sky_day`.
+ *  2. **It draws on change, not on a clock.** A fade redraws every frame; an
+ *     idle room redraws never.
+ *  3. **Clock-driven layers are eased here; circuits are not.** The scene
+ *     engine already tweens levels and colour temperature over each scene's
+ *     `fadeMs`, so those arrive smooth. What it does *not* tween is the
+ *     clock: `applyScene` sets `clockMin` outright, so pressing Day used to
+ *     fade the lights over two seconds while the window cut from night to
+ *     morning in one frame. See `easeClockLayers`.
+ *  4. **It is interactive before it is complete.** The layers the opening
+ *     scene uses load first and the still covers the gap.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -27,11 +31,10 @@ import { useSim } from "@/lib/sim/store";
 import type { LightState } from "@/lib/sim/types";
 import { detectRenderPath } from "@/lib/device";
 import {
-  CIRCUIT_LAYERS,
-  DAY_LAYERS,
-  LAYERS,
-  SKY_LAYER,
+  DAY_ORDER,
   deviceIdOf,
+  layerRole,
+  layersOf,
   plateUrl,
   stillUrl,
   type HotspotFile,
@@ -39,23 +42,13 @@ import {
   type PlateTier,
 } from "./manifest";
 import { PlateRenderer, type ToneCurve } from "./PlateRenderer";
-import { computeWeights, emptyWeights } from "./weights";
-
-/**
- * Scene exposure, applied to the summed HDR before the tone curve.
- *
- * Re-settled at 1.4 when tints moved to luminance 1. That change roughly
- * doubles a warm tint — a 2700 K triple carries about half the luminance of
- * a neutral one, and dividing it out gives the light back — so the 2.5 that
- * was right before became about 40% too hot, which lifts the blacks and
- * squeezes Evening, Dinner, Fine Dining and Private Event into the same
- * picture. 1.4 puts settled Dinner back at 0.138 mean, where it was when the
- * grade was checked against the plate set's own still.
- *
- * `?exposure=` overrides it. It still wants re-settling against the client's
- * reference frame, which is not in the repo.
- */
-const EXPOSURE = 1.4;
+import { CLOCK_EASE_MS, EXPOSURE } from "./gains";
+import {
+  computeWeights,
+  dayness,
+  emptyWeights,
+  isClockDriven,
+} from "./weights";
 
 function param(name: string): string | null {
   if (typeof window === "undefined") return null;
@@ -63,61 +56,77 @@ function param(name: string): string | null {
 }
 
 /**
- * HD or SD, decided by how many pixels the box actually wants.
+ * HD or SD.
  *
- * Not by the device class. A phone and a laptop running the demo layout at a
- * third of the window can want the same number of pixels, and the plate that
- * matches the box is both sharper and cheaper than the plate that matches the
- * badge on the lid. The one override is a software rasteriser, which should
- * never be handed four times the fill.
+ * Narrow viewports take SD because the plate that matches the box is both
+ * sharper and cheaper than the plate that matches the badge on the lid, and
+ * a dense-pixel touch device takes it because four times the fill on a
+ * phone GPU buys nothing a phone screen can show. A software rasteriser
+ * takes it unconditionally.
  */
-function pickTier(cssWidth: number, sdWidth: number): PlateTier {
+function pickTier(): PlateTier {
   const forced = param("tier");
   if (forced === "hd" || forced === "sd") return forced;
   if (detectRenderPath() === "software") return "sd";
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  return cssWidth * dpr > sdWidth ? "hd" : "sd";
+  if (window.innerWidth < 1200) return "sd";
+  const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+  if (coarse && (window.devicePixelRatio || 1) > 2) return "sd";
+  return "hd";
 }
-
-/**
- * Keep a marker off the frame edge, where half the button would be clipped.
- *
- * `rs-rgb` projects to u = 0.972 because the piers it washes are at the very
- * right of shot, and an unclamped marker there loses half its target area to
- * the rounded corner of the stage.
- */
-const clampEdge = (v: number) => Math.min(Math.max(v, 0.03), 0.97);
 
 function toneCurve(): ToneCurve {
   return param("tone") === "aces" ? "aces" : "agx";
 }
 
+/** Keep a marker off the frame edge, where half the button would be clipped. */
+const clampEdge = (v: number) => Math.min(Math.max(v, 0.03), 0.97);
+
+/** Cubic ease-in-out. */
+const easeInOut = (p: number) =>
+  p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+
 /**
- * Which plates the room needs before it can be shown.
+ * Which layers the opening frame actually needs.
  *
- * The circuits the current state actually has switched on, plus the sky, plus
- * the day layers if the sun is up. Everything else can arrive afterwards: a
- * circuit at zero contributes nothing, so its plate landing late changes
- * nothing on screen.
+ * The circuits that are switched on, whichever of the two views the clock is
+ * showing, and the sun angles that are contributing. Everything else can land
+ * afterwards: a layer at weight zero changes nothing on screen, so a late
+ * arrival is invisible rather than wrong.
  */
-function loadOrder(states: Record<string, unknown>, daylit: boolean): string[] {
-  const active: string[] = [];
+function loadOrder(
+  layers: string[],
+  states: Record<string, unknown>,
+  clockMin: number,
+): { needed: string[]; rest: string[] } {
+  const lit = dayness(clockMin);
+  const needed: string[] = [];
   const rest: string[] = [];
-  for (const layer of CIRCUIT_LAYERS) {
-    const s = states[deviceIdOf(layer)] as LightState | undefined;
-    (s?.on && s.level > 0 ? active : rest).push(layer);
+  for (const layer of layers) {
+    let wanted: boolean;
+    switch (layerRole(layer)) {
+      case "circuit": {
+        const s = states[deviceIdOf(layer)] as LightState | undefined;
+        wanted = Boolean(s?.on && s.level > 0);
+        break;
+      }
+      case "sky":
+        wanted = lit < 1;
+        break;
+      case "skyDay":
+        wanted = lit > 0;
+        break;
+      default:
+        wanted = lit > 0 && DAY_ORDER.includes(layer);
+    }
+    (wanted ? needed : rest).push(layer);
   }
-  const day = daylit ? DAY_LAYERS : [];
-  return [...active, SKY_LAYER, ...day, ...rest, ...(daylit ? [] : DAY_LAYERS)];
+  return { needed, rest };
 }
 
 async function loadImage(url: string): Promise<ImageBitmap | HTMLImageElement> {
-  /**
-   * `createImageBitmap` off the main thread where it exists, which is
-   * everywhere that matters — twelve 1920x1080 WebP decodes on the main
-   * thread is about a second of jank landing exactly while the client is
-   * first looking at the room.
-   */
+  // `createImageBitmap` keeps the decode off the main thread; a dozen
+  // 1920x1080 WebP decodes inline is about a second of jank landing exactly
+  // while the client is first looking at the room.
   const res = await fetch(url);
   if (!res.ok) throw new Error(`plates: ${url} — ${res.status}`);
   const blob = await res.blob();
@@ -167,7 +176,7 @@ export function PlateStage({
         ]);
         if (cancelled) return;
         manifest = m;
-        chosen = pickTier(container.clientWidth || manifest.width, m.sd[0]);
+        chosen = pickTier();
         setTier(chosen);
         setHotspots(h);
       } catch (e) {
@@ -175,6 +184,7 @@ export function PlateStage({
         return;
       }
 
+      const layers = layersOf(manifest);
       const plateW = chosen === "hd" ? manifest.width : manifest.sd[0];
       const plateH = chosen === "hd" ? manifest.height : manifest.sd[1];
 
@@ -182,7 +192,7 @@ export function PlateStage({
         renderer = new PlateRenderer(
           canvas,
           manifest.gamma,
-          LAYERS.map((l) => manifest.layers[l]?.scale ?? 0),
+          layers.map((l) => manifest.layers[l].scale),
           toneCurve(),
         );
       } catch (e) {
@@ -191,34 +201,88 @@ export function PlateStage({
       }
 
       const exposure = Number(param("exposure")) || EXPOSURE;
-      const weights = emptyWeights();
+      const clockIdx = layers.map((l) => isClockDriven(l));
+
+      /** Where the store says each layer should be. */
+      const target = emptyWeights(layers.length);
+      /** What is actually on screen, which lags `target` for clock layers. */
+      const shown = emptyWeights(layers.length);
+      /** The tween's start value, for the clock layers only. */
+      const from = emptyWeights(layers.length);
+      let tweenStart = 0;
+      let tweening = false;
       let dirty = true;
+
+      /**
+       * Walk the eased layers toward their target.
+       *
+       * Only the clock-driven ones: circuit levels and colour temperatures
+       * are already being tweened by the scene engine over each scene's own
+       * `fadeMs`, and easing them a second time here would both slow the
+       * Dinner sequence past its three-second budget and make two different
+       * parts of the app disagree about how long a fade is.
+       *
+       * Returns true while there is still movement left to draw.
+       */
+      const easeClockLayers = (now: number): boolean => {
+        if (!tweening) return false;
+        const p = Math.min(1, (now - tweenStart) / CLOCK_EASE_MS);
+        const e = easeInOut(p);
+        for (let i = 0; i < layers.length; i++) {
+          if (!clockIdx[i]) continue;
+          for (let c = 0; c < 3; c++) {
+            const o = i * 3 + c;
+            shown[o] = from[o] + (target[o] - from[o]) * e;
+          }
+        }
+        if (p >= 1) tweening = false;
+        return tweening;
+      };
 
       const schedule = () => {
         if (frame) return;
-        frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame((now) => {
           frame = 0;
-          if (!renderer || !dirty) return;
-          dirty = false;
-          renderer.draw(weights, exposure);
+          if (!renderer) return;
+          const moving = easeClockLayers(now);
+          if (dirty || moving) {
+            dirty = false;
+            renderer.draw(shown, exposure);
+          }
+          if (moving) schedule();
         });
       };
 
       const refresh = () => {
         const { space, states, clockMin } = useSim.getState();
         if (!space) return;
-        if (computeWeights(weights, space, states, clockMin)) {
-          dirty = true;
-          schedule();
+        if (!computeWeights(target, layers, space, states, clockMin)) return;
+
+        // Circuits pass straight through; the clock layers start a tween from
+        // wherever they currently are, so a scene that moves the clock slides
+        // the window instead of cutting it.
+        let clockMoved = false;
+        for (let i = 0; i < layers.length; i++) {
+          for (let c = 0; c < 3; c++) {
+            const o = i * 3 + c;
+            if (!clockIdx[i]) shown[o] = target[o];
+            else if (Math.abs(shown[o] - target[o]) > 1e-4) clockMoved = true;
+          }
         }
+        if (clockMoved) {
+          from.set(shown);
+          tweenStart = performance.now();
+          tweening = true;
+        }
+        dirty = true;
+        schedule();
       };
 
       /**
        * Size the drawing buffer to the box, capped at the plate.
        *
-       * Rendering more pixels than the plate has cannot add detail — it only
-       * magnifies the same texels through a bigger framebuffer — so the cap is
-       * free quality-neutral savings on a retina desktop.
+       * Rendering more pixels than the plate has cannot add detail, it only
+       * magnifies the same texels through a bigger framebuffer.
        */
       const resize = () => {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -233,23 +297,21 @@ export function PlateStage({
       observer = new ResizeObserver(resize);
       observer.observe(container);
 
-      const { states, space, clockMin } = useSim.getState();
-      const daylit = space
-        ? clockMin > space.environment.sunriseMin && clockMin < space.environment.sunsetMin
-        : false;
-      const order = loadOrder(states, daylit);
-      // Everything up to and including the last day layer is what the opening
-      // frame actually needs; the rest can land whenever.
-      const cut = order.indexOf(SKY_LAYER) + 1 + (daylit ? DAY_LAYERS.length : 0);
+      const { states, clockMin } = useSim.getState();
+      const { needed, rest } = loadOrder(layers, states, clockMin);
 
       refresh();
+      // The first frame has nothing to slide from, so land it rather than
+      // tween it up from black.
+      shown.set(target);
+      tweening = false;
       unsubscribe = useSim.subscribe(refresh);
 
       const fetchLayer = async (layer: string) => {
         try {
           const image = await loadImage(plateUrl(dir, chosen, layer));
           if (cancelled || !renderer) return;
-          renderer.setLayer(LAYERS.indexOf(layer as (typeof LAYERS)[number]), image);
+          renderer.setLayer(layers.indexOf(layer), image);
           if ("close" in image) image.close();
           dirty = true;
           schedule();
@@ -259,19 +321,13 @@ export function PlateStage({
         }
       };
 
-      /**
-       * Two waves, each in parallel, rather than twelve fetches in a row.
-       *
-       * The circuits the opening frame actually uses go first. Within a wave
-       * they go together, because over HTTP/2 the expensive part of a small
-       * file is the round trip and not the pipe — awaiting them one at a time
-       * turns a single 300 ms penalty into twelve, which is the difference
-       * between the brief’s three seconds to interactive on 4G and about ten.
-       */
-      await Promise.all(order.slice(0, cut).map(fetchLayer));
+      // Two waves, each in parallel. Over HTTP/2 the expensive part of a
+      // small file is the round trip, so awaiting thirteen in a row turns one
+      // 300 ms penalty into thirteen.
+      await Promise.all(needed.map(fetchLayer));
       if (cancelled) return;
       setReady(true);
-      await Promise.all(order.slice(cut).map(fetchLayer));
+      await Promise.all(rest.map(fetchLayer));
     })();
 
     return () => {
@@ -288,11 +344,10 @@ export function PlateStage({
   /**
    * Shown on hover, or whenever the Controls tab is open.
    *
-   * At rest the room is a photograph and markers on it read as dirt — which
-   * is how the first version of this landed. Hover covers a presenter
-   * reaching for a fixture with a mouse; the Controls tab covers touch, where
-   * there is no hover and where someone looking at a list of eight circuit
-   * names genuinely wants to know which part of the room each one is.
+   * At rest the room is a photograph and markers on it read as dirt. Hover
+   * covers a presenter reaching for a fixture with a mouse; the Controls tab
+   * covers touch, where there is no hover and where someone looking at a list
+   * of circuit names wants to know which part of the room each one is.
    */
   const showHotspots = controlsOpen || hovered;
 
@@ -309,13 +364,7 @@ export function PlateStage({
         style={{ opacity: ready && !failed ? 1 : 0, transition: "opacity 400ms ease-out" }}
       />
 
-      {/*
-        The still, which is a tone-mapped composite of the room at a plausible
-        middle setting rather than of the opening scene exactly. It is covering
-        about a second of streaming, under a cross-fade, and the cross-fade is
-        what makes the difference between the two invisible — matching it to
-        the opening scene would be chasing a frame nobody sees settle.
-      */}
+      {/* The still, holding the frame until the scene's own layers land. */}
       {tier && (
         <img
           src={stillUrl(dir, tier)}
@@ -333,8 +382,8 @@ export function PlateStage({
           className="absolute inset-0 transition-opacity duration-200"
           style={{
             opacity: showHotspots ? 1 : 0,
-            // Set on the wrapper rather than per button, so a hidden marker
-            // is not a target you can hit by accident.
+            // On the wrapper rather than per button, so a hidden marker is
+            // not a target you can hit by accident.
             pointerEvents: showHotspots ? "auto" : "none",
           }}
         >
@@ -372,17 +421,14 @@ export function PlateStage({
  * No WebGL2, so the room is a photograph.
  *
  * The brief's fallback was a 2D-canvas composite with `lighter` and
- * `multiply`, and that was the right answer for the RGBM/AVIF plates it was
- * written against. It does not survive the encoding that actually shipped:
- * these plates carry a gamma-5 curve that has to be undone per channel before
- * the layers can be summed, and `globalCompositeOperation` has no exponent.
- * Doing it in `ImageData` is twelve layers of 518 400 pixels per redraw —
- * about six million `pow` calls — which is some hundreds of milliseconds a
- * frame and therefore not a fallback, just a slower way to fail.
+ * `multiply`, and it does not survive this encoding: the plates carry a
+ * gamma-5 curve that has to be undone per channel before the layers can be
+ * summed, and `globalCompositeOperation` has no exponent. In `ImageData` that
+ * is thirteen layers of 518 400 pixels per redraw, some hundreds of
+ * milliseconds a frame, which is not a fallback but a slower way to fail.
  *
  * So the honest degradation is the still: the room, correct, not live. The
- * keypad, the app, the scenes, the energy figures and the rules all keep
- * working, which is most of what this demo is for.
+ * keypad, the app, the scenes, the energy figures and the rules keep working.
  */
 function Fallback({ reason }: { reason: string }) {
   useEffect(() => {

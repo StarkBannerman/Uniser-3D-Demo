@@ -14,8 +14,6 @@
  * the plates equivalent of `NoColorSpace`.
  */
 
-import { LAYERS } from "./manifest";
-
 export type ToneCurve = "agx" | "aces";
 
 const VERT = `#version 300 es
@@ -184,6 +182,7 @@ export class PlateRenderer {
   private n: number;
   private lost = false;
 
+  /** `scales` is one entry per layer, in the order the manifest lists them. */
   constructor(
     private canvas: HTMLCanvasElement,
     gamma: number,
@@ -202,7 +201,7 @@ export class PlateRenderer {
     });
     if (!gl) throw new Error("plates: no WebGL2 context");
     this.gl = gl;
-    this.n = LAYERS.length;
+    this.n = scales.length;
 
     const units = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) as number;
     if (units < this.n) {

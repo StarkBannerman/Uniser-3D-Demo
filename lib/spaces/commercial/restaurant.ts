@@ -470,10 +470,18 @@ export const restaurant: Space = {
         "rs-arch": { on: true, level: 75, cct: 2900, sat: 0 },
         "rs-feature": { on: true, level: 90, cct: 3000, sat: 0 },
         "rs-table": { on: true, level: 80, cct: 2200, sat: 0 },
-        // A wash rather than a colour: warm amber at low saturation reads as
-        // "dressed", where anything stronger reads as a nightclub and tells
-        // the guests they are at the wrong kind of party.
-        "rs-rgb": { on: true, level: 45, cct: 2600, hue: 32, sat: 38 },
+        /**
+         * Off, where it used to carry a low amber wash.
+         *
+         * The wash was the right instinct for a dressed room and the wrong
+         * circuit to do it with. `rs-rgb` is mounted low behind the planters
+         * and up the window piers, so in the plates it throws colour onto
+         * the ceiling, and at 38 saturation that read as a pink cast over a
+         * scene whose whole point is that it looks like an expensive private
+         * dinner. Party is now the only scene in the room with any colour in
+         * it, and the dressing comes from the cove and the pendants instead.
+         */
+        "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 21, mode: "cool", fan: 3 },
         "rs-music": { on: true, source: "Jazz Trio", volume: 38 },
       },
