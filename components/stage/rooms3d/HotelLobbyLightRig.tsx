@@ -375,10 +375,13 @@ function Architectural({ state, gain }: { state: LightState; gain: number }) {
             start and stop in different places depending on what was in front
             of them. Split at the wall, they read as a set.
           */}
-          {[
-            { z0: 0.4, z1: HL_PLAN.deskWall.z0 - 0.3 },
-            { z0: HL_PLAN.deskWall.z1 + 0.3, z1: HL.d - 0.4 },
-          ].map((r, k) => (
+          {/*
+            One run again, not two. The split existed because the reception
+            wall used to stand ON this wall and interrupt the groove; the
+            wall faces the camera now and the left wall is clear, so the
+            groove runs the length of it as a single line.
+          */}
+          {[{ z0: 0.4, z1: HL.d - 0.4 }].map((r, k) => (
             <mesh
               key={k}
               position={[0.075, y, (r.z0 + r.z1) / 2]}
@@ -454,7 +457,16 @@ export const GLOBES = Array.from({ length: 54 }, (_, i) => {
   // A spiral rather than a scatter: the cluster has to read as designed.
   const t = i / 53;
   const turn = i * 2.39996;
-  const radius = 0.35 + Math.sqrt(t) * 2.15 * (0.8 + a * 0.4);
+  /*
+   * About three metres across, solved from the landmark rather than from the
+   * brief's metre value. The cluster spans x 0.44-0.57 of a 78-degree frame,
+   * which is 13 per cent of the width; three metres only subtends that from
+   * about fourteen metres away, and fourteen metres is also what puts the
+   * lowest globe at the y 0.38 the same table asks for. The spiral used to
+   * reach 2.9 m of radius - a six-metre cluster five metres from the lens,
+   * which filled the upper half of every frame.
+   */
+  const radius = 0.25 + Math.sqrt(t) * 1.05 * (0.8 + a * 0.4);
   return {
     dx: Math.cos(turn) * radius,
     dz: Math.sin(turn) * radius,
@@ -467,7 +479,7 @@ export const GLOBES = Array.from({ length: 54 }, (_, i) => {
      * of grapes. The globe sizes vary by two to one for the same reason:
      * identical spheres at identical spacing read as a diagram.
      */
-    y: 5.46 - (1.0 - t) * 3.15 - b * 0.7,
+    y: 6.25 - (1.0 - t) * 2.95 - b * 0.55,
     r: 0.075 + c * 0.095,
   };
 });
@@ -696,9 +708,9 @@ function Accent({ state, gain }: { state: LightState; gain: number }) {
       {/* Washing the reception wall, from a slot above it. */}
       {MOUNTED && 2 < budget.accents && (
         <rectAreaLight
-          position={[0.6, w.y1 + 0.1, (w.z0 + w.z1) / 2]}
-          rotation={[0, Math.PI / 2, 0]}
-          width={w.z1 - w.z0}
+          position={[(w.x0 + w.x1) / 2, w.y1 + 0.1, w.z + 0.6]}
+          rotation={[0, 0, 0]}
+          width={w.x1 - w.x0}
           height={2.4}
           intensity={GAIN.accent * 0.5 * out * gain}
           color={colour}
@@ -724,12 +736,12 @@ function Accent({ state, gain }: { state: LightState; gain: number }) {
         the 8.6 m panel evenly and lands every slot on a flute line.
       */}
       {Array.from({ length: SLOTS }, (_, i) => {
-        const z = (w.z0 + w.z1) / 2 + (i - (SLOTS - 1) / 2) * SLOT_PITCH;
+        const sx = (w.x0 + w.x1) / 2 + (i - (SLOTS - 1) / 2) * SLOT_PITCH;
         return (
           <mesh
             key={`slot-${i}`}
-            position={[w.x + 0.33, (w.y0 + w.y1) / 2, z]}
-            rotation={[0, Math.PI / 2, 0]}
+            position={[sx, (w.y0 + w.y1) / 2, w.z + 0.2]}
+            rotation={[0, 0, 0]}
           >
             <planeGeometry args={[0.05, w.y1 - w.y0 - 0.44]} />
             <primitive object={strip} attach="material" />
@@ -746,24 +758,20 @@ function Accent({ state, gain }: { state: LightState; gain: number }) {
       */}
       <mesh
         position={[
-          HL_PLAN.desk.x + HL_PLAN.desk.d / 2 - 0.1,
+          HL_PLAN.desk.x,
           0.075,
-          (HL_PLAN.desk.z0 + HL_PLAN.desk.z1) / 2,
+          HL_PLAN.desk.z + HL_PLAN.desk.d / 2 - 0.1,
         ]}
         rotation={[Math.PI / 2, 0, 0]}
       >
-        <planeGeometry args={[0.035, HL_PLAN.desk.z1 - HL_PLAN.desk.z0 - 0.2]} />
+        <planeGeometry args={[HL_PLAN.desk.len - 0.2, 0.035]} />
         <primitive object={strip} attach="material" />
       </mesh>
       {MOUNTED && 3 < budget.accents && (
         <rectAreaLight
-          position={[
-            HL_PLAN.desk.x + 0.1,
-            0.06,
-            (HL_PLAN.desk.z0 + HL_PLAN.desk.z1) / 2,
-          ]}
-          rotation={[-Math.PI / 2, 0, Math.PI / 2]}
-          width={HL_PLAN.desk.z1 - HL_PLAN.desk.z0}
+          position={[HL_PLAN.desk.x, 0.06, HL_PLAN.desk.z + 0.1]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          width={HL_PLAN.desk.len}
           height={0.5}
           intensity={GAIN.accent * 0.22 * out * gain}
           color={colour}
@@ -772,10 +780,14 @@ function Accent({ state, gain }: { state: LightState; gain: number }) {
 
       {/* The lit top of the desk itself. */}
       <mesh
-        position={[HL_PLAN.desk.x + 0.44, HL_PLAN.desk.h + 0.012, (HL_PLAN.desk.z0 + HL_PLAN.desk.z1) / 2]}
+        position={[
+          HL_PLAN.desk.x,
+          HL_PLAN.desk.h + 0.012,
+          HL_PLAN.desk.z - 0.3,
+        ]}
         rotation={[Math.PI / 2, 0, 0]}
       >
-        <planeGeometry args={[0.06, HL_PLAN.desk.z1 - HL_PLAN.desk.z0 - 0.3]} />
+        <planeGeometry args={[HL_PLAN.desk.len - 0.3, 0.06]} />
         <primitive object={strip} attach="material" />
       </mesh>
     </group>

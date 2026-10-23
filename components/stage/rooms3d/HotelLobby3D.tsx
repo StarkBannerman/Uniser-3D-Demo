@@ -44,31 +44,45 @@ import { useContinuousMotion, useQuality } from "../Stage3D";
 /* ------------------------------------------------------------------ */
 
 /**
- * The shell.
+ * The shell, in the brief's metric frame.
  *
- * `x` runs from the panelled reception wall (0) to the façade (w); `z` runs
- * from the water feature (0) to the entrance behind the camera (d).
+ * The brief measures from the floor point under the camera: +X right, +Y up,
+ * -Z forward into the room, with X running -10 (left wall) to +6.5 (glass)
+ * and Z running +3 (behind the lens) to -27 (back wall). This file measures
+ * from a corner and the light rig reads these numbers in dozens of places, so
+ * the corner convention stays and the mapping is written down once, here:
+ *
+ *     our x = brief x + 10      our z = brief z + 27      our y = brief y
+ *
+ * So the camera stands at (10, 1.6, 27), the back wall is z = 0, the glass is
+ * x = 16.5, and the lobby is 16.5 wide by 30 deep by 7 tall. It was 17 x 24 x
+ * 7.2 - six metres deeper now, which is most of what the brief means by "do
+ * not make this room short".
  */
 export const HL = {
-  w: 17,
-  d: 24,
-  /** To the top of the coffer. The perimeter soffit is lower — see `COFFER`. */
-  h: 7.2,
+  w: 16.5,
+  d: 30,
+  /** To the top of the raised centre. The perimeter and the colonnade are
+   *  lower - see `COFFER`. */
+  h: 7.0,
 } as const;
 
 /**
- * The stepped ceiling, outside in.
+ * The stepped ceiling, outside in, and now carrying two soffits that are not
+ * steps of the same coffer at all.
  *
- * Three planes at three heights, each step carrying a continuous cove. The
- * steps are what give a seven-metre ceiling a scale a person can read: an
- * unbroken slab at that height reads as a car park, and the thing that fixes
- * it is a horizontal line at 5.6 m that the eye takes as "the ceiling", with
- * the rest of the volume opening up behind it.
+ * `ceilingYAt` takes the LAST band containing a point, so the order here is
+ * the override order: perimeter, then the raised centre over the lounge, then
+ * the colonnade soffit down the glass wall at 4.5, then the reception alcove
+ * at 3.7. The last two are the brief's, and they are why the right-hand
+ * colonnade reads as a loggia rather than as the same room with columns in
+ * it.
  */
 export const COFFER = [
   { y: 5.6, x0: 0, x1: HL.w, z0: 0, z1: HL.d },
-  { y: 6.4, x0: 1.9, x1: HL.w - 1.9, z0: 2.4, z1: HL.d - 2.4 },
-  { y: 7.2, x0: 3.6, x1: HL.w - 3.6, z0: 4.8, z1: HL.d - 4.8 },
+  { y: 7.0, x0: 2.0, x1: 13.2, z0: 3.0, z1: 27.0 },
+  { y: 4.5, x0: 13.2, x1: HL.w, z0: 0, z1: HL.d },
+  { y: 3.7, x0: 0, x1: 6.6, z0: 10.4, z1: 13.6 },
 ] as const;
 
 /**
@@ -91,45 +105,35 @@ export function ceilingYAt(x: number, z: number): number {
 
 /** Where everything in the room stands. Shared with the light rig. */
 export const HL_PLAN = {
-  /** Reception desk: a long run against the panelled wall. */
-  desk: { x: 2.55, z0: 5.6, z1: 12.6, h: 1.12, d: 0.95 },
-  /** The feature wall behind it, carrying the hotel's mark. */
   /**
-   * The wall behind it, pushed back down the room.
+   * Reception, and the one structural change in this rebuild.
    *
-   * It sat opposite the camera's own x, which on a wall you are standing
-   * beside means edge-on: measured, the whole of it fell outside the left
-   * edge of the frame and the hotel's name was not visible in its own lobby.
-   * Moved four metres toward the far end, the viewing angle opens to about
-   * twenty degrees and the mark reads.
+   * The wall used to run along x = 0.12 - the left wall, edge-on to a camera
+   * standing beside it - and no amount of sliding the mark along it could
+   * make "THE GRAND" readable, because a sign on a wall you are standing
+   * against is a sliver whatever you do to it. The brief puts the wall at
+   * constant z facing the lens (brief z = -14, spanning x -9.5 to -4), which
+   * is the only arrangement where the lockup reads square-on as it does in
+   * the reference. So `deskWall` is a z-plane with an x-extent now, and the
+   * desk stands in front of it instead of against the side wall.
    */
-  deskWall: { x: 0.12, z0: 4.8, z1: 13.4, y0: 0.9, y1: 4.6 },
-  /** Artwork on the panelled wall, between reception and the water feature. */
-  /**
-   * On the back wall beside the water feature, not on the panelled wall.
-   *
-   * A canvas on the wall the camera stands beside is a bright sliver at the
-   * frame edge — and with an accent head on it, a blown white sliver. On the
-   * back wall it is nearly face-on to the lens, which is the only orientation
-   * in which "original abstract artwork with picture lighting" means anything
-   * to someone looking at the picture.
-   */
-  art: { x: 3.9, z: 0.16, y: 2.4, w: 2.9, h: 2.1 },
-  /** Cascading water wall at the far end. */
-  water: { x0: 7.2, x1: 11.9, y0: 0.35, y1: 6.15, z: 0.22 },
-  /** Sculpture and plinth, standing in front of it. */
-  sculpture: { x: 9.55, z: 2.3 },
-  /** Chandelier cluster, hung from the inner coffer. */
-  chandelier: { x: 8.4, z: 9.2 },
-  /** Main lounge group, between the camera and the chandelier. */
-  lounge: { x: 7.6, z: 15.2 },
-  /** Second cluster, further back toward the water feature. */
-  lounge2: { x: 12.4, z: 7.4 },
-  /** Columns down the façade line. */
-  columns: [3.2, 8.0, 12.8, 17.6, 22.4] as const,
-  columnX: 14.35,
-  /** The glazed façade itself. */
-  facade: { x: HL.w, z0: 1.4, z1: HL.d - 0.6, y0: 0.05, y1: 5.45 },
+  deskWall: { z: 13.4, x0: 0.5, x1: 6.0, y0: 0, y1: 3.7 },
+  desk: { x: 3.0, z: 14.0, len: 5.5, h: 1.1, d: 0.95 },
+  /** Artwork on the back wall, left of the waterfall, face-on to the lens. */
+  art: { x: 6.1, z: 0.16, y: 2.4, w: 2.0, h: 1.6 },
+  /** The waterfall at the back, and the sculpture standing in front of it. */
+  water: { x0: 11.5, x1: 14.5, y0: 0.3, y1: 5.7, z: 0.22 },
+  sculpture: { x: 13.0, z: 2.5 },
+  /** Chandelier cluster, hung from the raised centre. */
+  chandelier: { x: 10.0, z: 14.0 },
+  /** Main lounge group, and the second cluster behind it. */
+  lounge: { x: 10.4, z: 18.6 },
+  lounge2: { x: 12.8, z: 17.0 },
+  /** The colonnade down the glass wall: three stone pillars to the 4.5 soffit. */
+  columns: [17.0, 11.0, 5.0] as const,
+  columnX: 15.0,
+  /** The glazed facade itself. */
+  facade: { x: HL.w, z0: 1.0, z1: HL.d - 0.5, y0: 0.05, y1: 4.45 },
 } as const;
 
 /**
@@ -142,17 +146,17 @@ export const HL_PLAN = {
  * data or the geometry cannot know.
  */
 export const LAMPS: { x: number; z: number; y: number; kind: "table" | "floor" }[] = [
-  // On the reception desk, whose top is at 1.17.
-  { x: 2.3, z: 11.4, y: 1.52, kind: "table" },
-  { x: 2.3, z: 17.0, y: 1.52, kind: "table" },
-  // Floor lamps at the outer corners of the main group, out of the sightline
-  // to the water wall.
-  { x: 11.9, z: 18.6, y: 1.48, kind: "floor" },
-  { x: 13.4, z: 19.4, y: 1.48, kind: "floor" },
-  // On the side table in the main cluster, and on the second cluster's table.
-  { x: 10.56, z: 16.33, y: 0.86, kind: "table" },
-  { x: 13.6, z: 5.6, y: 1.44, kind: "floor" },
-  { x: 13.6, z: 9.9, y: 1.44, kind: "floor" },
+  // The pair on the reception desk, whose top is at 1.15.
+  { x: 1.1, z: 14.0, y: 1.5, kind: "table" },
+  { x: 4.9, z: 14.0, y: 1.5, kind: "table" },
+  // Flanking the foreground sofa, on their own drum tables.
+  { x: 5.1, z: 24.4, y: 0.86, kind: "table" },
+  { x: 8.4, z: 23.4, y: 0.86, kind: "table" },
+  // The back-left sectional's side table, then two floor lamps down the
+  // colonnade where the brief's seating recedes toward the back.
+  { x: 7.4, z: 16.2, y: 0.86, kind: "table" },
+  { x: 13.2, z: 13.4, y: 1.44, kind: "floor" },
+  { x: 13.4, z: 8.2, y: 1.44, kind: "floor" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -227,7 +231,7 @@ const M = {
     roughness: 0.9,
     side: THREE.DoubleSide,
   }),
-  wall: new THREE.MeshStandardMaterial({ color: "#b89d7a", roughness: 0.93 }),
+  wall: new THREE.MeshStandardMaterial({ color: "#ab9d86", roughness: 0.93 }),
   /** Dark fluted wood on the reception wall. */
   wood: new THREE.MeshStandardMaterial({ color: "#5a4026", roughness: 0.55 }),
   woodDark: new THREE.MeshStandardMaterial({ color: "#2e2117", roughness: 0.8 }),
@@ -619,7 +623,7 @@ function Shell() {
             depthScale={1.2}
             minDepthThreshold={0.4}
             maxDepthThreshold={1.4}
-            color="#7d7366"
+            color="#767063"
             roughness={0.32}
             metalness={0}
           />
@@ -885,8 +889,6 @@ function Columns() {
 function Reception() {
   const d = HL_PLAN.desk;
   const w = HL_PLAN.deskWall;
-  const len = d.z1 - d.z0;
-  const mid = (d.z0 + d.z1) / 2;
 
   const logoMat = useMemo(() => {
     const map = makeLogoTexture("THE GRAND", "LUXURY HOTEL");
@@ -895,119 +897,88 @@ function Reception() {
       color: "#e8c07a",
       roughness: 0.38,
       metalness: 0.35,
-      // Lifted by its own map, so the letters hold up when the accent channel
-      // is low. Brass signage in a lobby is nearly always halo-lit from
-      // behind; the alternative is a sign that disappears every night at
-      // eleven, which is the one hour a reception desk must not disappear.
+      // Lifted by its own map, so the letters hold when the accent channel is
+      // low. Brass signage in a lobby is nearly always halo-lit from behind;
+      // the alternative is a sign that vanishes at eleven every night, which
+      // is the one hour a reception desk must not vanish.
       emissive: new THREE.Color("#ffffff"),
       emissiveMap: map,
       emissiveIntensity: 0.55,
     });
   }, []);
 
+  const wallW = w.x1 - w.x0;
+  const wallMid = (w.x0 + w.x1) / 2;
+  const FINS = Math.round(wallW / 0.14);
+
   return (
     <group>
-      {/* The feature wall: a dark inset panel standing proud of the flutes. */}
-      <mesh position={[w.x + 0.09, (w.y0 + w.y1) / 2, (w.z0 + w.z1) / 2]} receiveShadow>
-        <boxGeometry args={[0.18, w.y1 - w.y0, w.z1 - w.z0]} />
+      {/*
+        The fin wall, facing the lens.
+        
+        Everything here turned ninety degrees with the plan: the wall spans x
+        at a constant z, the fins repeat across x, and the mark hangs on its
+        front face at +z. Edge-on, none of this was ever visible - the fins
+        read as one dark smear and the lockup as a sliver.
+      */}
+      <mesh position={[wallMid, (w.y0 + w.y1) / 2, w.z]} receiveShadow>
+        <boxGeometry args={[wallW, w.y1 - w.y0, 0.24]} />
         <primitive object={M.featureWall} attach="material" />
       </mesh>
-      {/* The mark, sized as signage: legible across a lobby, not a billboard. */}
-      {/* Toward the far end of the panel, because from this camera the near
-          end is cropped by the edge of the frame and the "T" of THE went with
-          it. 1.5 m along puts the whole wordmark in shot. */}
-      <mesh
-        position={[w.x + 0.185, (w.y0 + w.y1) / 2 + 0.25, (w.z0 + w.z1) / 2 - 1.5]}
-        rotation={[0, Math.PI / 2, 0]}
-      >
-        <planeGeometry args={[4.8, 2.4]} />
+      {Array.from({ length: FINS }, (_, i) => (
+        <mesh
+          key={`fin-${i}`}
+          position={[w.x0 + 0.07 + i * 0.14, (w.y0 + w.y1) / 2, w.z + 0.15]}
+          castShadow
+        >
+          <boxGeometry args={[0.05, w.y1 - w.y0 - 0.1, 0.06]} />
+          <primitive object={M.woodDark} attach="material" />
+        </mesh>
+      ))}
+      {/* The mark, centred on the wall and square to the camera. */}
+      <mesh position={[wallMid, 2.45, w.z + 0.2]}>
+        <planeGeometry args={[2.6, 0.95]} />
         <primitive object={logoMat} attach="material" />
       </mesh>
 
-      {/* Desk body: a marble front under an oversailing stone top. */}
-      <mesh position={[d.x, d.h / 2 + 0.07, mid]} castShadow receiveShadow>
-        <boxGeometry args={[d.d, d.h - 0.14, len]} />
+      {/* The desk, standing in front of it and running across the view. */}
+      <mesh position={[d.x, d.h / 2 + 0.07, d.z]} castShadow receiveShadow>
+        <boxGeometry args={[d.len, d.h - 0.14, d.d]} />
         <primitive object={M.marble} attach="material" />
       </mesh>
-      {/* The shadow line under a worktop is most of what makes it read as
-          stone rather than as a painted box. */}
-      <mesh position={[d.x + 0.03, d.h + 0.02, mid]} castShadow receiveShadow>
-        <boxGeometry args={[d.d + 0.12, 0.05, len + 0.1]} />
+      {/* Stone top, oversailing the front. */}
+      <mesh position={[d.x, d.h + 0.02, d.z - 0.03]} castShadow receiveShadow>
+        <boxGeometry args={[d.len + 0.1, 0.05, d.d + 0.12]} />
         <primitive object={M.stone} attach="material" />
       </mesh>
-      {/*
-        Two lines of light: under the counter's overhang and at the toe-kick.
-        In the reference these are what pull the desk out of the panelling -
-        a marble front with no glow under its lip reads as a cabinet.
-      */}
+      {/* Recessed plinth. */}
+      <mesh position={[d.x, 0.035, d.z + 0.04]}>
+        <boxGeometry args={[d.len - 0.1, 0.07, d.d - 0.18]} />
+        <primitive object={M.woodDark} attach="material" />
+      </mesh>
+      {/* Two warm lines: under the counter lip and at the toe-kick. */}
       {[d.h - 0.06, 0.1].map((y, gi) => (
-        <mesh
-          key={`dg-${gi}`}
-          position={[d.x + d.d / 2 + 0.01, y, mid]}
-          rotation={[0, Math.PI / 2, 0]}
-        >
-          <planeGeometry args={[len - 0.15, 0.045]} />
+        <mesh key={`dg-${gi}`} position={[d.x, y, d.z + d.d / 2 + 0.01]}>
+          <planeGeometry args={[d.len - 0.15, 0.045]} />
           <meshBasicMaterial color="#ffc98a" toneMapped={false} />
         </mesh>
       ))}
-      {/* Recessed plinth, so the desk floats over its own underglow. */}
-      <mesh position={[d.x - 0.04, 0.035, mid]}>
-        <boxGeometry args={[d.d - 0.18, 0.07, len - 0.1]} />
-        <primitive object={M.woodDark} attach="material" />
-      </mesh>
-      {/* Brass reveal along the front face. */}
-      <mesh position={[d.x + d.d / 2 + 0.002, d.h - 0.2, mid]} rotation={[0, Math.PI / 2, 0]}>
-        <planeGeometry args={[len - 0.2, 0.02]} />
-        <primitive object={M.brass} attach="material" />
-      </mesh>
-
       {/*
-        What is on a reception desk.
-
-        A bare counter reads as a model of a reception desk. Three objects
-        settle it: a call bell near the front edge, a low arrangement of white
-        flowers, and a tablet on a stand turned toward where the guest stands.
-        They also give the lit countertop something to cast a shadow with,
-        which is most of what makes a lit edge visible at all.
+        Two staff behind it, as the brief asks: capsule silhouettes, because
+        at this distance a figure is a shape and a face would be a liability.
       */}
-      <group position={[d.x + 0.12, d.h + 0.05, mid - 1.5]}>
-        <mesh castShadow>
-          <cylinderGeometry args={[0.075, 0.085, 0.022, 20]} />
-          <primitive object={M.brass} attach="material" />
-        </mesh>
-        <mesh position={[0, 0.055, 0]} castShadow>
-          <sphereGeometry args={[0.055, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <primitive object={M.brass} attach="material" />
-        </mesh>
-      </group>
-      <group position={[d.x + 0.06, d.h + 0.05, mid + 1.1]}>
-        <mesh castShadow>
-          <cylinderGeometry args={[0.085, 0.1, 0.16, 18]} />
-          <primitive object={M.stone} attach="material" />
-        </mesh>
-        {[0, 1, 2, 3, 4, 5, 6].map((j) => (
-          <group key={j} rotation={[0, j * 0.9, 0.32 + (j % 3) * 0.12]}>
-            <mesh position={[0, 0.17, 0]} castShadow>
-              <cylinderGeometry args={[0.004, 0.005, 0.2, 6]} />
-              <primitive object={M.foliageDark} attach="material" />
-            </mesh>
-            <mesh position={[0, 0.28, 0]} scale={[1, 0.75, 1]} castShadow>
-              <sphereGeometry args={[0.038, 10, 8]} />
-              <primitive object={M.bloom} attach="material" />
-            </mesh>
-          </group>
-        ))}
-      </group>
-      <group position={[d.x + 0.16, d.h + 0.05, mid - 0.3]} rotation={[0, -0.35, 0]}>
-        <mesh position={[0, 0.095, 0]} rotation={[-0.42, 0, 0]} castShadow>
-          <boxGeometry args={[0.2, 0.28, 0.012]} />
-          <primitive object={M.marble} attach="material" />
-        </mesh>
-        <mesh position={[0, 0.012, 0.02]} castShadow>
-          <boxGeometry args={[0.12, 0.024, 0.09]} />
-          <primitive object={M.metal} attach="material" />
-        </mesh>
-      </group>
+      {[-1.5, 1.4].map((o, i) => (
+        <group key={`st-${i}`} position={[d.x + o, 0, d.z - 0.75]}>
+          <mesh position={[0, 0.92, 0]} castShadow>
+            <capsuleGeometry args={[0.17, 0.72, 4, 12]} />
+            <primitive object={M.woodDark} attach="material" />
+          </mesh>
+          <mesh position={[0, 1.63, 0]} castShadow>
+            <sphereGeometry args={[0.115, 14, 12]} />
+            <primitive object={M.woodDark} attach="material" />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }
@@ -2263,13 +2234,27 @@ const PLANTING = [
   // Inside: flanking the reception run and the water feature. Kept clear of
   // the panelled wall — a specimen whose fronds pass through joinery is worse
   // than no specimen.
+  // At the left EDGE, as section 3 says - not in front of the lockup. The
+  // first attempt at "tall plant at the far left" put a 2.5 m specimen at
+  // x = 0.9, z = 12.4, which from the centre line is directly over the sign
+  // it was meant to flank. Pushed forward to the room's mouth, it frames the
+  // reception instead of hiding it.
+  { x: 0.75, z: 20.8, r: 0.52, h: 0.72, palm: true, scale: 1.0, pale: false },
   { x: 2.2, z: 7.0, r: 0.52, h: 0.6, palm: true, scale: 0.8, pale: false },
   { x: 2.2, z: 17.6, r: 0.52, h: 0.6, palm: true, scale: 0.72, pale: false },
   { x: 4.5, z: 2.6, r: 0.46, h: 0.52, palm: false, scale: 1.15, pale: true },
   { x: 14.2, z: 2.6, r: 0.46, h: 0.52, palm: false, scale: 1.1, pale: true },
   { x: 15.8, z: 12.2, r: 0.5, h: 0.58, palm: true, scale: 0.85, pale: false },
   { x: 15.8, z: 20.4, r: 0.5, h: 0.58, palm: false, scale: 1.25, pale: false },
-  { x: 11.0, z: 20.9, r: 0.44, h: 0.5, palm: false, scale: 1.05, pale: true },
+  // Off the centre line. At (11, 20.9) this stood five metres in front of a
+  // camera at x = 10 and covered the whole back of the room - the waterfall,
+  // the sculpture and the artwork were all behind one pot plant.
+  // Solved, not nudged. The sign's centre projects to screen x 0.19 from a
+  // lens at x = 10; this specimen at x = 6.9 projected to 0.145 and sat
+  // straight over it - the move that cleared the waterfall put it in front of
+  // the lockup instead. At (6.2, 22.6) it lands at 0.03: hard against the
+  // left edge, framing the reception the way the reference's does.
+  { x: 6.2, z: 22.6, r: 0.44, h: 0.5, palm: false, scale: 1.05, pale: true },
   // Outside, on the driveway.
   { x: HL.w + 2.1, z: 4.0, r: 0.58, h: 0.66, palm: true, scale: 1.0, pale: false },
   { x: HL.w + 2.1, z: 19.6, r: 0.58, h: 0.66, palm: true, scale: 0.95, pale: false },

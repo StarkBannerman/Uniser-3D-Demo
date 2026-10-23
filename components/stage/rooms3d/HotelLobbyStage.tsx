@@ -26,40 +26,25 @@ import { HotelLobby3D } from "./HotelLobby3D";
 import { HotelLobbyLightRig, type LobbyFixtures } from "./HotelLobbyLightRig";
 
 /**
- * Inside the lobby, near the left front, looking diagonally into the depth.
+ * The brief's viewpoint: standing in the open front of the lobby, on the
+ * centre line, looking straight down the long axis.
  *
- * Three things set this, and all three came from the reference.
+ * Brief (0, 1.6, 0) looking -Z with zero yaw and 3-4 degrees of downward
+ * pitch; in this file's corner frame that is (10, 1.6, 27) aimed at
+ * (10, 0.38, 7). Position and target share an x, so the yaw is exactly zero -
+ * the previous camera ran six degrees off the axis from a position beside the
+ * left wall, which is what put the reception wall edge-on.
  *
- * **Eye height, not drone height.** 1.6 m. A lobby photographed from three
- * metres up reads as an architect's model; the thing being sold here is what a
- * guest sees walking in, and a guest is 1.6 m tall.
- *
- * **Verticals all but straight, and pitched down rather than up.** The target
- * is 1.15 m *below* the camera over an eighteen-metre throw — three and a half
- * degrees. It was two degrees the other way, which put the horizon below
- * centre and handed the top 45 per cent of the frame to an empty ceiling.
- * Tilting down raises the horizon and takes the ceiling to roughly a third,
- * and three and a half degrees of convergence on a seven-metre column is not
- * something the eye picks up. Any more and it is a phone photograph.
- *
- * **Diagonal, so the room has depth.** Square to the back wall, a 24 m room is
- * a corridor with a wall at the end of it. On the diagonal the reception desk
- * runs away down the left, the lounge crosses the middle, and the chandelier
- * and the water wall sit at the vanishing point with the façade and the
- * driveway opening up on the right — which is the reference's composition
- * exactly, and the reason nothing large sits within two metres of the lens.
- *
- * The yaw is six degrees off the long axis rather than twenty-four, and that
- * was measured rather than judged. The reception wall stands at x = 0.2 with
- * the camera at x = 5.6, so it is nearly edge-on: at the wider angle its whole
- * length fell outside the left edge of the frame and the hotel's own name was
- * not in its own lobby. Six degrees puts the far half of it in shot, which is
- * what a wall you are standing beside is supposed to do.
+ * `fov` is the vertical field at 16:9 and `LockHorizontalFov` holds the
+ * horizontal field across viewport shapes, so this is not the brief's number:
+ * 78 degrees horizontal at 16:9 is 2*atan(tan(39)/1.778) = 49 vertical. At
+ * the 1264x843 the landmarks are measured in, that same horizontal field
+ * gives the ~57 vertical the brief quotes.
  */
 const CAMERA: CameraSpec = {
-  position: [5.6, 1.5, 22.6],
-  target: [7.7, 0.35, 4.2],
-  fov: 48,
+  position: [10, 1.6, 27],
+  target: [10, 0.38, 7],
+  fov: 49,
 };
 
 const OFF: LightState = { on: false, level: 0, cct: 3000, hue: 0, sat: 0 };
@@ -183,7 +168,7 @@ export function HotelLobbyStage() {
         occupied={(occ?.value ?? 1) > 0.5}
       />
       <HotelLobbyLightRig
-        gain={0.82}
+        gain={0.72}
         fixtures={fixtures}
         daylight={daylight}
         transmission={shadeTransmission(blinds.sheer, blinds.blackout)}
