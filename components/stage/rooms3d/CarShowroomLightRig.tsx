@@ -217,58 +217,90 @@ for (let i = 0; i < 5; i++) {
  * question is only where the six go. The two that gave way were the back-left
  * pair, which were lighting wall the graphics accent already grazes.
  */
-const DOWN_EMITTERS = [
+const DOWN_EMITTERS: readonly {
+  x: number;
+  z: number;
+  tx?: number;
+  ty?: number;
+  tz?: number;
+}[] = [
   /**
-   * Measured against the reference: our floor and walls matched but the rug
-   * zone sat 72 values dark and the mid floor 38, because two of the six
-   * cans were parked over the empty back-left where the graphics' own graze
-   * already works. One now stands over the lounge and one between the desk
-   * and the rug, which is where the photograph's pools are.
+   * Six cans; three light the floor and three are aimed at stock.
+   *
+   * The aimed three target the silver coupe, the hero SUV and the red coupe
+   * at bonnet height, narrowed to 0.5 rad, so the clearcoat finally has a
+   * hard source to return - the diagnosis panel's point was that paint
+   * without a hotspot reads as clay whatever its material says.
    */
-  { x: 4.5, z: 12.5 },
+  { x: 4.5, z: 12.5, tx: 4.6, ty: 0.9, tz: 9.2 },
   { x: 8.0, z: 13.8 },
-  { x: 6.0, z: 8.0 },
+  { x: 6.0, z: 8.0, tx: 6.5, ty: 1.1, tz: 6.0 },
   { x: 11.5, z: 11.0 },
   { x: 14.0, z: 13.5 },
-  { x: 13.5, z: 8.0 },
+  { x: 13.5, z: 8.0, tx: 10.0, ty: 0.9, tz: 1.6 },
 ] as const;
 
 function Downlights({ state, gain }: { state: LightState; gain: number }) {
   const budget = BUDGET[useQuality()];
   const ref = useRef<THREE.InstancedMesh>(null);
+  const halos = useRef<THREE.InstancedMesh>(null);
   const colour = colourOf(state);
   const out = output(state);
   const glow = aperture(state);
   const lens = useEmissiveMaterial(colour, GAIN.downlightEmissive * glow);
+  const halo = useGlowMaterial("#ffd9a6", 0.5 * glow);
+  const pool = useGlowMaterial("#ffe2bc", 0.3 * out);
   const y = SH.h - 0.015;
 
   useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
     const m = new THREE.Matrix4();
     const rot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
     const one = new THREE.Vector3(1, 1, 1);
-    LENSES.forEach((p, i) => {
-      m.compose(new THREE.Vector3(p.x, y, p.z), rot, one);
-      mesh.setMatrixAt(i, m);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
+    for (const [mesh, dy] of [
+      [ref.current, 0],
+      [halos.current, -0.03],
+    ] as const) {
+      if (!mesh) continue;
+      LENSES.forEach((p, i) => {
+        m.compose(new THREE.Vector3(p.x, y + dy, p.z), rot, one);
+        mesh.setMatrixAt(i, m);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+    }
   }, [y]);
 
   return (
     <group>
       <instancedMesh ref={ref} args={[undefined, undefined, LENSES.length]}>
-        <circleGeometry args={[0.075, 14]} />
+        <circleGeometry args={[0.06, 14]} />
         <primitive object={lens} attach="material" />
+      </instancedMesh>
+      {/*
+        A soft halo under every lens - one instanced draw for all of them.
+        This is what turns the ceiling from the darkest field in the frame
+        into the brightest, which is the reference's value structure: thirty
+        warm glowing points on pale plaster.
+      */}
+      <instancedMesh ref={halos} args={[undefined, undefined, LENSES.length]}>
+        <planeGeometry args={[0.7, 0.7]} />
+        <primitive object={halo} attach="material" />
       </instancedMesh>
       {DOWN_EMITTERS.slice(0, budget.downlights).map((p, i) => (
         <group key={`dl-${i}`}>
+          {/* The pool where this can's light lands. */}
+          <mesh
+            position={[p.tx ?? p.x, 0.012, p.tz ?? p.z]}
+            rotation={[-Math.PI / 2, 0, 0]}
+          >
+            <planeGeometry args={[2.6, 2.6]} />
+            <primitive object={pool} attach="material" />
+          </mesh>
           {MOUNTED && (
             <Spot
               position={[p.x, SH.h - 0.05, p.z]}
-              target={[p.x, 0, p.z]}
-              angle={0.82}
-              penumbra={0.86}
+              target={[p.tx ?? p.x, p.ty ?? 0, p.tz ?? p.z]}
+              angle={p.tx !== undefined ? 0.5 : 0.82}
+              penumbra={p.tx !== undefined ? 0.4 : 0.86}
               distance={15}
               decay={1.2}
               intensity={GAIN.downlight * out * gain}
@@ -522,6 +554,50 @@ function ProductLighting({
   );
 }
 
+let glowMap: THREE.CanvasTexture | null = null;
+/**
+ * One radial white-to-transparent gradient, shared by everything that fakes
+ * a wash: the halos on the ceiling cans, the pools on the floor, the warm
+ * ring around the podium. Emissive planes illuminate nothing, and the room's
+ * light budget cannot afford for them to be real - so every lit element gets
+ * an additive gradient where its light would land, which is exactly the
+ * pools-not-dimming insight the 2D rooms were built on, in 3D.
+ */
+function radialGlow(): THREE.CanvasTexture {
+  if (!glowMap) {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const g = c.getContext("2d")!;
+    const grad = g.createRadialGradient(128, 128, 4, 128, 128, 126);
+    grad.addColorStop(0, "rgba(255,255,255,0.9)");
+    grad.addColorStop(0.4, "rgba(255,255,255,0.35)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 256, 256);
+    glowMap = new THREE.CanvasTexture(c);
+  }
+  return glowMap;
+}
+
+function useGlowMaterial(tint: string, opacity: number) {
+  const mat = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        map: radialGlow(),
+        color: tint,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    [tint],
+  );
+  useLayoutEffect(() => {
+    mat.opacity = opacity;
+  });
+  return mat;
+}
+
 const M_TRACK = new THREE.MeshStandardMaterial({
   color: "#17181a",
   roughness: 0.42,
@@ -640,6 +716,7 @@ function FloorLighting({ state, gain }: { state: LightState; gain: number }) {
   const h = SH_PLAN.hero;
   const mat = useEmissiveMaterial(colour, GAIN.floorEmissive * glow);
   const path = useEmissiveMaterial(colour, GAIN.floorEmissive * 0.3 * glow);
+  const wash = useGlowMaterial("#ffddb0", 0.22 * out);
 
   return (
     <group>
@@ -647,6 +724,16 @@ function FloorLighting({ state, gain }: { state: LightState; gain: number }) {
       <mesh position={[h.x, 0.045, h.z]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[h.r + 0.04, h.r + 0.17, 64]} />
         <primitive object={mat} attach="material" />
+      </mesh>
+      {/*
+        And the wash that ring would actually throw: in the reference the
+        floor grades warm for about a metre either side of the platform's
+        line, and the hard cut from a lit ring straight to dark stone was one
+        of the panel's named tells.
+      */}
+      <mesh position={[h.x, 0.01, h.z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[h.r - 0.3, h.r + 1.4, 64]} />
+        <primitive object={wash} attach="material" />
       </mesh>
       {MOUNTED && (
         <rectAreaLight
@@ -818,7 +905,7 @@ function RgbFeature({ state, gain }: { state: LightState; gain: number }) {
      */
     bands.forEach((m, i) => {
       const t = i / (panels - 1);
-      m.color.setHSL(0.62 + t * 0.26, 0.85, 0.42 * glow + 0.05);
+      m.color.setHSL(0.62 + t * 0.26, 0.85, 0.5 * glow + 0.06);
     });
   });
 

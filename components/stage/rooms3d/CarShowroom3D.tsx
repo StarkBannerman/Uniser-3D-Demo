@@ -226,9 +226,9 @@ const M = {
    * it. One component, bent into a circle.
    */
   coffer: new THREE.MeshStandardMaterial({
-    color: "#121316",
-    roughness: 0.45,
-    metalness: 0.35,
+    color: "#1c1a18",
+    roughness: 0.3,
+    metalness: 0.6,
   }),
   /**
    * Painted board, and dark after all.
@@ -335,26 +335,30 @@ function Shell() {
         <planeGeometry args={[SH.w, SH.d]} />
         {quality === "high" ? (
           <MeshReflectorMaterial
-            resolution={512}
-            mixBlur={1.2}
+            resolution={1024}
+            mixBlur={1}
             /**
-             * Under three, not over.
+             * Retuned against the reference, which settled an old argument.
              *
-             * `mixStrength` scales the reflection against the base colour, and
-             * at the higher figure the warm scenes came back with the whole
-             * lower half of the frame reading as an orange sheet rather than
-             * as a dark floor carrying warm highlights. Terrazzo reflects; it
-             * does not become the thing it reflects.
+             * The cautious figures below this were protecting a floor that no
+             * longer exists: `color` was #15171a - near-black terrazzo from
+             * the first dark build - so every albedo change made to `M.floor`
+             * since has been changing a material the high tier never draws.
+             * The reference floor is warm grey stone carrying two-to-four
+             * metre streaks of every strip and car; that takes a light base,
+             * a real mirror term, and mixStrength well past the old ceiling
+             * of three. The orange-sheet failure that set that ceiling came
+             * from warm light over a near-black base, not from the strength.
              */
-            mixStrength={1.5}
-            blur={[400, 110]}
-            mirror={0.4}
-            depthScale={0.8}
-            minDepthThreshold={0.3}
-            maxDepthThreshold={1.3}
-            color="#15171a"
-            roughness={0.45}
-            metalness={0.1}
+            mixStrength={5}
+            blur={[400, 120]}
+            mirror={0.6}
+            depthScale={1.2}
+            minDepthThreshold={0.4}
+            maxDepthThreshold={1.4}
+            color="#8f887c"
+            roughness={0.2}
+            metalness={0}
           />
         ) : (
           <primitive object={M.floorFlat} attach="material" />
@@ -739,6 +743,40 @@ function Wheels({
  * bars, and the proportions come from `CAR_SHAPES`. None of it is anybody's
  * design.
  */
+let contactMap: THREE.CanvasTexture | null = null;
+/**
+ * The dark pool under a parked car, as a gradient decal.
+ *
+ * Only one of the room's lights casts a real shadow, so five of the six cars
+ * sat on the floor with nothing underneath them - lit objects that touched
+ * nothing, which is most of what made them read as models pasted onto the
+ * frame. A radial gradient at the footprint, multiplied over the floor, is
+ * the whole fix, and one canvas serves every car.
+ */
+function CarContact({ length }: { length: number }) {
+  const map = useMemo(() => {
+    if (!contactMap) {
+      const c = document.createElement("canvas");
+      c.width = c.height = 256;
+      const g = c.getContext("2d")!;
+      const grad = g.createRadialGradient(128, 128, 20, 128, 128, 126);
+      grad.addColorStop(0, "rgba(0,0,0,0.78)");
+      grad.addColorStop(0.55, "rgba(0,0,0,0.45)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 256, 256);
+      contactMap = new THREE.CanvasTexture(c);
+    }
+    return contactMap;
+  }, []);
+  return (
+    <mesh position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[length * 1.08, length * 0.52]} />
+      <meshBasicMaterial map={map} transparent depthWrite={false} />
+    </mesh>
+  );
+}
+
 export function Car({
   kind,
   colour,
@@ -901,12 +939,14 @@ export function Car({
     return (
       <Suspense fallback={null}>
         <CarModel url={model} colour={colour} length={shape.length} />
+        <CarContact length={shape.length} />
       </Suspense>
     );
   }
 
   return (
     <group>
+      <CarContact length={shape.length} />
       <mesh geometry={skins.body} castShadow receiveShadow>
         <primitive object={paint} attach="material" />
       </mesh>

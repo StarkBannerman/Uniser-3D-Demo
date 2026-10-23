@@ -11,6 +11,8 @@ import type { AvState, LightState } from "@/lib/sim/types";
 import { useSim } from "@/lib/sim/store";
 import { roomAmbience } from "@/lib/sim/ambience";
 import { clamp01, daylightLux, sunElevation01 } from "@/lib/sim/photometry";
+import { Environment, Lightformer } from "@react-three/drei";
+import { Suspense } from "react";
 import { Stage3D, useStillDevice, type CameraSpec } from "../Stage3D";
 import { CarShowroom3D } from "./CarShowroom3D";
 import { CarShowroomLightRig, type ShowroomFixtures } from "./CarShowroomLightRig";
@@ -168,8 +170,8 @@ export function useShowroomState() {
     : { level: 0, color: [255, 245, 230] as [number, number, number], lux: 0 };
   const ambient = {
     ...bounced,
-    level: bounced.level * 1.25,
-    color: [255, 214, 172] as [number, number, number],
+    level: bounced.level * 1.6,
+    color: [255, 226, 196] as [number, number, number],
   };
 
   /**
@@ -228,7 +230,7 @@ export function ShowroomScene({
          * rug, mid floor alike - which is the signature of an exposure gap,
          * not a misplaced fitting. 84 / 58 is this number.
          */
-        gain={1.45}
+        gain={1.65}
       />
     </>
   );
@@ -255,10 +257,51 @@ export function CarShowroomStage() {
          * highlights and bloom treats every one as a source, which is how the
          * lobby's floor went milky before its threshold came up.
          */
-        bloomIntensity={0.52}
+        bloomIntensity={0.7}
         bloomThreshold={1.25}
       >
         <ShowroomScene state={state} />
+        {/*
+          A room-local environment, replacing the shared faint one: formers
+          shaped like this room's actual sources - the oval raceway and the
+          long strip runs - so the car paint, the glass and the reflector
+          floor return THIS room rather than a generic studio. Baked once;
+          costs nothing per frame. In its own Suspense because a suspending
+          sibling takes the whole Canvas subtree down with it, which this
+          project has been bitten by before.
+        */}
+        <Suspense fallback={null}>
+          <Environment resolution={256} frames={1}>
+            <Lightformer
+              form="ring"
+              intensity={4}
+              color="#fff0dc"
+              scale={[8, 8, 1]}
+              position={[-2, 5.4, -6]}
+              rotation={[Math.PI / 2, 0, 0]}
+            />
+            {[-6, 0, 6].map((x, i) => (
+              <Lightformer
+                key={i}
+                form="rect"
+                intensity={3}
+                color="#ffe9cf"
+                scale={[0.4, 14, 1]}
+                position={[x, 5.6, 0]}
+                rotation={[Math.PI / 2, 0, Math.PI / 2]}
+              />
+            ))}
+            {/* The LED wall's violet, so the right flanks pick it up. */}
+            <Lightformer
+              form="rect"
+              intensity={2}
+              color="#7d5fe8"
+              scale={[5, 5, 1]}
+              position={[9, 2.5, -4]}
+              rotation={[0, -Math.PI / 2, 0]}
+            />
+          </Environment>
+        </Suspense>
       </Stage3D>
       <ShowroomPlate />
     </div>
