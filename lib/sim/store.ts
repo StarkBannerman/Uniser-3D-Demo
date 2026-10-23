@@ -28,6 +28,7 @@ import type {
   Space,
   StatePatch,
 } from "./types";
+import { OTHERS_TARGET, SELECTED_TARGET } from "./types";
 import {
   clamp,
   estimateLux,
@@ -85,6 +86,75 @@ const MAX_EVENTS = 40;
  * ten writes a second.
  */
 const DRIFT_STEP_DEG = 0.5;
+
+/**
+ * Expand a scene's selection tokens against the current choice.
+ *
+ * `@selected` and `@others` are not devices; they are a scene saying "the
+ * one the presenter picked" and "the rest of the group". Everything
+ * downstream — the tween engine, the sequence runner, the duration estimate
+ * — only ever sees real device ids, because resolving once here is far
+ * easier to reason about than five call sites each deciding what a token
+ * means.
+ *
+ * A device named outright in the same scene still wins over the token it
+ * also belongs to, which is how New Car Launch pins the turntable car to
+ * 100 while the group goes to 40.
+ */
+function expandSelection(
+  space: Space,
+  targets: Record<string, StatePatch & { fadeMs?: number }>,
+  selectionId: string | null,
+): Record<string, StatePatch & { fadeMs?: number }> {
+  const group = space.selection;
+  if (!group) return targets;
+  const forSelected = targets[SELECTED_TARGET];
+  const forOthers = targets[OTHERS_TARGET];
+  if (!forSelected && !forOthers) return targets;
+
+  const out = { ...targets };
+  delete out[SELECTED_TARGET];
+  delete out[OTHERS_TARGET];
+
+  const ids = group.options.map((o) => o.deviceId);
+  const chosen =
+    selectionId && ids.includes(selectionId) ? selectionId : group.defaultDeviceId;
+  for (const option of group.options) {
+    const token = option.deviceId === chosen ? forSelected : forOthers;
+    if (!token) continue;
+    for (const id of [option.deviceId, ...(option.alsoDeviceIds ?? [])]) {
+      out[id] = { ...token, ...(targets[id] ?? {}) };
+    }
+  }
+  return out;
+}
+
+/**
+ * A scene with its selection tokens already resolved.
+ *
+ * Step labels get the same treatment: `{selection}` becomes the chosen
+ * option's name, so the showroom narrates "Focusing on Silver coupe" rather
+ * than "Focusing on the selected vehicle". A caption that names the thing is
+ * the difference between a presenter reading the screen and explaining it.
+ */
+function resolveScene(space: Space, scene: Scene, selectionId: string | null): Scene {
+  const group = space.selection;
+  if (!group) return scene;
+  const ids = group.options.map((o) => o.deviceId);
+  const chosenId =
+    selectionId && ids.includes(selectionId) ? selectionId : group.defaultDeviceId;
+  const chosenName =
+    group.options.find((o) => o.deviceId === chosenId)?.name ?? "the vehicle";
+  return {
+    ...scene,
+    targets: expandSelection(space, scene.targets, selectionId),
+    steps: scene.steps?.map((st) => ({
+      ...st,
+      label: st.label.replace(/\{selection\}/g, chosenName),
+      targets: expandSelection(space, st.targets, selectionId),
+    })),
+  };
+}
 
 /* ------------------------------------------------------------------ */
 /* Non-reactive scratch                                                */
@@ -390,6 +460,14 @@ export interface SimStore {
    * this and a demo that appears broken.
    */
   stageStatic: boolean;
+  /**
+   * Which member of `space.selection` the presenter has picked.
+   *
+   * Null until they choose, which the expansion reads as the group's
+   * default. Reset when a space loads, because a vehicle zone id means
+   * nothing in the next room.
+   */
+  selectionId: string | null;
   /** Products the presenter has actually shown. Feeds the spec sheet. */
   touchedProductIds: string[];
   /**
@@ -463,6 +541,7 @@ export interface SimStore {
   select: (deviceId: string | null) => void;
   hover: (deviceId: string | null) => void;
   setStageStatic: (isStatic: boolean) => void;
+  setSelection: (deviceId: string) => void;
   tick: (dtRealMs: number) => void;
 }
 
@@ -480,6 +559,7 @@ export const useSim = create<SimStore>((set, get) => ({
   selectedDeviceId: null,
   hoveredDeviceId: null,
   stageStatic: false,
+  selectionId: null,
   touchedProductIds: [],
   commanded: {},
   cctLocked: {},
@@ -520,6 +600,7 @@ export const useSim = create<SimStore>((set, get) => ({
       clockMin,
       rate: 0,
       activeSceneId: null,
+      selectionId: null,
       ruleEnabled,
       ruleMemory: {},
       events: [],
@@ -577,6 +658,7 @@ export const useSim = create<SimStore>((set, get) => ({
       // The room no longer matches the scene the moment anything is touched by
       // hand — leaving the scene highlighted would be a lie.
       activeSceneId: null,
+      selectionId: null,
       sequence: null,
       busy: false,
       busyDevices: locked ? [...deviceBusyUntil.keys()] : s.busyDevices,
@@ -594,9 +676,11 @@ export const useSim = create<SimStore>((set, get) => ({
   },
 
   applyScene: (sceneId) => {
-    const { space, states } = get();
-    const scene = space?.scenes.find((sc) => sc.id === sceneId);
-    if (!space || !scene) return;
+    const { space, states, selectionId } = get();
+    const authored = space?.scenes.find((sc) => sc.id === sceneId);
+    if (!space || !authored) return;
+    // Tokens out, device ids in, before anything else reads the scene.
+    const scene = resolveScene(space, authored, selectionId);
 
     // Pressing any scene abandons a sequence already running. Half of one
     // demonstration continuing underneath another is the worst possible state.
@@ -726,6 +810,29 @@ export const useSim = create<SimStore>((set, get) => ({
     set((s) => (s.hoveredDeviceId === deviceId ? s : { hoveredDeviceId: deviceId })),
   setStageStatic: (isStatic) =>
     set((s) => (s.stageStatic === isStatic ? s : { stageStatic: isStatic })),
+
+  /**
+   * Pick a member of the selection group.
+   *
+   * If the scene on screen aims at the selection, it is re-applied for the
+   * new choice — picking a different car during Vehicle Presentation should
+   * move the light onto that car, not wait for the next press. The whole
+   * sequence reruns rather than only the steps that mention the selection,
+   * which is a second or so longer and keeps the narration honest: every
+   * caption the presenter reads is describing something that is happening.
+   */
+  setSelection: (deviceId) => {
+    const { space, selectionId, activeSceneId } = get();
+    if (!space?.selection || selectionId === deviceId) return;
+    if (!space.selection.options.some((o) => o.deviceId === deviceId)) return;
+    set({ selectionId: deviceId });
+    const active = space.scenes.find((sc) => sc.id === activeSceneId);
+    if (!active) return;
+    const aims = [active.targets, ...(active.steps ?? []).map((st) => st.targets)].some(
+      (t) => SELECTED_TARGET in t || OTHERS_TARGET in t,
+    );
+    if (aims) get().applyScene(active.id);
+  },
 
   tick: (dtRealMs) => {
     const state = get();

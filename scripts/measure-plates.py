@@ -8,8 +8,14 @@ shader exactly — the gamma/scale decode, the per-layer gain, level^2.2, the
 luminance-normalised and saturation-capped tint, the sky crossfade, AgX and
 the sRGB encode — so a figure printed here is the figure the browser renders.
 
-    python3 scripts/measure-plates.py            # report against the targets
-    python3 scripts/measure-plates.py --solve    # suggest sky / sky_day gains
+    python3 scripts/measure-plates.py --dir public/plates/restaurant
+    python3 scripts/measure-plates.py --dir public/plates/restaurant --solve
+    python3 scripts/measure-plates.py --dir public/plates/showroom --gains
+
+`--gains` derives a lumen-proportional table for every circuit from a JSON
+map of `layer -> total lumens`, anchored so the reference layer alone at full
+reads about 0.25 mean display luminance. That is how both rooms' gains were
+produced, and re-running it is the right response to a re-render.
 
 Needs Pillow and numpy, which is why it is Python rather than another .mts:
 Node has no image decoder without pulling in a native dependency, and a dev
@@ -44,7 +50,10 @@ except ImportError:
     sys.exit("needs Pillow and numpy:  pip3 install pillow numpy")
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-PLATES = ROOT / "public" / "plates"
+_ap = argparse.ArgumentParser(add_help=False)
+_ap.add_argument("--dir", default="public/plates/restaurant")
+_known, _ = _ap.parse_known_args()
+PLATES = ROOT / _known.dir
 WINDOW_X = 0.62
 
 # Kept in step with components/stage/plates/gains.ts by hand. There is no
@@ -54,14 +63,20 @@ GAIN = {
     "rs_arch": 5, "rs_feature": 0.1, "rs_table": 5, "rs_rgb": 1.5,
     "sky": 6.7, "sky_day": 43.5,
     "day_morning": 600, "day_midday": 25, "day_evening": 15,
+    "sr_general": 29.4, "sr_spot": 52263, "sr_track": 296, "sr_linear": 3.4,
+    "sr_accent": 1.1, "sr_floor": 6.6, "sr_arch": 2.1, "sr_tunable": 552,
+    "sr_rgb": 29, "sr_zone_1": 149, "sr_zone_2": 5921, "sr_zone_3": 50,
+    "sr_zone_4": 5628, "sr_zone_5": 2648, "sr_zone_6": 25301,
 }
-EXPOSURE = 0.25
+EXPOSURE = 0.25  # restaurant; the showroom profile uses 0.20
 TINT_SATURATION = 0.55
 
 MAN = json.loads((PLATES / "manifest.json").read_text())
 LAYERS = list(MAN["layers"].keys())
-CIRCUITS = [l for l in LAYERS if l.startswith("rs_")]
+# Roles by name, exactly as `plates/manifest.ts` classifies them: anything
+# that is not one of the two views or a sun angle is a circuit.
 DAY_ORDER = ["day_morning", "day_midday", "day_evening"]
+CIRCUITS = [l for l in LAYERS if l not in ("sky", "sky_day") and l not in DAY_ORDER]
 LIN = {
     l: (np.asarray(Image.open(PLATES / "sd" / f"{l}.webp").convert("RGB"), float) / 255.0)
     ** MAN["gamma"] * MAN["layers"][l]["scale"]
@@ -95,7 +110,13 @@ def to_srgb(c):
 
 
 def glass_mask():
-    """The glazing, as the pixels the daytime view plate actually lights."""
+    """The glazing, as the pixels the daytime view plate actually lights.
+
+    None for a set with no exterior at all — the showroom has no glazing, so
+    there is no `sky_day` to find the glass with and nothing to measure.
+    """
+    if "sky_day" not in LIN:
+        return None
     L = lum(LIN["sky_day"])
     return L > np.percentile(L, 99) * 0.15
 
@@ -164,7 +185,7 @@ ENV = {"sunriseMin": 380, "sunsetMin": 1135, "outdoorPeakLux": 95000}
 
 def render(targets, clock, gain=None, exposure=EXPOSURE):
     g = {**GAIN, **(gain or {})}
-    hdr = np.zeros_like(LIN["sky"])
+    hdr = np.zeros_like(next(iter(LIN.values())))
     night = 1 - dayness(clock)
     dw = day_weights(clock, ENV)
     # The colour bus, mirroring weights.ts: a live saturated rs-rgb pulls the
@@ -198,6 +219,10 @@ OFF = {c.replace("_", "-"): {"on": False} for c in CIRCUITS}
 
 
 def report(gain=None):
+    if GLASS is None:
+        print("  this plate set has no sky layers, so there is nothing to check here.")
+        print("  use --gains to derive the circuit table instead.")
+        return True
     night = lum(render(OFF, 60, gain))[GLASS]            # 01:00
     dayimg = render(OFF, 13 * 60, gain)                  # 13:00
     day = lum(dayimg)[GLASS]
@@ -216,6 +241,9 @@ def report(gain=None):
 
 
 def solve():
+    if GLASS is None:
+        print("  no sky layers in this plate set; nothing to solve.")
+        return
     print("Solving by bisection inside the glass mask:\n")
     for layer, clock, stat, lo_t, hi_t in [
         ("sky", 60, "median", 0.03, 0.12),
@@ -232,11 +260,33 @@ def solve():
         print(f"  {layer:8s} -> {math.sqrt(lo*hi):8.3f}   ({stat} hits {mid_t:.3f})")
 
 
+def derive(lumens: dict, ref: str, target: float = 0.25):
+    """Lumen-proportional gains, anchored so `ref` alone at full hits `target`."""
+    mean = {l: float(lum(LIN[l]).mean()) for l in lumens}
+    lo, hi = 0.01, 100000.0
+    for _ in range(50):                      # find the reference gain first
+        mid = math.sqrt(lo * hi)
+        v = float(lum(to_srgb(agx(LIN[ref] * mid * EXPOSURE))).mean())
+        if v < target: lo = mid
+        else: hi = mid
+    base = math.sqrt(lo * hi)
+    print(f"  reference {ref} -> {base:.3f}  (alone at full reads {target})\n")
+    for l in lumens:
+        g = base * (mean[ref] * lumens[l] / lumens[ref]) / max(mean[l], 1e-12)
+        print(f"  {l:14s} {g:12.3f}   lumens {lumens[l]:7d}   plate mean {mean[l]:.5f}")
+
+
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(parents=[_ap])
     ap.add_argument("--solve", action="store_true")
+    ap.add_argument("--gains", metavar="JSON",
+                    help="path to a {layer: lumens} map, or '-' for the showroom default")
+    ap.add_argument("--ref", default=None, help="anchor layer for --gains")
     a = ap.parse_args()
-    if a.solve:
+    if a.gains:
+        lm = json.loads(pathlib.Path(a.gains).read_text())
+        derive(lm, a.ref or next(iter(lm)))
+    elif a.solve:
         solve()
     else:
         print("Plate calibration against the brief's targets:\n")

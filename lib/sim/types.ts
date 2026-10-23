@@ -354,6 +354,45 @@ export interface SceneStep {
  * what drives it. Moving a control by hand also stops it — letting go of the
  * scene is how this app says "you are driving now".
  */
+/**
+ * A group of devices the presenter picks one of, and scenes can aim at.
+ *
+ * The showroom's six vehicle zones are the case this exists for: the client
+ * asked to "select different vehicles and demonstrate individual lighting
+ * focus", which means a scene has to be able to say "this one to a hundred,
+ * the rest to twenty-five" without naming a car. Scene targets express that
+ * with two pseudo-device ids, `SELECTED_TARGET` and `OTHERS_TARGET`, which
+ * the store expands against the current choice when the scene is applied.
+ *
+ * Nothing about vehicles is in the engine. A space that declares a selection
+ * of anything else — meeting pods, display bays — gets the same behaviour.
+ */
+export interface SpaceSelection {
+  /** Shown as the heading of the picker, e.g. "Vehicles". */
+  label: string;
+  /** Devices in the group, in the order the picker lists them. */
+  options: {
+    deviceId: string;
+    name: string;
+    /**
+     * Circuits that follow this option as though they were part of it.
+     *
+     * The turntable vehicle is the case: its four adjustable spots barely
+     * register in the plates, and what actually lights that car is the ring
+     * of high-CRI product spots above it. Naming `sr-spot` here means
+     * selecting the turntable car brings the ring with it, and selecting any
+     * other car leaves the ring with the rest of the room.
+     */
+    alsoDeviceIds?: string[];
+  }[];
+  /** Used until the presenter chooses, and whenever the choice is invalid. */
+  defaultDeviceId: string;
+}
+
+/** Scene-target keys that stand for the selection rather than a device. */
+export const SELECTED_TARGET = "@selected";
+export const OTHERS_TARGET = "@others";
+
 export interface SceneDrift {
   /** The device whose hue moves. */
   deviceId: string;
@@ -559,7 +598,12 @@ export interface Space {
    * failure mode of the two disagreeing is a silently mis-exposed room rather
    * than anything that throws.
    */
-  plates?: { dir: string };
+  plates?: {
+    /** Directory the plate set is served from, e.g. "/plates/restaurant". */
+    dir: string;
+    /** Names the calibration in `components/stage/plates/profiles`. */
+    profile: string;
+  };
   /**
    * Keep this space out of the space picker.
    *
@@ -586,6 +630,8 @@ export interface Space {
    * first frame a client sees is the one that has to land.
    */
   openingClockMin?: number;
+  /** A group of devices the presenter picks one of. See `SpaceSelection`. */
+  selection?: SpaceSelection;
   environment: SpaceEnvironment;
   baseline: SpaceBaseline;
   /** Electricity tariff in local currency per kWh. */

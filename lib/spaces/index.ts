@@ -15,6 +15,7 @@ import { boardroom } from "./commercial/boardroom";
 import { cxoCabin } from "./commercial/cxo-cabin";
 import { workspace } from "./commercial/workspace";
 import { restaurant } from "./commercial/restaurant";
+import { showroom } from "./commercial/showroom";
 import { hotelLobby } from "./hospitality/hotel-lobby";
 import { carShowroom } from "./hospitality/car-showroom";
 
@@ -26,6 +27,7 @@ export const spaces: Space[] = [
   boardroom,
   cxoCabin,
   restaurant,
+  showroom,
   hotelLobby,
   carShowroom,
   kitchen,

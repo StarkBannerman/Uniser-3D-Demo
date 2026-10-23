@@ -1,0 +1,80 @@
+{
+  "camera": "hero",
+  "points": {
+    "sr-general": {
+      "u": -0.1317,
+      "v": 0.0041,
+      "visible": false
+    },
+    "sr-spot": {
+      "u": 0.3435,
+      "v": 0.3402,
+      "visible": true
+    },
+    "sr-track": {
+      "u": 0.4443,
+      "v": -0.117,
+      "visible": false
+    },
+    "sr-linear": {
+      "u": 0.9569,
+      "v": 0.0103,
+      "visible": true
+    },
+    "sr-tunable": {
+      "u": 0.6109,
+      "v": 0.4482,
+      "visible": true
+    },
+    "sr-accent": {
+      "u": 0.1818,
+      "v": 0.4738,
+      "visible": true
+    },
+    "sr-floor": {
+      "u": 0.3378,
+      "v": 0.6955,
+      "visible": true
+    },
+    "sr-arch": {
+      "u": 1.0849,
+      "v": 0.7691,
+      "visible": false
+    },
+    "sr-rgb": {
+      "u": 1.0727,
+      "v": 0.532,
+      "visible": false
+    },
+    "sr-zone-1": {
+      "u": 0.1434,
+      "v": 0.6435,
+      "visible": true
+    },
+    "sr-zone-2": {
+      "u": 0.225,
+      "v": 0.6132,
+      "visible": true
+    },
+    "sr-zone-3": {
+      "u": 0.3997,
+      "v": 0.6034,
+      "visible": true
+    },
+    "sr-zone-4": {
+      "u": 0.5656,
+      "v": 0.5975,
+      "visible": true
+    },
+    "sr-zone-5": {
+      "u": 0.774,
+      "v": 0.5904,
+      "visible": true
+    },
+    "sr-zone-6": {
+      "u": 0.8798,
+      "v": 0.5917,
+      "visible": true
+    }
+  }
+}

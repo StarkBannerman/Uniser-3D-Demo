@@ -454,6 +454,8 @@ export function AppPanel({ view }: { view: AppView }) {
   const busyDevices = useSim((s) => s.busyDevices);
   const applyScene = useSim((s) => s.applyScene);
   const stageStatic = useSim((s) => s.stageStatic);
+  const selectionId = useSim((s) => s.selectionId);
+  const setSelection = useSim((s) => s.setSelection);
 
   if (!space) return null;
 
@@ -580,6 +582,42 @@ export function AppPanel({ view }: { view: AppView }) {
                 ? space.scenes.find((s) => s.id === activeSceneId)?.blurb
                 : "Adjusted by hand — no scene active."}
             </p>
+          </div>
+        )}
+
+        {/*
+          The selection picker, for a space that declares one.
+          
+          Above the circuits rather than among them, because picking a car is
+          not a dimmer: it changes what several of the circuits below are
+          *for*, and the scenes that aim at the selection follow it live.
+        */}
+        {view === "controls" && space.selection && (
+          <div className="mb-1.5">
+            <div className="px-1 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-shell-500">
+              {space.selection.label}
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {space.selection.options.map((option) => {
+                const chosen =
+                  (selectionId ?? space.selection!.defaultDeviceId) === option.deviceId;
+                return (
+                  <button
+                    key={option.deviceId}
+                    type="button"
+                    onClick={() => setSelection(option.deviceId)}
+                    aria-pressed={chosen}
+                    className={`rounded-lg border px-2 py-1.5 text-left text-[11px] transition-colors ${
+                      chosen
+                        ? "border-brass-600/70 bg-shell-800 text-shell-100"
+                        : "border-shell-800 text-shell-400 hover:text-shell-200"
+                    }`}
+                  >
+                    {option.name}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 

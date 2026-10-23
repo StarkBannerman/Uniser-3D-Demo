@@ -35,7 +35,7 @@ export const restaurant: Space = {
   blurb:
     "A 330 m² hotel restaurant, path-traced offline and relit live — eight separately controlled lighting layers across the dining floor, a bar and wine wall, a pendant cluster and a glazed façade, with music, climate, occupancy and daylight response, and the eight scenes a restaurant runs through from breakfast to the last table.",
   renderer: "plates",
-  plates: { dir: "/plates" },
+  plates: { dir: "/plates/restaurant", profile: "restaurant" },
 
   keypad: {
     layout: "grid",

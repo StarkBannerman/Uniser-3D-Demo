@@ -19,7 +19,7 @@ import {
   sunElevation01,
 } from "@/lib/sim/photometry";
 import { DAY_ORDER, deviceIdOf, layerRole } from "./manifest";
-import { TINT_SATURATION, gainOf } from "./gains";
+import { gainOf, type PlateProfile } from "./profile";
 
 /**
  * Outdoor lux that counts as fully daylit for the sun-angle passes.
@@ -99,7 +99,10 @@ function unitLuminance(c: [number, number, number]): [number, number, number] {
  * The hue mix for `rs_rgb` happens last and is *not* capped: Party is a real
  * magenta wash rather than an illuminant anybody would discount.
  */
-export function tintLinear(state: LightState): [number, number, number] {
+export function tintLinear(
+  state: LightState,
+  tintSaturation: number,
+): [number, number, number] {
   const [br, bg, bb] = cctToRgb(state.cct);
   const white = unitLuminance([
     srgbToLinear(br / 255),
@@ -109,9 +112,9 @@ export function tintLinear(state: LightState): [number, number, number] {
   // Mixing two unit-luminance colours leaves unit luminance, so this
   // desaturates without touching brightness.
   const base: [number, number, number] = [
-    lerp(1, white[0], TINT_SATURATION),
-    lerp(1, white[1], TINT_SATURATION),
-    lerp(1, white[2], TINT_SATURATION),
+    lerp(1, white[0], tintSaturation),
+    lerp(1, white[1], tintSaturation),
+    lerp(1, white[2], tintSaturation),
   ];
   if (state.sat <= 0) return base;
 
@@ -140,27 +143,9 @@ export function tintLinear(state: LightState): [number, number, number] {
  * of the beam, and tinting it again by a 2000 K circuit colour applies it
  * twice and turns the cluster orange.
  */
-const NEUTRAL_LAYERS = new Set<string>(["rs_pendant"]);
 
-/**
- * Circuits whose fixtures are RGBW rather than tunable white.
- *
- * A cove run and a linear architectural profile are almost always RGBW in a
- * room specified like this one — the white dies are what you light dinner
- * with, and the colour dies are why the same room can be sold for a party.
- * So when the colour circuit is running saturated, these two follow it onto
- * the same hue instead of staying on the blackbody locus.
- *
- * Driven from the state of `rs-rgb` rather than from the scene's name, which
- * matters more than it looks: a presenter who nudges a dimmer during Party
- * drops `activeSceneId`, and a room that reverts its ceiling to white the
- * moment you touch a slider would look broken. The colour follows the colour
- * bus, which is how the hardware would do it.
- */
-const RGBW_LAYERS = new Set<string>(["rs_cove", "rs_arch"]);
 
-/** The circuit the RGBW fixtures take their hue from. */
-const COLOUR_BUS = "rs-rgb";
+
 
 /* ------------------------------------------------------------------ */
 /* Daylight                                                            */
@@ -235,6 +220,7 @@ export function computeWeights(
   space: Space,
   states: Record<string, DeviceState>,
   clockMin: number,
+  profile: PlateProfile,
 ): boolean {
   let changed = false;
   /**
@@ -263,14 +249,18 @@ export function computeWeights(
   const night = 1 - dayness(clockMin);
   const day = dayWeights(daylightAmount(space, clockMin), dayFraction(space, clockMin));
 
-  // The colour bus, if it is running colour at all. Party is the only scene
-  // in this room that turns it on, so in every other one this is null and the
-  // RGBW circuits stay white.
-  const busState = states[COLOUR_BUS] as LightState | undefined;
+  // The colour bus, if the profile has one and it is running colour at all.
+  // In a room with no RGBW circuits, or a scene with the colour off, this is
+  // null and every circuit stays on the white locus.
+  const busState = profile.colourBus
+    ? (states[profile.colourBus] as LightState | undefined)
+    : undefined;
   const bus = busState?.on && busState.sat > 0 ? busState : null;
+  const rgbw = new Set(profile.rgbwLayers);
+  const neutral = new Set(profile.neutralLayers);
 
   layers.forEach((layer, i) => {
-    const gain = gainOf(layer);
+    const gain = gainOf(profile, layer);
     switch (layerRole(layer)) {
       case "circuit": {
         const state = states[deviceIdOf(layer)] as LightState | undefined;
@@ -280,8 +270,10 @@ export function computeWeights(
         // saturation: a cove doing a pastel version of the wash reads as a
         // mistake rather than as a choice.
         const lit =
-          bus && RGBW_LAYERS.has(layer) ? { ...state, hue: bus.hue, sat: 100 } : state;
-        const [r, g, b] = NEUTRAL_LAYERS.has(layer) ? [1, 1, 1] : tintLinear(lit);
+          bus && rgbw.has(layer) ? { ...state, hue: bus.hue, sat: 100 } : state;
+        const [r, g, b] = neutral.has(layer)
+          ? [1, 1, 1]
+          : tintLinear(lit, profile.tintSaturation);
         return put(i, w * r, w * g, w * b);
       }
       case "day": {

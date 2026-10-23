@@ -21,19 +21,19 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: "/plates/:tier(hd|sd)/:file*",
+        source: "/plates/:space/:tier(hd|sd)/:file*",
         headers: [
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
       },
       {
-        source: "/plates/:file(still_hd.jpg|still_sd.jpg)",
+        source: "/plates/:space/:file(still_hd.jpg|still_sd.jpg)",
         headers: [
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
       },
       {
-        source: "/plates/:file(manifest.json|hotspots.json)",
+        source: "/plates/:space/:file(manifest.json|hotspots.json)",
         headers: [
           { key: "Cache-Control", value: "public, max-age=60, must-revalidate" },
         ],

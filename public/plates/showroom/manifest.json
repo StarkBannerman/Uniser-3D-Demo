@@ -1,0 +1,71 @@
+{
+  "gamma": 5.0,
+  "width": 1920,
+  "height": 1080,
+  "sd": [
+    960,
+    540
+  ],
+  "layers": {
+    "sr_accent": {
+      "scale": 36.787502,
+      "clipped_pct": 0.0
+    },
+    "sr_arch": {
+      "scale": 47.325001,
+      "clipped_pct": 0.0
+    },
+    "sr_floor": {
+      "scale": 22.134377,
+      "clipped_pct": 0.002
+    },
+    "sr_general": {
+      "scale": 30.750002,
+      "clipped_pct": 0.0
+    },
+    "sr_linear": {
+      "scale": 38.212502,
+      "clipped_pct": 0.0
+    },
+    "sr_rgb": {
+      "scale": 2.65957,
+      "clipped_pct": 0.004
+    },
+    "sr_spot": {
+      "scale": 0.108083,
+      "clipped_pct": 0.001
+    },
+    "sr_track": {
+      "scale": 0.159521,
+      "clipped_pct": 0.001
+    },
+    "sr_tunable": {
+      "scale": 0.801563,
+      "clipped_pct": 0.001
+    },
+    "sr_zone_1": {
+      "scale": 0.540234,
+      "clipped_pct": 0.003
+    },
+    "sr_zone_2": {
+      "scale": 0.162378,
+      "clipped_pct": 0.002
+    },
+    "sr_zone_3": {
+      "scale": 0.029773,
+      "clipped_pct": 0.0
+    },
+    "sr_zone_4": {
+      "scale": 0.440881,
+      "clipped_pct": 0.003
+    },
+    "sr_zone_5": {
+      "scale": 0.242596,
+      "clipped_pct": 0.0
+    },
+    "sr_zone_6": {
+      "scale": 5.697583,
+      "clipped_pct": 0.0
+    }
+  }
+}

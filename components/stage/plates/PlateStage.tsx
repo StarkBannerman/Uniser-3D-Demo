@@ -42,7 +42,8 @@ import {
   type PlateTier,
 } from "./manifest";
 import { PlateRenderer, type ToneCurve } from "./PlateRenderer";
-import { CLOCK_EASE_MS, EXPOSURE } from "./gains";
+import { CLOCK_EASE_MS } from "./profile";
+import { profileFor } from "./profiles";
 import {
   computeWeights,
   dayness,
@@ -141,9 +142,12 @@ async function loadImage(url: string): Promise<ImageBitmap | HTMLImageElement> {
 
 export function PlateStage({
   dir,
+  profile: profileName,
   controlsOpen = false,
 }: {
   dir: string;
+  /** Names the calibration in `plates/profiles`. */
+  profile?: string;
   /** Controls tab is showing, so the room should say where each circuit is. */
   controlsOpen?: boolean;
 }) {
@@ -202,7 +206,8 @@ export function PlateStage({
         return;
       }
 
-      const exposure = Number(param("exposure")) || EXPOSURE;
+      const profile = profileFor(profileName);
+      const exposure = Number(param("exposure")) || profile.exposure;
       const clockIdx = layers.map((l) => isClockDriven(l));
 
       /** Where the store says each layer should be. */
@@ -272,7 +277,7 @@ export function PlateStage({
       const refresh = () => {
         const { space, states, clockMin } = useSim.getState();
         if (!space) return;
-        if (!computeWeights(target, layers, space, states, clockMin)) return;
+        if (!computeWeights(target, layers, space, states, clockMin, profile)) return;
 
         // Circuits pass straight through; the clock layers start a tween from
         // wherever they currently are, so a scene that moves the clock slides
@@ -362,11 +367,13 @@ export function PlateStage({
       renderer?.dispose();
       useSim.getState().setStageStatic(false);
     };
-  }, [dir]);
+  }, [dir, profileName]);
 
   const space = useSim((s) => s.space);
   const select = useSim((s) => s.select);
   const hoveredDeviceId = useSim((s) => s.hoveredDeviceId);
+  const selectionId = useSim((s) => s.selectionId);
+  const setSelection = useSim((s) => s.setSelection);
   /**
    * Markers appear with the Controls tab, and not otherwise.
    *
@@ -404,40 +411,71 @@ export function PlateStage({
       {failed && <Fallback reason={failed} />}
 
       {ready && !failed && hotspots && space && (
-        <div
-          className="absolute inset-0"
-          // On the wrapper rather than per button, so a hidden marker is not
-          // a target you can hit by accident.
-          style={{ pointerEvents: showHotspots ? "auto" : "none" }}
-        >
+        <div className="pointer-events-none absolute inset-0">
           {Object.entries(hotspots.points).map(([deviceId, point]) => {
             if (!point.visible) return null;
             const device = space.devices.find((d) => d.id === deviceId);
             if (!device) return null;
-            const shown = showHotspots || hoveredDeviceId === deviceId;
+            const option = space.selection?.options.find(
+              (o) => o.deviceId === deviceId,
+            );
+            const chosen =
+              Boolean(option) &&
+              (selectionId ?? space.selection?.defaultDeviceId) === deviceId;
+            /**
+             * A circuit marker belongs to the Controls tab; a selectable
+             * thing is always there.
+             *
+             * The rule for circuits has not changed — markers over a
+             * photograph read as dirt, and they turned up in every
+             * screen-share the moment the mouse crossed the room. But a
+             * space that declares a selection is a space where picking the
+             * subject is the point, and a car you cannot click until you
+             * have found the right tab is not clickable. So the six
+             * vehicles sit there quietly, and the chosen one wears its name.
+             */
+            const vehicle = Boolean(option);
+            const shown = showHotspots || hoveredDeviceId === deviceId || vehicle;
             return (
               <button
                 key={deviceId}
                 type="button"
-                tabIndex={showHotspots ? 0 : -1}
-                onClick={() => select(deviceId)}
-                aria-label={`Show ${device.name} controls`}
+                tabIndex={shown ? 0 : -1}
+                onClick={() => {
+                  select(deviceId);
+                  if (option) setSelection(deviceId);
+                }}
+                aria-pressed={option ? chosen : undefined}
+                aria-label={
+                  option ? `Select ${option.name}` : `Show ${device.name} controls`
+                }
                 className="group absolute -translate-x-1/2 -translate-y-1/2 p-2.5 transition-opacity duration-200"
                 style={{
                   left: `${clampEdge(point.u) * 100}%`,
                   top: `${clampEdge(point.v) * 100}%`,
                   opacity: shown ? 1 : 0,
+                  pointerEvents: shown ? "auto" : "none",
                 }}
               >
                 <span
-                  className={`block h-2 w-2 rounded-full ring-1 ring-black/50 transition group-hover:scale-125 group-hover:bg-brass-300 ${
-                    hoveredDeviceId === deviceId
-                      ? "scale-150 bg-brass-300"
-                      : "bg-brass-400/80"
+                  className={`block rounded-full ring-1 ring-black/50 transition group-hover:scale-125 group-hover:bg-brass-300 ${
+                    chosen
+                      ? "h-2.5 w-2.5 bg-brass-300 ring-2 ring-brass-300/40"
+                      : hoveredDeviceId === deviceId
+                        ? "h-2 w-2 scale-150 bg-brass-300"
+                        : vehicle
+                          ? "h-2 w-2 bg-white/45"
+                          : "h-2 w-2 bg-brass-400/80"
                   }`}
                 />
-                <span className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 text-[10px] text-shell-100 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-                  {device.name}
+                <span
+                  className={`pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 text-[10px] transition group-hover:opacity-100 group-focus-visible:opacity-100 ${
+                    chosen
+                      ? "text-brass-300 opacity-100"
+                      : "text-shell-100 opacity-0"
+                  }`}
+                >
+                  {option ? option.name : device.name}
                 </span>
               </button>
             );

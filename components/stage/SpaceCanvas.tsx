@@ -215,7 +215,11 @@ export function SpaceCanvas({ controlsOpen = false }: { controlsOpen?: boolean }
         }
       >
         {space.plates ? (
-          <PlateStage dir={space.plates.dir} controlsOpen={controlsOpen} />
+          <PlateStage
+            dir={space.plates.dir}
+            profile={space.plates.profile}
+            controlsOpen={controlsOpen}
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-shell-500">
             No plate set registered for “{space.id}”.
