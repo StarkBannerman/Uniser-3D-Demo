@@ -217,14 +217,27 @@ export function computeWeights(
   clockMin: number,
 ): boolean {
   let changed = false;
+  /**
+   * A change counts when it would be visible, not when a float moved.
+   *
+   * The simulation never quite sits still — the lux sensor resamples at
+   * 10 Hz and the rules nudge levels by fractions in response — so an exact
+   * comparison here reported a change about eight times a second in a room
+   * nobody was touching, and the GPU redrew each time. That is not a
+   * continuous loop but it is not the "nothing at rest" this renderer is
+   * sold on either. A hundredth of a per cent of the larger operand is far
+   * below anything the eye or the panel could show, and still catches a
+   * circuit switching off, where the other operand is zero.
+   */
+  const SAME = (a: number, b: number) =>
+    Math.abs(a - b) <= 1e-4 * Math.max(1, Math.abs(a), Math.abs(b));
   const put = (i: number, r: number, g: number, b: number) => {
     const o = i * 3;
-    if (out[o] !== r || out[o + 1] !== g || out[o + 2] !== b) {
-      out[o] = r;
-      out[o + 1] = g;
-      out[o + 2] = b;
-      changed = true;
-    }
+    if (SAME(out[o], r) && SAME(out[o + 1], g) && SAME(out[o + 2], b)) return;
+    out[o] = r;
+    out[o + 1] = g;
+    out[o + 2] = b;
+    changed = true;
   };
 
   const night = 1 - dayness(clockMin);
