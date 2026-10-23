@@ -36,7 +36,7 @@ import type { RenderPath } from "@/lib/device";
 import { hasActiveTweens } from "@/lib/sim/tween";
 import type { AvState, FanState, LightState, ShadeState } from "@/lib/sim/types";
 import { Environment, Lightformer } from "@react-three/drei";
-import { EffectComposer, Bloom, N8AO, ToneMapping } from "@react-three/postprocessing";
+import { EffectComposer, Bloom, N8AO, SMAA, ToneMapping } from "@react-three/postprocessing";
 import { StageStatus } from "./StageStatus";
 import { ToneMappingMode } from "postprocessing";
 
@@ -525,13 +525,32 @@ function RoomLoader({ name, gone }: { name: string; gone: boolean }) {
   );
 }
 
-function RenderPump({ fps }: { fps: number }) {
+/**
+ * How long the room must sit still before it is worth re-drawing it sharper.
+ *
+ * Long enough that a scene's settle, a slider release or a quick series of
+ * clicks does not trigger a resize each time; short enough that by the time
+ * anyone is actually looking at a still frame, it is the sharp one.
+ */
+const QUIET_MS = 450;
+
+function RenderPump({
+  fps,
+  onQuiet,
+}: {
+  fps: number;
+  /** Called with true once the room has been still for `QUIET_MS`, false the
+   *  instant anything moves again. See `StillRefine` for what it buys. */
+  onQuiet?: (quiet: boolean) => void;
+}) {
   const invalidate = useThree((s) => s.invalidate);
 
   useLayoutEffect(() => {
     let frame = 0;
     let last = 0;
     let signature = "";
+    let quietSince = 0;
+    let quiet = false;
     const minDelta = 1000 / fps;
 
     const step = (t: number) => {
@@ -559,12 +578,30 @@ function RenderPump({ fps }: { fps: number }) {
         if (motion === "transition") signature = visualSignature();
         invalidate();
       }
+
+      /*
+       * Quiet means: nothing drew this tick and nothing has for a while.
+       * `draw` is the honest signal - it already accounts for tweens,
+       * continuous motion and discrete control changes, so there is no second
+       * definition of "still" to drift out of step with the first.
+       */
+      if (draw) {
+        quietSince = t;
+        if (quiet) {
+          quiet = false;
+          onQuiet?.(false);
+        }
+      } else if (!quiet && t - quietSince > QUIET_MS) {
+        quiet = true;
+        onQuiet?.(true);
+      }
+
       frame = requestAnimationFrame(step);
     };
 
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [invalidate, fps]);
+  }, [invalidate, fps, onQuiet]);
 
   return null;
 }
@@ -856,6 +893,24 @@ export function Stage3D({
   const [dpr, setDpr] = useState(quality === "low" ? 0.85 : 1.0);
   const settled = useRef(false);
   /**
+   * Idle supersampling, and it is close to free here for one architectural
+   * reason: `RenderPump` draws on change, not on a clock. A still showroom
+   * draws almost no frames at all, so the cost of making those frames
+   * expensive is paid once rather than sixty times a second - and the still
+   * image is exactly what a salesperson leaves on screen while they talk.
+   *
+   * So when the room goes quiet the canvas is re-sized up and one sharp frame
+   * is drawn; the moment anything moves it drops straight back to whatever
+   * the governor settled on, and motion runs at the cost it always did.
+   *
+   * Only engaged where it would actually change something - if the governor
+   * already reached the still target there is nothing to raise, and resizing
+   * the buffers for no gain is pure hitch.
+   */
+  const [quiet, setQuiet] = useState(false);
+  const stillDpr = quality === "low" ? 1 : 2;
+  const effectiveDpr = quiet && stillDpr > dpr ? stillDpr : dpr;
+  /**
    * Climb while the frame is still vsync-bound, and come back down once if a
    * rung proves too dear.
    *
@@ -873,10 +928,24 @@ export function Stage3D({
   const onMeasure = useCallback((medianMs: number) => {
     if (settled.current) return;
     setDpr((current) => {
-      const ceiling = Math.min(
-        typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
-        2,
-      );
+      /*
+       * Two, flat - NOT the display's own pixel ratio, which is what this
+       * used to be and which quietly capped every ordinary laptop at 1.0.
+       *
+       * `devicePixelRatio` is 2 on a Retina MacBook and 1 on a 1080p Windows
+       * panel, so the same build rendered four times the pixels on one than
+       * the other and the governor was forbidden from spending headroom the
+       * second machine may well have had. That is the whole of the "fine on
+       * the MacBook, grainy on the HP" report.
+       *
+       * Rendering above the display's ratio is supersampling: the backing
+       * store is larger than the CSS box and the browser downsamples it,
+       * which is the standard fix for aliasing on a 1x panel. It is safe to
+       * offer here because the governor below is try-and-step-back - it only
+       * keeps a rung whose frames it can afford - so a machine with no
+       * headroom simply stays where it was.
+       */
+      const ceiling = 2;
       const rungs = [0.85, 1, 1.5, 2].filter((r) => r <= ceiling);
       const i = rungs.indexOf(current);
       if (medianMs <= 17.5 && i >= 0 && i < rungs.length - 1) return rungs[i + 1];
@@ -926,7 +995,7 @@ export function Stage3D({
        * inside it, and a second owner is what caused the blanking described
        * above `DPR`.
        */
-      dpr={dpr}
+      dpr={effectiveDpr}
       gl={{
         antialias: true,
         // Tone mapping is the composer's job — see the note at the top.
@@ -942,7 +1011,7 @@ export function Stage3D({
     >
       <Suspense fallback={null}>
         <QualityContext.Provider value={quality}>
-        <RenderPump fps={FRAME_CAP[quality]} />
+        <RenderPump fps={FRAME_CAP[quality]} onQuiet={setQuiet} />
         {perf && <PerfProbe />}
         <LockHorizontalFov fovAt16x9={camera.fov} />
         <ProceduralEnvironment />
@@ -985,10 +1054,28 @@ export function Stage3D({
             radius={0.72}
           />
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+          {/*
+            Edge antialiasing, and the cheapest quality in the project.
+
+            `antialias: true` on the Canvas does nothing once a composer is in
+            the chain: that flag is MSAA on the default framebuffer, and the
+            composer renders into its own targets and never draws to it. What
+            was actually running is `multisampling={2}` below, which is two
+            samples - enough to soften a long edge, not enough for the hard
+            stair-stepping on a car's A-pillar or the ceiling ring.
+
+            SMAA works on the resolved image instead, so it costs a fraction of
+            a millisecond flat rather than scaling with the scene. Resolution
+            buys the same sharpening at roughly 39 ms per megapixel, which is
+            two orders of magnitude dearer. It goes last, after tone mapping,
+            because its edge detection reads luminance and wants the LDR image
+            the eye will actually see.
+          */}
+          {quality !== "low" && <SMAA />}
         </EffectComposer>
         {/* After the children, so the scene graph is populated when it runs. */}
         <ReadyGate onReady={setReady} />
-        <DprProbe key={dpr} active={ready} onMeasure={onMeasure} />
+        <DprProbe key={dpr} active={ready && !quiet} onMeasure={onMeasure} />
         </QualityContext.Provider>
       </Suspense>
     </Canvas>
