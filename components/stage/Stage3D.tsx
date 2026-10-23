@@ -24,6 +24,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   type ReactNode,
   useState,
@@ -536,12 +537,22 @@ const QUIET_MS = 450;
 
 function RenderPump({
   fps,
-  onQuiet,
+  onCalm,
 }: {
   fps: number;
-  /** Called with true once the room has been still for `QUIET_MS`, false the
-   *  instant anything moves again. See `StillRefine` for what it buys. */
-  onQuiet?: (quiet: boolean) => void;
+  /**
+   * How hard the room is working, which decides how many pixels it is worth
+   * drawing. "busy" is a tween or a control change, "ambient" is something
+   * that animates forever - a water wall, a flame - and "still" is nothing at
+   * all for `QUIET_MS`.
+   *
+   * Three levels, not two, because a boolean could not describe the lobby.
+   * Its cascade runs continuously, so the room is never still and the sharper
+   * idle frame never arrived; meanwhile its ambient draw is low-frequency and
+   * already throttled to half rate, so it can carry more pixels than a tween
+   * can without costing anything the machine has not already proven.
+   */
+  onCalm?: (calm: "busy" | "ambient" | "still") => void;
 }) {
   const invalidate = useThree((s) => s.invalidate);
 
@@ -550,7 +561,7 @@ function RenderPump({
     let last = 0;
     let signature = "";
     let quietSince = 0;
-    let quiet = false;
+    let calm: "busy" | "ambient" | "still" = "busy";
     const minDelta = 1000 / fps;
 
     const step = (t: number) => {
@@ -585,15 +596,18 @@ function RenderPump({
        * continuous motion and discrete control changes, so there is no second
        * definition of "still" to drift out of step with the first.
        */
-      if (draw) {
-        quietSince = t;
-        if (quiet) {
-          quiet = false;
-          onQuiet?.(false);
-        }
-      } else if (!quiet && t - quietSince > QUIET_MS) {
-        quiet = true;
-        onQuiet?.(true);
+      const want: "busy" | "ambient" | "still" =
+        motion === "transition" || (draw && motion !== "ambient")
+          ? "busy"
+          : motion === "ambient"
+            ? "ambient"
+            : t - quietSince > QUIET_MS
+              ? "still"
+              : "busy";
+      if (want === "busy") quietSince = t;
+      if (want !== calm) {
+        calm = want;
+        onCalm?.(want);
       }
 
       frame = requestAnimationFrame(step);
@@ -601,7 +615,7 @@ function RenderPump({
 
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [invalidate, fps, onQuiet]);
+  }, [invalidate, fps, onCalm]);
 
   return null;
 }
@@ -907,9 +921,49 @@ export function Stage3D({
    * already reached the still target there is nothing to raise, and resizing
    * the buffers for no gain is pure hitch.
    */
-  const [quiet, setQuiet] = useState(false);
-  const stillDpr = quality === "low" ? 1 : 2;
-  const effectiveDpr = quiet && stillDpr > dpr ? stillDpr : dpr;
+  const [calm, setCalm] = useState<"busy" | "ambient" | "still">("busy");
+  /**
+   * Gated on the governor having finished, NOT on the probe being paused -
+   * which is what the first version did, and it was wrong in a way that
+   * froze the resolution entirely.
+   *
+   * The probe drives its own frames through `invalidate`, but those are not
+   * `RenderPump` draws: nothing in the simulation changed, so the pump sees a
+   * still room, calls quiet at 450 ms and - with the probe gated on `!quiet`
+   * - switched the measurement off part way through. The DPR then stayed
+   * wherever it happened to be, which on a slower machine is the bottom rung.
+   *
+   * So the probe runs freely and the still frame waits for it instead. The
+   * still target is also a rung ABOVE the governor's ceiling on purpose: at
+   * equal values the `stillDpr > dpr` test is false and a machine that
+   * reaches the top never gets a sharper idle frame at all.
+   */
+  const [governed, setGoverned] = useState(false);
+  /**
+   * Capped so the backing store stays inside about 4000 px on the long edge.
+   *
+   * 2.5x of a 1300 px stage is 3250 and perfectly ordinary; 2.5x of a stage
+   * on a 4K panel is 9600, and the composer holds several full-size targets -
+   * the colour buffer, the normal pass, the bloom chain - so the memory is a
+   * multiple of that again. The gain from supersampling is also mostly spent
+   * by the time the buffer is twice the panel, which is where this lands on
+   * any ordinary display.
+   */
+  const stillDpr = useMemo(() => {
+    const want = quality === "low" ? 1.5 : 2.5;
+    if (typeof window === "undefined") return want;
+    return Math.max(1, Math.min(want, 4000 / Math.max(640, window.innerWidth)));
+  }, [quality]);
+  /**
+   * A still room gets the full still target; a room with something animating
+   * forever gets half the step, because it is still drawing. The pump already
+   * halves the rate for ambient motion, so 1.5x the linear resolution there
+   * is about 1.1x the sustained cost - near enough free, and the difference
+   * between a soft cascade and a sharp one.
+   */
+  const target =
+    calm === "still" ? stillDpr : calm === "ambient" ? Math.min(dpr * 1.5, stillDpr) : dpr;
+  const effectiveDpr = governed && target > dpr ? target : dpr;
   /**
    * Climb while the frame is still vsync-bound, and come back down once if a
    * rung proves too dear.
@@ -945,15 +999,34 @@ export function Stage3D({
        * keeps a rung whose frames it can afford - so a machine with no
        * headroom simply stays where it was.
        */
-      const ceiling = 2;
-      const rungs = [0.85, 1, 1.5, 2].filter((r) => r <= ceiling);
+      const ceiling = 2.5;
+      /*
+       * The high tier never goes below 1.0, and that is the second half of
+       * the sharpness problem.
+       *
+       * 0.85 means a backing store smaller than the CSS box, which the
+       * browser then upscales - every edge soft before a single sample is
+       * taken, and no amount of antialiasing downstream can put detail back
+       * that was never rendered. Measured on a Retina viewport the lobby
+       * settled here: a 1101 x 813 buffer stretched across a 1296 x 957 box.
+       *
+       * It is kept on the low tier, where a soft frame genuinely beats a
+       * slow one, and dropped from the high tier where the whole point is
+       * that the machine can afford pixels. A high-tier machine that cannot
+       * hold 1.0 should be on the low tier, and `detectQuality` is where that
+       * decision belongs.
+       */
+      const rungs = (quality === "low" ? [0.85, 1, 1.5] : [1, 1.5, 2, 2.5]).filter(
+        (r) => r <= ceiling,
+      );
       const i = rungs.indexOf(current);
       if (medianMs <= 17.5 && i >= 0 && i < rungs.length - 1) return rungs[i + 1];
       settled.current = true;
+      setGoverned(true);
       if (medianMs > 24 && i > 0) return rungs[i - 1];
       return current;
     });
-  }, []);
+  }, [quality]);
   const roomName = useSim((s) => s.space?.name ?? "Loading");
 
   // No WebGL means no canvas at all: mounting one only throws.
@@ -1011,7 +1084,7 @@ export function Stage3D({
     >
       <Suspense fallback={null}>
         <QualityContext.Provider value={quality}>
-        <RenderPump fps={FRAME_CAP[quality]} onQuiet={setQuiet} />
+        <RenderPump fps={FRAME_CAP[quality]} onCalm={setCalm} />
         {perf && <PerfProbe />}
         <LockHorizontalFov fovAt16x9={camera.fov} />
         <ProceduralEnvironment />
@@ -1075,7 +1148,7 @@ export function Stage3D({
         </EffectComposer>
         {/* After the children, so the scene graph is populated when it runs. */}
         <ReadyGate onReady={setReady} />
-        <DprProbe key={dpr} active={ready && !quiet} onMeasure={onMeasure} />
+        <DprProbe key={dpr} active={ready} onMeasure={onMeasure} />
         </QualityContext.Provider>
       </Suspense>
     </Canvas>
