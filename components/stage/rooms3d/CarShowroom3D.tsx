@@ -242,7 +242,7 @@ const M = {
    * panels only read because of it.
    */
   wall: new THREE.MeshStandardMaterial({
-    color: "#242220",
+    color: "#3a342e",
     roughness: 0.93,
     envMapIntensity: 0.3,
   }),
@@ -350,14 +350,14 @@ function Shell() {
              * of three. The orange-sheet failure that set that ceiling came
              * from warm light over a near-black base, not from the strength.
              */
-            mixStrength={5}
+            mixStrength={3.5}
             blur={[400, 120]}
-            mirror={0.6}
+            mirror={0.45}
             depthScale={1.2}
             minDepthThreshold={0.4}
             maxDepthThreshold={1.4}
-            color="#8f887c"
-            roughness={0.2}
+            color="#8a8378"
+            roughness={0.3}
             metalness={0}
           />
         ) : (
@@ -828,7 +828,7 @@ export function Car({
         // 1.2, not 1.7. A pale metallic at 1.7 saturates to white under the
         // general wash before a spotlight has touched it, and then there is
         // no headroom left for the spotlight to do anything with.
-        envMapIntensity: 1.2,
+        envMapIntensity: 1.6,
         side: THREE.DoubleSide,
       }),
     [colour, panels],
@@ -1333,10 +1333,10 @@ function Lounge() {
   const leather = useMemo(
     () =>
       new THREE.MeshPhysicalMaterial({
-        color: "#3b332c",
-        roughness: 0.5,
-        clearcoat: 0.35,
-        clearcoatRoughness: 0.45,
+        color: "#2e2a26",
+        roughness: 0.9,
+        clearcoat: 0.08,
+        clearcoatRoughness: 0.6,
       }),
     [],
   );
@@ -1354,7 +1354,7 @@ function Lounge() {
     <group position={[x, 0, z]} rotation={[0, -0.5, 0]}>
       <mesh position={[0, 0.006, 0]} receiveShadow>
         <cylinderGeometry args={[r, r, 0.012, 48]} />
-        <meshStandardMaterial color="#85868a" roughness={1} />
+        <meshStandardMaterial color="#4a443e" roughness={0.95} />
       </mesh>
       {SEATS.map((a, i) => (
         <group

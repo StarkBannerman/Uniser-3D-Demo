@@ -62,7 +62,7 @@ const GAIN = {
    * the number.
    */
   floor: 4,
-  floorEmissive: 4,
+  floorEmissive: 2.4,
   arch: 12,
   archEmissive: 2.1,
   rgb: 24,
