@@ -120,7 +120,7 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
           {/* A 3D room gets the whole panel. Its scenes live on the phone, so
               there is nothing to sit beside it; a space without a 3D room still
               needs the wide scene pad underneath. */}
-          <SpaceCanvas />
+          <SpaceCanvas controlsOpen={tab === "controls"} />
           {!roomDrawsItself && (
             <div className="shrink-0 space-y-2">
               <ScenePad />

@@ -514,7 +514,7 @@ export const restaurant: Space = {
       fadeMs: 900,
       targets: {
         "rs-general": { on: true, level: 100, cct: 5000, sat: 0 },
-        "rs-tunable": { on: true, level: 90, cct: 5000, sat: 0 },
+        "rs-tunable": { on: true, level: 100, cct: 5000, sat: 0 },
         "rs-cove": { on: false },
         "rs-pendant": { on: false },
         "rs-arch": { on: false },

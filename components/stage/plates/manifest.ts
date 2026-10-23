@@ -42,7 +42,22 @@ export interface PlateLayerSpec {
   clipped_pct?: number;
 }
 
-/** `plates/hotspots.json`. */
+/**
+ * `plates/hotspots.json`.
+ *
+ * The pipeline projects each fixture group to a screen position so the room
+ * can be made clickable. Two things about it are worth knowing before
+ * trusting a position:
+ *
+ *  - The origin is top-left, which is the opposite of the plates themselves
+ *    and of GL texture space. `PlateStage` places these as CSS percentages,
+ *    so it needs no flip; anything that samples a plate at a hotspot does.
+ *  - The positions are only as good as the empties they were projected from,
+ *    and three are not good. `rs-cove` lands on bare ceiling rather than on
+ *    the cove line, `rs-arch` lands inside the pendant cluster a few pixels
+ *    from the pendant marker, and `rs-rgb` is 2.8% from the right edge. The
+ *    last is clamped at render time; the first two want the empties moving.
+ */
 export interface HotspotFile {
   camera: string;
   points: Record<string, Hotspot>;

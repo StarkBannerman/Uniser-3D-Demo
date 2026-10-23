@@ -15,7 +15,7 @@
  * disagreement about *when*, not about what the state is — see the hook.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSim, TOGGLE_FADE_MS } from "@/lib/sim/store";
 import type {
   ClimateDevice,
@@ -211,9 +211,33 @@ function LightRow({
   moving: boolean;
 }) {
   const patch = useSim((s) => s.patch);
+  const selected = useSim((s) => s.selectedDeviceId === device.id);
+  const ref = useRef<HTMLDivElement>(null);
   const [on, predictOn] = usePredicted(state.on, TOGGLE_FADE_MS + 400);
 
+  /**
+   * Pointed at from the room.
+   *
+   * `selectedDeviceId` has been in the store a long time with nothing mounted
+   * that renders it, so setting it was a no-op you could not see — which is
+   * exactly what a hotspot tap did before this. The ring and the scroll are
+   * what turn "the store knows" into "the presenter can tell".
+   *
+   * `block: "nearest"` rather than `center`, because the phone is a short
+   * scrolling column and centring a row that is already visible jumps the
+   * list for no reason anyone watching would understand.
+   */
+  useEffect(() => {
+    if (selected) ref.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selected]);
+
   return (
+    <div
+      ref={ref}
+      className={
+        selected ? "rounded-xl ring-1 ring-brass-500/70 transition-shadow" : undefined
+      }
+    >
     <Row
       label={device.name}
       value={on ? `${Math.round(state.level)}%` : "Off"}
@@ -261,6 +285,7 @@ function LightRow({
         </ControlRow>
       )}
     </Row>
+    </div>
   );
 }
 

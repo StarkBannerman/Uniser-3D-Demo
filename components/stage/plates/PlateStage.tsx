@@ -87,6 +87,15 @@ function pickTier(cssWidth: number, sdWidth: number): PlateTier {
   return cssWidth * dpr > sdWidth ? "hd" : "sd";
 }
 
+/**
+ * Keep a marker off the frame edge, where half the button would be clipped.
+ *
+ * `rs-rgb` projects to u = 0.972 because the piers it washes are at the very
+ * right of shot, and an unclamped marker there loses half its target area to
+ * the rounded corner of the stage.
+ */
+const clampEdge = (v: number) => Math.min(Math.max(v, 0.03), 0.97);
+
 function toneCurve(): ToneCurve {
   return param("tone") === "aces" ? "aces" : "agx";
 }
@@ -129,11 +138,19 @@ async function loadImage(url: string): Promise<ImageBitmap | HTMLImageElement> {
   });
 }
 
-export function PlateStage({ dir }: { dir: string }) {
+export function PlateStage({
+  dir,
+  controlsOpen = false,
+}: {
+  dir: string;
+  /** Controls tab is showing, so the room should say where each circuit is. */
+  controlsOpen?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tier, setTier] = useState<PlateTier | null>(null);
   const [hotspots, setHotspots] = useState<HotspotFile | null>(null);
+  const [hovered, setHovered] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -276,9 +293,24 @@ export function PlateStage({ dir }: { dir: string }) {
 
   const space = useSim((s) => s.space);
   const select = useSim((s) => s.select);
+  /**
+   * Shown on hover, or whenever the Controls tab is open.
+   *
+   * At rest the room is a photograph and markers on it read as dirt — which
+   * is how the first version of this landed. Hover covers a presenter
+   * reaching for a fixture with a mouse; the Controls tab covers touch, where
+   * there is no hover and where someone looking at a list of eight circuit
+   * names genuinely wants to know which part of the room each one is.
+   */
+  const showHotspots = controlsOpen || hovered;
 
   return (
-    <div ref={containerRef} className="absolute inset-0">
+    <div
+      ref={containerRef}
+      className="absolute inset-0"
+      onPointerEnter={(e) => e.pointerType === "mouse" && setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+    >
       <canvas
         ref={canvasRef}
         className="h-full w-full"
@@ -304,28 +336,42 @@ export function PlateStage({ dir }: { dir: string }) {
 
       {failed && <Fallback reason={failed} />}
 
-      {ready &&
-        !failed &&
-        hotspots &&
-        space &&
-        Object.entries(hotspots.points).map(([deviceId, point]) => {
-          if (!point.visible) return null;
-          const device = space.devices.find((d) => d.id === deviceId);
-          if (!device) return null;
-          return (
-            <button
-              key={deviceId}
-              type="button"
-              onClick={() => select(deviceId)}
-              aria-label={device.name}
-              title={device.name}
-              className="group absolute -translate-x-1/2 -translate-y-1/2 p-3"
-              style={{ left: `${point.u * 100}%`, top: `${point.v * 100}%` }}
-            >
-              <span className="block h-2.5 w-2.5 rounded-full bg-white/70 ring-2 ring-black/30 transition group-hover:scale-150 group-hover:bg-white group-focus-visible:scale-150" />
-            </button>
-          );
-        })}
+      {ready && !failed && hotspots && space && (
+        <div
+          className="absolute inset-0 transition-opacity duration-200"
+          style={{
+            opacity: showHotspots ? 1 : 0,
+            // Set on the wrapper rather than per button, so a hidden marker
+            // is not a target you can hit by accident.
+            pointerEvents: showHotspots ? "auto" : "none",
+          }}
+        >
+          {Object.entries(hotspots.points).map(([deviceId, point]) => {
+            if (!point.visible) return null;
+            const device = space.devices.find((d) => d.id === deviceId);
+            if (!device) return null;
+            return (
+              <button
+                key={deviceId}
+                type="button"
+                tabIndex={showHotspots ? 0 : -1}
+                onClick={() => select(deviceId)}
+                aria-label={`Show ${device.name} controls`}
+                className="group absolute -translate-x-1/2 -translate-y-1/2 p-2.5"
+                style={{
+                  left: `${clampEdge(point.u) * 100}%`,
+                  top: `${clampEdge(point.v) * 100}%`,
+                }}
+              >
+                <span className="block h-2 w-2 rounded-full bg-brass-400/80 ring-1 ring-black/50 transition group-hover:scale-125 group-hover:bg-brass-300" />
+                <span className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 text-[10px] text-shell-100 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                  {device.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

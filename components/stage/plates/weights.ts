@@ -34,16 +34,31 @@ import { CIRCUIT_LAYERS, DAY_LAYERS, LAYERS, deviceIdOf } from "./manifest";
 const DAYLIGHT_REFERENCE_LUX = 45000;
 
 /**
- * The window view's weight, which is 1 and does not move.
+ * The window view, faded out across dawn and back in across dusk.
  *
- * As-built there is one sky plate, so the view out of the glazing is the same
- * at two in the morning as at noon while the *room* around it tracks the sun
- * properly through the day layers. That is visible on a long clock scrub and
- * it is a limitation of the plate set rather than of this code — a dusk and a
- * night sky plate would make it a three-way crossfade like `dayWeights`, and
- * this constant is where that would go.
+ * There is one sky plate and it is a night city, so holding it at full
+ * strength put a lit skyline behind a room being served breakfast. It cannot
+ * be crossfaded with a daytime view because no daytime view was rendered, so
+ * the next best thing is to let it go: through the two hours either side of
+ * sunrise it falls to nothing, the day layers carry the glazing through the
+ * middle of the day, and it comes back over the two hours around dusk.
+ *
+ * The windows are therefore plain and bright at noon rather than showing a
+ * view. That is a missing plate, not a weighting choice, and the fix is a
+ * `sky_day` pass rather than anything in this function.
  */
-const SKY_WEIGHT = 1;
+const DAWN_START = 6 * 60;
+const DAWN_END = 8 * 60;
+const DUSK_START = 18 * 60;
+const DUSK_END = 20 * 60;
+
+export function skyWeight(clockMin: number): number {
+  if (clockMin <= DAWN_START) return 1;
+  if (clockMin < DAWN_END) return 1 - (clockMin - DAWN_START) / (DAWN_END - DAWN_START);
+  if (clockMin <= DUSK_START) return 0;
+  if (clockMin < DUSK_END) return (clockMin - DUSK_START) / (DUSK_END - DUSK_START);
+  return 1;
+}
 
 /** sRGB 0..1 to linear. The exact piecewise curve, not the 2.2 shortcut. */
 function srgbToLinear(c: number): number {
@@ -51,14 +66,37 @@ function srgbToLinear(c: number): number {
 }
 
 /**
- * The colour a circuit is emitting, in linear light.
+ * Layers whose plate already carries its own colour.
  *
- * Deliberately the same arithmetic as `colourOf()` in `RestaurantLightRig` —
- * CCT to sRGB on the blackbody locus, converted to linear, and for a saturated
- * fixture lerped towards the pure hue *in linear space*. Doing the lerp in
- * sRGB instead, which is what the illustrated path's `lightColor` does, pulls
- * the half-saturated mid-range noticeably light. Both renderers have to agree
- * about what 45% saturation looks like, and this is the one that is right.
+ * The pendants are smoked amber glass around a filament, and the globes are
+ * in shot. That colour is in the plate, because it is the colour of an
+ * object rather than of a beam. Multiplying it by the circuit's 2000 K tint
+ * as well applies the warmth twice and the cluster goes orange enough to
+ * read as a fault. Every other circuit lights surfaces it does not appear
+ * on, so for those the tint is the whole story.
+ */
+const NEUTRAL_LAYERS = new Set<string>(["rs_pendant"]);
+
+/** Rec. 709 luminance of a linear RGB triple. */
+function luminance([r, g, b]: [number, number, number]): number {
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * The colour a circuit is emitting, in linear light, at unit luminance.
+ *
+ * The arithmetic is `colourOf()` from `RestaurantLightRig` — CCT to sRGB on
+ * the blackbody locus, to linear, and for a saturated fixture lerped towards
+ * the pure hue *in linear space* rather than in sRGB, which is where the
+ * illustrated path's `lightColor` goes light through the middle of the range.
+ *
+ * What is added here is the renormalisation, and it matters more than it
+ * looks. `cctToRgb` normalises so the brightest channel is 255, which means a
+ * 2000 K triple carries about 60% of the luminance of a 5000 K one. Multiply a
+ * plate by that and warming a circuit also dims it, so every scene that goes
+ * warm goes dark at the same time and the dimmer has no independent meaning.
+ * Dividing by luminance leaves chromaticity alone and hands brightness back to
+ * `lightOutput`, which is the only thing that should own it.
  */
 export function tintLinear(state: LightState): [number, number, number] {
   const [br, bg, bb] = cctToRgb(state.cct);
@@ -67,17 +105,23 @@ export function tintLinear(state: LightState): [number, number, number] {
     srgbToLinear(bg / 255),
     srgbToLinear(bb / 255),
   ];
-  if (state.sat <= 0) return base;
+  if (state.sat <= 0) return normalise(base);
 
   // HSL(h, 1, 0.5) and HSV(h, 1, 1) are the same colour — the pure hue — and
   // `hsvToRgb` is already here.
   const [ar, ag, ab] = hsvToRgb(state.hue, 1, 1);
   const t = clamp01(state.sat / 100);
-  return [
+  return normalise([
     lerp(base[0], srgbToLinear(ar / 255), t),
     lerp(base[1], srgbToLinear(ag / 255), t),
     lerp(base[2], srgbToLinear(ab / 255), t),
-  ];
+  ]);
+}
+
+/** Scale a tint to luminance 1, so it carries colour and nothing else. */
+function normalise(c: [number, number, number]): [number, number, number] {
+  const l = luminance(c);
+  return l > 1e-6 ? [c[0] / l, c[1] / l, c[2] / l] : c;
 }
 
 /**
@@ -185,7 +229,7 @@ export function computeWeights(
      * honest gain per circuit is both simpler and more nearly right.
      */
     const gain = lightOutput(state.level);
-    const [r, g, b] = tintLinear(state);
+    const [r, g, b] = NEUTRAL_LAYERS.has(layer) ? [1, 1, 1] : tintLinear(state);
     put(i, gain * r, gain * g, gain * b);
   });
 
@@ -196,7 +240,8 @@ export function computeWeights(
     put(CIRCUIT_LAYERS.length + i, w, w, w);
   });
 
-  put(LAYERS.length - 1, SKY_WEIGHT, SKY_WEIGHT, SKY_WEIGHT);
+  const sky = skyWeight(clockMin);
+  put(LAYERS.length - 1, sky, sky, sky);
 
   return changed;
 }

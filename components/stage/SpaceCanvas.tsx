@@ -95,7 +95,7 @@ function RoomArt({ illustration }: { illustration?: string }) {
   }
 }
 
-export function SpaceCanvas() {
+export function SpaceCanvas({ controlsOpen = false }: { controlsOpen?: boolean }) {
   const space = useSim((s) => s.space);
   /**
    * Capture harness only: `?stage=1264x843` pins the stage box to an exact
@@ -223,7 +223,7 @@ export function SpaceCanvas() {
         }
       >
         {space.plates ? (
-          <PlateStage dir={space.plates.dir} />
+          <PlateStage dir={space.plates.dir} controlsOpen={controlsOpen} />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-shell-500">
             No plate set registered for “{space.id}”.
