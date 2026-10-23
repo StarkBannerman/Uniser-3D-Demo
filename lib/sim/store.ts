@@ -928,6 +928,20 @@ export const useSim = create<SimStore>((set, get) => ({
     // test says it is.
     while (pendingSequence && realNow >= pendingSequence.fireAt) {
       const { sceneId, steps, index, fadeMs } = pendingSequence;
+      /**
+       * One index past the end means the last stage has had its hold.
+       *
+       * The sequence used to clear the moment the final stage was applied,
+       * which meant its caption was the one nobody ever read — the room
+       * arrived at the last beat of the demonstration and the panel went
+       * blank at the same instant. Running one tick past the end lets the
+       * final label sit for its own hold like every other.
+       */
+      if (index >= steps.length) {
+        pendingSequence = null;
+        sequenceUpdate = null;
+        break;
+      }
       const step = steps[index];
 
       /**
@@ -942,7 +956,11 @@ export const useSim = create<SimStore>((set, get) => ({
        * `while` above picks it up on this very tick, so an empty stage never
        * reaches the panel at all. It is skipped rather than flashed.
        */
-      const empty = Object.entries(step.targets).every(([deviceId, raw]) => {
+      // A stage that only moves the sky still has something to do, even
+      // though the sky is not a device and cannot appear in `targets`.
+      const empty =
+        !step.daylight &&
+        Object.entries(step.targets).every(([deviceId, raw]) => {
         const current = states[deviceId];
         if (!current) return true;
         const { fadeMs: _perDevice, ...rest } = raw as StatePatch & { fadeMs?: number };
@@ -973,25 +991,22 @@ export const useSim = create<SimStore>((set, get) => ({
       // device and so cannot travel through `targets`.
       if (step.daylight) stepDaylight = step.daylight;
 
-      const last = index + 1 >= steps.length;
-      sequenceUpdate = last
-        ? null
-        : { sceneId, label: step.label, step: index + 1, total: steps.length };
+      sequenceUpdate = {
+        sceneId,
+        label: step.label,
+        step: index + 1,
+        total: steps.length,
+      };
 
-      if (last) {
-        pendingSequence = null;
-      } else {
-        pendingSequence = {
-          ...pendingSequence,
-          index: index + 1,
-          // Measured from when this stage was due, not from now — so one late
-          // frame does not stretch every hold after it. Zero when this stage
-          // had nothing to do, because the pause exists to cover its travel.
-          fireAt:
-            pendingSequence.fireAt +
-            (empty ? 0 : paceHold(steps[index + 1].holdMs ?? 900)),
-        };
-      }
+      pendingSequence = {
+        ...pendingSequence,
+        index: index + 1,
+        // Measured from when this stage was due, not from now — so one late
+        // frame does not stretch every hold after it. Zero when this stage
+        // had nothing to do, because the pause exists to cover its travel.
+        // Past the last stage this schedules the clear-down above.
+        fireAt: pendingSequence.fireAt + (empty ? 0 : paceHold(step.holdMs ?? 900)),
+      };
     }
 
     /* 4. Derived sensors -------------------------------------------- */
