@@ -41,7 +41,7 @@ import { HotelLobbyLightRig, type LobbyFixtures } from "./HotelLobbyLightRig";
  * the 1264x843 the landmarks are measured in, that same horizontal field
  * gives the ~57 vertical the brief quotes.
  */
-const CAMERA: CameraSpec = {
+export const LOBBY_CAMERA: CameraSpec = {
   position: [10, 1.6, 27],
   target: [10, 0.38, 7],
   fov: 49,
@@ -115,7 +115,7 @@ export function HotelLobbyStage() {
 
   return (
     <Stage3D
-      camera={CAMERA}
+      camera={LOBBY_CAMERA}
       ambient={ambient}
       /**
        * Lower than the media rooms, higher than the office.
@@ -159,6 +159,60 @@ export function HotelLobbyStage() {
           />
         </Environment>
       </Suspense>
+      <LobbyScene />
+    </Stage3D>
+  );
+}
+
+/**
+ * The room's contents, with no stage wrapper around them.
+ *
+ * Split out so the offline path tracer in `/bake` mounts the SAME geometry
+ * and the SAME rig as the live stage rather than a copy of them - the two
+ * cannot drift, which is the only way a baked result is a statement about
+ * this room rather than about a second model of it.
+ *
+ * It reads the simulation itself instead of taking props, so the bake only
+ * has to load the space and apply a scene; everything else follows.
+ */
+export function LobbyScene() {
+  const states = useSim((s) => s.states);
+  const clockMin = useSim((s) => s.clockMin);
+  const space = useSim((s) => s.space);
+
+  const light = (id: string): LightState =>
+    (states[id] as LightState | undefined) ?? OFF;
+
+  const fixtures: LobbyFixtures = {
+    general: light("hl-general"),
+    cove: light("hl-cove"),
+    arch: light("hl-arch"),
+    decor: light("hl-decor"),
+    accent: light("hl-accent"),
+    feature: light("hl-feature"),
+    facade: light("hl-facade"),
+  };
+
+  const blinds = (states["hl-blinds"] as ShadeState | undefined) ?? {
+    sheer: 0,
+    blackout: 0,
+  };
+  const music = states["hl-music"] as AvState | undefined;
+  const occ = states["hl-occ"] as { value: number } | undefined;
+  const env = space?.environment;
+  const daylight = env
+    ? clamp01(
+        daylightLux(
+          sunElevation01(clockMin, env.sunriseMin, env.sunsetMin),
+          env.outdoorPeakLux,
+        ) / 45000,
+      )
+    : 0;
+  const skyStep = Math.round(clamp01(daylight) * 8) / 8;
+  const audioLevel = music?.on ? (music.volume ?? 0) / 100 : 0;
+
+  return (
+    <>
       <HotelLobby3D
         daylight={daylight}
         skyStep={skyStep}
@@ -173,6 +227,6 @@ export function HotelLobbyStage() {
         daylight={daylight}
         transmission={shadeTransmission(blinds.sheer, blinds.blackout)}
       />
-    </Stage3D>
+    </>
   );
 }

@@ -27,7 +27,20 @@ import { WebGLPathTracer } from "three-gpu-pathtracer";
 import { useSim } from "@/lib/sim/store";
 import { useTicker } from "@/lib/sim/useTicker";
 import { carShowroom } from "@/lib/spaces/hospitality/car-showroom";
+import { hotelLobby } from "@/lib/spaces/hospitality/hotel-lobby";
 import { useShowroomState, ShowroomScene, SHOWROOM_CAMERA } from "@/components/stage/rooms3d/CarShowroomStage";
+import { LobbyScene, LOBBY_CAMERA } from "@/components/stage/rooms3d/HotelLobbyStage";
+
+/**
+ * Which room to trace. `?room=lobby` or the showroom by default.
+ *
+ * Both entries mount the same scene component the live stage does, so the
+ * trace is of the shipping room and not of a second model of it.
+ */
+const ROOMS = {
+  showroom: { space: carShowroom, camera: SHOWROOM_CAMERA },
+  lobby: { space: hotelLobby, camera: LOBBY_CAMERA },
+} as const;
 
 function Tracer({
   samples,
@@ -40,6 +53,42 @@ function Tracer({
   const scene = useThree((s) => s.scene);
   const camera = useThree((s) => s.camera);
   const tracer = useRef<WebGLPathTracer | null>(null);
+  const swapped = useRef(false);
+
+  /**
+   * Stand in for materials the tracer cannot read.
+   *
+   * `three-gpu-pathtracer` walks every material expecting the PBR fields of a
+   * standard or physical material. The lobby's cascade is a `ShaderMaterial`
+   * with uniforms and no `.color`, so the walk died on `.color.r` before a
+   * single sample was taken - the bake came back as the rasterised frame with
+   * "0 / 220 samples" still on it, which looks like a slow trace rather than
+   * a dead one.
+   *
+   * Substituted rather than skipped, because the cascade is a light source in
+   * this room: dropping it would bake a lobby whose feature wall is off. An
+   * emissive stand-in of roughly the right colour puts the same light into
+   * the room, which is all the bake needs from it.
+   */
+  const substitute = (root: THREE.Object3D) => {
+    root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const list = Array.isArray(m.material) ? m.material : [m.material];
+      m.material = list.map((mat) => {
+        const t = mat as THREE.Material & { uniforms?: Record<string, { value: unknown }> };
+        if (!(t as THREE.ShaderMaterial).isShaderMaterial) return mat;
+        const u = t.uniforms?.uColor?.value;
+        const col = u instanceof THREE.Color ? u : new THREE.Color("#2a55c8");
+        return new THREE.MeshStandardMaterial({
+          color: col,
+          emissive: col,
+          emissiveIntensity: 1.4,
+          roughness: 0.3,
+        });
+      })[0] as THREE.Material;
+    });
+  };
 
   /**
    * Built inside the render loop, not inside an effect.
@@ -63,6 +112,10 @@ function Tracer({
    * and I had tested it against a production build.
    */
   useFrame(() => {
+    if (!swapped.current) {
+      swapped.current = true;
+      substitute(scene);
+    }
     if (!tracer.current) {
       const ctx = gl.getContext();
       if (!ctx || ctx.isContextLost()) return;
@@ -108,16 +161,18 @@ function Bake() {
    * at stage zero its spotlights and product lighting are still switched off.
    */
   useTicker();
+  const roomKey = (q.get("room") === "lobby" ? "lobby" : "showroom") as keyof typeof ROOMS;
+  const room = ROOMS[roomKey];
   const state = useShowroomState();
 
   useEffect(() => {
     const sim = useSim.getState();
-    sim.loadSpace(carShowroom);
+    sim.loadSpace(room.space);
     sim.applyScene(sceneId);
     // Long enough for the longest staged scene plus its fades to settle.
     const t = setTimeout(() => setLoaded(true), 6000);
     return () => clearTimeout(t);
-  }, [sceneId]);
+  }, [sceneId, room.space]);
 
   return (
     <>
@@ -135,12 +190,12 @@ function Bake() {
       gl={{ antialias: false, preserveDrawingBuffer: true }}
       dpr={1}
       camera={{
-        position: SHOWROOM_CAMERA.position,
-        fov: SHOWROOM_CAMERA.fov,
+        position: room.camera.position,
+        fov: room.camera.fov,
         near: 0.1,
         far: 200,
       }}
-      onCreated={({ camera }) => camera.lookAt(...SHOWROOM_CAMERA.target)}
+      onCreated={({ camera }) => camera.lookAt(...room.camera.target)}
     >
       {/*
         In its own boundary, because it fetches an HDRI.
@@ -153,7 +208,7 @@ function Bake() {
       <Suspense fallback={null}>
         <Environment preset="night" background={false} />
       </Suspense>
-      <ShowroomScene state={state} />
+      {roomKey === "lobby" ? <LobbyScene /> : <ShowroomScene state={state} />}
       {loaded && <Tracer samples={samples} onProgress={setDone} />}
     </Canvas>
     </>
