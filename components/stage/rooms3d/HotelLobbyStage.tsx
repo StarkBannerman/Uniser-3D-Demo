@@ -41,6 +41,37 @@ import { HotelLobbyLightRig, type LobbyFixtures } from "./HotelLobbyLightRig";
  * the 1264x843 the landmarks are measured in, that same horizontal field
  * gives the ~57 vertical the brief quotes.
  */
+/**
+ * Quantise the daylight level into eight sky textures, spaced by square root.
+ *
+ * Still eight, and for the original reason: each sky is a 2048x1024 canvas,
+ * about eight megabytes, and they are cached per step, so buckets are paid for
+ * in memory. Rebuilding one on every tick of the clock would be a stall a
+ * second.
+ *
+ * Spacing them evenly was the mistake. `skyCanvas` ramps night to dusk across
+ * daylight 0 to 0.05 and dusk to day across 0.05 to 0.35, so the entire dusk
+ * ramp is narrower than one linear bucket of 0.125. `duskT` could only ever
+ * come out 0 or 1 and the dusk colours were unreachable at every hour of the
+ * day - the file already carries a comment about a Morning scene with a
+ * midnight sky, and that fix corrected the ramp without noticing that the
+ * quantiser upstream had made the ramp moot.
+ *
+ * Evening is the scene that shows it. 18:40 is daylight 0.0573, which is dusk,
+ * and `round(0.0573 * 8) / 8` is zero - so Evening and Night drew the SAME
+ * midnight sky, and a measured 76.5% of the lit frame sat in a single orange
+ * hue band because the glazing contributed no cool light to sit against.
+ *
+ * Square-root spacing puts the buckets where the ramp actually bends: the
+ * first four now land under daylight 0.25 instead of three of them sitting
+ * above it. Evening resolves to 0.0625 and gets its dusk. Morning and Day are
+ * unchanged - both still clamp to full daylight colour.
+ */
+function skyBucket(daylight: number): number {
+  const q = Math.round(Math.sqrt(clamp01(daylight)) * 8) / 8;
+  return q * q;
+}
+
 export const LOBBY_CAMERA: CameraSpec = {
   position: [10, 1.6, 27],
   target: [10, 0.38, 7],
@@ -84,14 +115,7 @@ export function HotelLobbyStage() {
       )
     : 0;
 
-  /**
-   * Quantised to eight steps, deliberately.
-   *
-   * The exterior takes the daylight level rather than a night flag, so dusk is
-   * a real state — but rebuilding the sky on every tick of the clock would be
-   * a stall a second. Eight buckets is finer than anyone can see through glass.
-   */
-  const skyStep = Math.round(clamp01(daylight) * 8) / 8;
+  const skyStep = skyBucket(daylight);
 
   const base = space
     ? roomAmbience(space, states, clockMin)
@@ -208,7 +232,7 @@ export function LobbyScene() {
         ) / 45000,
       )
     : 0;
-  const skyStep = Math.round(clamp01(daylight) * 8) / 8;
+  const skyStep = skyBucket(daylight);
   const audioLevel = music?.on ? (music.volume ?? 0) / 100 : 0;
 
   return (

@@ -358,7 +358,30 @@ export const hotelLobby: Space = {
        * frames the sheet draws, in its order, over about eight seconds.
        */
       id: "evening",
-      clockMin: 18 * 60 + 40,
+      /**
+       * 18:45, not 18:40. Sunset here is 18:55.
+       *
+       * At 18:40 the ramp is at full dusk, which in `skyCanvas` means a
+       * sunset - horizon rgb(226,132,72) - and since the glazing frames the
+       * horizon band the window came back a blazing orange behind a room
+       * that is already warm. At 18:45 the ramp sits at 0.31 and the horizon
+       * drops to rgb(94,61,54), which is a muted dusk: the skyline and the
+       * palms still read, the city lights carry, and nothing shouts.
+       *
+       * It is NOT blue hour, and it does not fix the room's warm cast. The
+       * sampled sky is rgb(134,85,61) here, still warm. `skyCanvas` puts its
+       * gradient stop at 0.54 specifically so the warm band reaches the part
+       * of the sky a window frames - the zenith blue sits above the sill on
+       * purpose - so no choice of hour makes the exterior cool. Measured,
+       * 94% of the lit frame is inside 0-60 degrees of hue at any of them.
+       * Breaking that would mean moving the gradient, which is a deliberate
+       * decision in that file and not one to flip in passing.
+       *
+       * Past 18:55 is no good either: `sunElevation01` clamps at the horizon,
+       * so a minute after sunset is already midnight and Evening would look
+       * like Night through the glass, which is what it used to do.
+       */
+      clockMin: 18 * 60 + 45,
       name: "Evening",
       icon: "◐",
       blurb:
