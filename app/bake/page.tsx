@@ -70,6 +70,24 @@ function Tracer({
    * emissive stand-in of roughly the right colour puts the same light into
    * the room, which is all the bake needs from it.
    */
+  /**
+   * The emissive stand-in both substitutions build. Roughness is high and
+   * metalness zero on purpose: the surface is only ever a carrier for the
+   * emission, and a glossy one would add a highlight the original never had.
+   *
+   * `gain` is a stand-in too, not a measurement. The rasterised room drives
+   * these surfaces well past white and lets bloom do the rest, so there is no
+   * single number here that is "correct" - these want calibrating against the
+   * raster once the comparison is being read seriously.
+   */
+  const standIn = (col: THREE.Color, gain: number) =>
+    new THREE.MeshStandardMaterial({
+      color: col,
+      emissive: col,
+      emissiveIntensity: gain,
+      roughness: 0.3,
+    });
+
   const substitute = (root: THREE.Object3D) => {
     root.traverse((o) => {
       const m = o as THREE.Mesh;
@@ -77,15 +95,30 @@ function Tracer({
       const list = Array.isArray(m.material) ? m.material : [m.material];
       m.material = list.map((mat) => {
         const t = mat as THREE.Material & { uniforms?: Record<string, { value: unknown }> };
-        if (!(t as THREE.ShaderMaterial).isShaderMaterial) return mat;
-        const u = t.uniforms?.uColor?.value;
-        const col = u instanceof THREE.Color ? u : new THREE.Color("#2a55c8");
-        return new THREE.MeshStandardMaterial({
-          color: col,
-          emissive: col,
-          emissiveIntensity: 1.4,
-          roughness: 0.3,
-        });
+        if ((t as THREE.ShaderMaterial).isShaderMaterial) {
+          const u = t.uniforms?.uColor?.value;
+          const col = u instanceof THREE.Color ? u : new THREE.Color("#2a55c8");
+          return standIn(col, 1.4);
+        }
+        /**
+         * A material with no `.emissive` field is not a dim emitter in the
+         * tracer, it is a guaranteed non-emitter: `MaterialsTexture` guards
+         * that field with `'emissive' in m` and writes black when it is
+         * absent. `MeshBasicMaterial` has no such field.
+         *
+         * In this project an untone-mapped `MeshBasicMaterial` is never a flat
+         * white surface - it is always an aperture, the bright core inside a
+         * fixture. The chandelier is the clearest case, and the one that
+         * exposed this: its core is basic, its own rig notes that "the core
+         * carries most of the brightness", and the glass shell around it is
+         * only 0.42 opaque. Leaving the core dark did not dim the chandelier
+         * in the first lobby trace, it removed it from the image.
+         */
+        const basic = t as unknown as THREE.MeshBasicMaterial;
+        if (basic.isMeshBasicMaterial && basic.toneMapped === false) {
+          return standIn(basic.color, 3);
+        }
+        return mat;
       })[0] as THREE.Material;
     });
   };
