@@ -8,52 +8,52 @@
   ],
   "layers": {
     "ca_accent": {
-      "scale": 0.208942,
-      "clipped_pct": 0.0
+      "scale": 0.082361,
+      "clipped_pct": 0.001
     },
     "ca_arch": {
-      "scale": 36.9375,
+      "scale": 7.401563,
       "clipped_pct": 0.0
     },
     "ca_cove": {
-      "scale": 11.308594,
+      "scale": 4.450781,
       "clipped_pct": 0.0
     },
     "ca_deco": {
-      "scale": 96.375008,
+      "scale": 2.733398,
       "clipped_pct": 0.004
     },
     "ca_facade": {
-      "scale": 36.822659,
+      "scale": 6.290625,
       "clipped_pct": 0.0
     },
     "ca_feature": {
-      "scale": 36.916409,
+      "scale": 7.270313,
       "clipped_pct": 0.0
     },
     "ca_tunable": {
-      "scale": 31.1625,
+      "scale": 7.471875,
       "clipped_pct": 0.0
     },
     "day_sky": {
-      "scale": 3.417188,
+      "scale": 3.379688,
       "clipped_pct": 0.0
     },
     "sky": {
-      "scale": 0.391113,
+      "scale": 0.390857,
       "clipped_pct": 0.0
     },
     "day_morning": {
-      "scale": 2.347266,
-      "clipped_pct": 0.004
+      "scale": 0.932739,
+      "clipped_pct": 0.002
     },
     "day_midday": {
-      "scale": 0.490723,
-      "clipped_pct": 0.001
+      "scale": 0.495703,
+      "clipped_pct": 0.0
     },
     "day_evening": {
-      "scale": 0.998291,
-      "clipped_pct": 0.003
+      "scale": 0.948047,
+      "clipped_pct": 0.002
     }
   }
 }

@@ -263,15 +263,15 @@ export const lobby: Space = {
       id: "morning",
       clockMin: 7 * 60 + 30,
       name: "Morning",
-      icon: "☀",
+      icon: "☼",
       blurb:
         "Checkout and breakfast traffic. Cool and bright with the façade doing most of it, the decoratives barely on — a chandelier in morning daylight is a switched-on bulb and nothing more.",
       fadeMs: 2000,
-      daylight: { day_sky: 100, day_morning: 100, day_midday: 0, day_evening: 0, sky: 0 },
+      daylight: { day_sky: 70, day_morning: 100, day_midday: 0, day_evening: 0, sky: 0 },
       targets: {
-        "ca-tunable": { on: true, level: 85, cct: 5000, sat: 0 },
+        "ca-tunable": { on: true, level: 70, cct: 4300, sat: 0 },
         "ca-arch": { on: true, level: 50 },
-        "ca-cove": { on: true, level: 70 },
+        "ca-cove": { on: true, level: 85 },
         "ca-deco": { on: true, level: 30 },
         "ca-feature": { on: true, level: 50 },
         "ca-accent": { on: true, level: 40 },
@@ -285,15 +285,15 @@ export const lobby: Space = {
       id: "day",
       clockMin: 13 * 60,
       name: "Day",
-      icon: "◐",
+      icon: "☀",
       blurb:
         "The middle of the day, with the glass carrying the room. The leanest scene in the building: the decoratives are off entirely and the downlights are at half, because anything more is light nobody asked for against a wall of daylight.",
       fadeMs: 2000,
       daylight: { day_sky: 100, day_morning: 0, day_midday: 100, day_evening: 0, sky: 0 },
       targets: {
-        "ca-tunable": { on: true, level: 80, cct: 5000, sat: 0 },
+        "ca-tunable": { on: true, level: 80, cct: 5500, sat: 0 },
         "ca-arch": { on: true, level: 50 },
-        "ca-cove": { on: true, level: 60 },
+        "ca-cove": { on: true, level: 85 },
         "ca-deco": { on: true, level: 20 },
         "ca-feature": { on: true, level: 50 },
         "ca-accent": { on: true, level: 40 },
@@ -441,12 +441,12 @@ export const lobby: Space = {
          * that makes a lobby look like a venue rather than a bright lobby
          * with people in it.
          */
-        "ca-tunable": { on: true, level: 25, cct: 2700, sat: 0 },
-        "ca-arch": { on: true, level: 90 },
+        "ca-tunable": { on: true, level: 15, cct: 2700, sat: 0 },
+        "ca-arch": { on: true, level: 60 },
         "ca-cove": { on: true, level: 100 },
         "ca-deco": { on: true, level: 100 },
         "ca-feature": { on: true, level: 100 },
-        "ca-accent": { on: true, level: 100 },
+        "ca-accent": { on: true, level: 75 },
         "ca-facade": { on: true, level: 100 },
         "ca-ac": { on: true, setpointC: 21, mode: "cool", fan: 4 },
         "ca-music": { on: true, source: "Event Set", volume: 40 },
@@ -465,19 +465,16 @@ export const lobby: Space = {
         /**
          * The downlights go to the top of their range, not to 5500 K.
          *
-         * Cleaning is meant to read as flat cool white and it cannot quite,
-         * because the architectural circuit is fixed 2700 K on the sheet and
-         * its plate is thirteen times brighter than the downlights' — at
-         * level 100 it supplies about 44% of the light in the room. Measured
-         * on the interior alone, excluding the glazing, Cleaning sits at
-         * R-B +0.015 at 6500 K against +0.032 at 5000 K, so the coolest the
-         * fixture goes is worth taking. It is still warm-dominant, and the
-         * only ways past that are dropping the architecture below 100 or
-         * treating it as a neutral plate — both of which contradict the
-         * sheet rather than this scene.
+         * Cleaning has to read as flat cool white, and the architectural
+         * circuit is what stops it: it is fixed 2700 K on the sheet, so at
+         * full it was supplying enough warm light to keep the room
+         * red-dominant however cool the downlights went. Thirty-five per
+         * cent is enough to keep the edges of a double-height room legible
+         * for someone working in it, and little enough that the 6500 K
+         * downlights decide the colour.
          */
         "ca-tunable": { on: true, level: 100, cct: 6500, sat: 0 },
-        "ca-arch": { on: true, level: 100 },
+        "ca-arch": { on: true, level: 35 },
         "ca-cove": { on: true, level: 40 },
         "ca-deco": { on: false },
         "ca-feature": { on: false },

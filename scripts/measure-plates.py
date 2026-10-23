@@ -67,9 +67,9 @@ GAIN = {
     "sr_accent": 1.1, "sr_floor": 6.6, "sr_arch": 2.1, "sr_tunable": 552,
     "sr_rgb": 29, "sr_zone_1": 149, "sr_zone_2": 5921, "sr_zone_3": 50,
     "sr_zone_4": 5628, "sr_zone_5": 2648, "sr_zone_6": 25301,
-    "ca_tunable": 32, "ca_arch": 1.9, "ca_deco": 1.4, "ca_feature": 4.9,
-    "ca_accent": 1192, "ca_cove": 11.3, "ca_facade": 5.8,
-    "day_sky": 6.25, "sky": 1.7, "day_midday": 15.2,
+    "ca_tunable": 35.1, "ca_arch": 3.6, "ca_deco": 6.4, "ca_feature": 7.9,
+    "ca_accent": 2916, "ca_cove": 12.9, "ca_facade": 17.4,
+    "day_sky": 6.46, "sky": 1.67, "day_morning": 2, "day_midday": 8.1, "day_evening": 4.5,
 }
 EXPOSURE = 0.25  # restaurant; the showroom profile uses 0.20
 TINT_SATURATION = 0.55

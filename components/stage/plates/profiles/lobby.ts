@@ -18,13 +18,13 @@ import type { PlateProfile } from "../profile";
  */
 export const LOBBY_PROFILE: PlateProfile = {
   gain: {
-    ca_tunable: 32,
-    ca_arch: 1.9,
-    ca_deco: 1.4,
-    ca_feature: 4.9,
-    ca_accent: 1192,
-    ca_cove: 11.3,
-    ca_facade: 5.8,
+    ca_tunable: 35.1,
+    ca_arch: 3.6,
+    ca_deco: 6.4,
+    ca_feature: 7.9,
+    ca_accent: 2916,
+    ca_cove: 12.9,
+    ca_facade: 17.4,
     /**
      * The view and the sun, separately.
      *
@@ -34,29 +34,27 @@ export const LOBBY_PROFILE: PlateProfile = {
      * showing and are accents rather than illumination — a lobby this size
      * is lit by its own fixtures even at noon.
      */
-    sky: 1.7,
+    sky: 1.67,
     /**
-     * The daytime layers run well above what the glazing-mask solve asked
-     * for, and deliberately.
+     * The view, and the sun on top of it.
      *
-     * That solve matches the *view* — how bright the sky looks through the
-     * glass — and it got that right while leaving the room behind it dark:
-     * at 1 PM the ceiling was black and the lobby read dimmer than it did
-     * at midnight, which is the one thing a glazed double-height space
-     * cannot do. These layers carry the daylight bouncing in as well as the
-     * view, so they are worth more than the view alone says. 6.25 and 1.5x
-     * on the sun passes is what puts Day above Night.
+     * `day_sky` runs at about two and a half times what the glazing solve
+     * asks for. That solve matches how bright the sky *looks* through the
+     * glass and got that right while leaving the room behind it dark — at
+     * 1 PM the ceiling was black and the lobby read dimmer than it did at
+     * midnight. These layers carry the daylight bouncing in as well as the
+     * view, so they are worth more than the view alone says.
+     *
+     * The three suns are solved against the scene table rather than
+     * against the glass: `day_midday` so Day lands at 0.32, and
+     * `day_morning` low because by the time the sky is at 70% Morning is
+     * already at 0.270 and the brief wants about 0.27. At 2 the early sun
+     * is visible in the frame without pushing Morning up level with Day,
+     * which is also how a low sun at half past seven actually behaves.
      */
-    day_sky: 6.25,
-    day_morning: 4.5,
-    /**
-     * The midday sun runs well above its siblings, which looks wrong and
-     * is not. Its plate decodes to the *weakest* mean of the three — 0.032
-     * against the morning's 0.040 — so at a shared gain noon came out
-     * dimmer than dawn. 15.2 is what puts Day above Morning and clears the
-     * brief's 0.32.
-     */
-    day_midday: 15.2,
+    day_sky: 6.46,
+    day_morning: 2,
+    day_midday: 8.1,
     day_evening: 4.5,
   },
   /**

@@ -19,32 +19,28 @@ import { showroom } from "./commercial/showroom";
 import { hotelLobby } from "./hospitality/hotel-lobby";
 import { lobby } from "./hospitality/lobby";
 
-/**
- * The rooms the demo offers, which is not every room in this repository.
- *
- * Three, all commercial, all on the plates renderer. The residential and
- * office rooms and the live 3D lobby are still here and still build — they
- * are imported below so a typo in one is still a compile error — but they
- * are off the list, which is the only thing that gives a space a route and
- * a door on the home page. Putting one back is one line.
- *
- * `/bake` reaches the 3D lobby through its own import rather than through
- * this list, so the path-tracing harness is unaffected.
- */
-export const spaces: Space[] = [restaurant, showroom, lobby];
-
-/** Registered but not offered. Kept so they keep compiling. */
-export const retired: Space[] = [
+export const spaces: Space[] = [
   masterBedroom,
   livingRoom,
   den,
   workspace,
   boardroom,
   cxoCabin,
-  hotelLobby,
+  restaurant,
+  showroom,
+  lobby,
   kitchen,
   livingRoomIllustrated,
 ];
+
+/**
+ * Registered but not offered: the live 3D hotel lobby.
+ *
+ * Retired from the picker when the plates lobby replaced it, and kept here
+ * rather than deleted because `/bake` still path-traces it and because an
+ * import is what keeps it compiling. Everything else is on the list above.
+ */
+export const retired: Space[] = [hotelLobby];
 
 export function getSpace(id: string): Space | undefined {
   return spaces.find((s) => s.id === id);
