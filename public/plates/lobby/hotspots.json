@@ -1,0 +1,45 @@
+{
+  "camera": "hero",
+  "points": {
+    "ca-arch": {
+      "u": 0.6541,
+      "v": 0.4805,
+      "visible": true
+    },
+    "ca-deco": {
+      "u": 0.5352,
+      "v": 0.4311,
+      "visible": true
+    },
+    "ca-feature": {
+      "u": 0.6088,
+      "v": 0.5279,
+      "visible": true
+    },
+    "ca-accent": {
+      "u": 0.3304,
+      "v": 0.5211,
+      "visible": true
+    },
+    "ca-cove": {
+      "u": 0.2428,
+      "v": 0.3784,
+      "visible": true
+    },
+    "ca-facade": {
+      "u": 0.9141,
+      "v": 0.5794,
+      "visible": true
+    },
+    "ca-tunable": {
+      "u": 0.3239,
+      "v": 0.1297,
+      "visible": true
+    },
+    "reception": {
+      "u": 0.2311,
+      "v": 0.5735,
+      "visible": true
+    }
+  }
+}

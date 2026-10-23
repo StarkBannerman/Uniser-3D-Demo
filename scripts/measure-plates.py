@@ -67,6 +67,8 @@ GAIN = {
     "sr_accent": 1.1, "sr_floor": 6.6, "sr_arch": 2.1, "sr_tunable": 552,
     "sr_rgb": 29, "sr_zone_1": 149, "sr_zone_2": 5921, "sr_zone_3": 50,
     "sr_zone_4": 5628, "sr_zone_5": 2648, "sr_zone_6": 25301,
+    "ca_tunable": 32, "ca_arch": 1.9, "ca_deco": 1.4, "ca_feature": 4.9,
+    "ca_accent": 1192, "ca_cove": 11.3, "ca_facade": 5.8,
 }
 EXPOSURE = 0.25  # restaurant; the showroom profile uses 0.20
 TINT_SATURATION = 0.55
@@ -76,7 +78,7 @@ LAYERS = list(MAN["layers"].keys())
 # Roles by name, exactly as `plates/manifest.ts` classifies them: anything
 # that is not one of the two views or a sun angle is a circuit.
 DAY_ORDER = ["day_morning", "day_midday", "day_evening"]
-CIRCUITS = [l for l in LAYERS if l not in ("sky", "sky_day") and l not in DAY_ORDER]
+CIRCUITS = [l for l in LAYERS if l not in ("sky", "sky_day", "day_sky") and l not in DAY_ORDER]
 LIN = {
     l: (np.asarray(Image.open(PLATES / "sd" / f"{l}.webp").convert("RGB"), float) / 255.0)
     ** MAN["gamma"] * MAN["layers"][l]["scale"]
@@ -115,9 +117,10 @@ def glass_mask():
     None for a set with no exterior at all — the showroom has no glazing, so
     there is no `sky_day` to find the glass with and nothing to measure.
     """
-    if "sky_day" not in LIN:
+    day_view = "sky_day" if "sky_day" in LIN else ("day_sky" if "day_sky" in LIN else None)
+    if day_view is None:
         return None
-    L = lum(LIN["sky_day"])
+    L = lum(LIN[day_view])
     return L > np.percentile(L, 99) * 0.15
 
 
@@ -197,7 +200,7 @@ def render(targets, clock, gain=None, exposure=EXPOSURE):
             st = targets.get(l.replace("_", "-"))
             if not st or not st.get("on"):
                 continue
-            w = (st.get("level", 0) / 100) ** 2.2 * g[l]
+            w = (st.get("level", 0) / 100) ** 2.2 * g.get(l, 1)
             lit = dict(st)
             if bus and l in ("rs_cove", "rs_arch"):
                 lit = {**st, "hue": bus.get("hue", 0), "sat": 100}
@@ -205,13 +208,13 @@ def render(targets, clock, gain=None, exposure=EXPOSURE):
                 lit.get("cct", 2700), lit.get("hue", 0), lit.get("sat", 0))
             hdr += LIN[l] * (w * t)
         elif l == "sky":
-            hdr += LIN[l] * (night * g[l])
-        elif l == "sky_day":
-            hdr += LIN[l] * ((1 - night) * g[l])
+            hdr += LIN[l] * (night * g.get(l, 1))
+        elif l in ("sky_day", "day_sky"):
+            hdr += LIN[l] * ((1 - night) * g.get(l, 1))
         else:
             w = dw[DAY_ORDER.index(l)]
             if w > 0:
-                hdr += LIN[l] * (w * g[l])
+                hdr += LIN[l] * (w * g.get(l, 1))
     return to_srgb(agx(hdr * exposure))
 
 
@@ -245,9 +248,10 @@ def solve():
         print("  no sky layers in this plate set; nothing to solve.")
         return
     print("Solving by bisection inside the glass mask:\n")
+    day_view = "sky_day" if "sky_day" in LIN else "day_sky"
     for layer, clock, stat, lo_t, hi_t in [
         ("sky", 60, "median", 0.03, 0.12),
-        ("sky_day", 13 * 60, "mean", 0.65, 0.80),
+        (day_view, 13 * 60, "mean", 0.65, 0.80),
     ]:
         mid_t = (lo_t + hi_t) / 2
         lo, hi = 0.01, 4000.0

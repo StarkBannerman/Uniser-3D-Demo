@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/Primitives";
 import { usePredicted } from "@/components/ui/usePredicted";
 import { Icon, sceneIcon, type IconName } from "@/components/keypad/icons";
+import { BuildingAutomation } from "@/components/panels/BuildingAutomation";
 
 /**
  * Which half of the app is showing.
@@ -45,7 +46,7 @@ import { Icon, sceneIcon, type IconName } from "@/components/keypad/icons";
  * phone. Two tab strips one above the other for the same three destinations was
  * a nesting nobody could parse at a glance.
  */
-export type AppView = "scenes" | "controls";
+export type AppView = "scenes" | "controls" | "automation";
 
 /**
  * The phone shell. Styling only — everything inside is live.
@@ -592,6 +593,8 @@ export function AppPanel({ view }: { view: AppView }) {
           not a dimmer: it changes what several of the circuits below are
           *for*, and the scenes that aim at the selection follow it live.
         */}
+        {view === "automation" && <BuildingAutomation />}
+
         {view === "controls" && space.selection && (
           <div className="mb-1.5">
             <div className="px-1 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-shell-500">

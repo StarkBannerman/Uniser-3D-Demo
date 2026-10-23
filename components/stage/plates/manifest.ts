@@ -63,15 +63,19 @@ export interface Hotspot {
  */
 export type LayerRole = "circuit" | "day" | "sky" | "skyDay";
 
+/** Order the sun passes are crossfaded in, earliest first. */
+export const DAY_ORDER = ["day_morning", "day_midday", "day_evening"];
+
 export function layerRole(name: string): LayerRole {
-  if (name === "sky_day") return "skyDay";
+  // Two spellings for the daytime view, because two plate sets were rendered
+  // by different hands. Both mean "the world outside, in daylight".
+  if (name === "sky_day" || name === "day_sky") return "skyDay";
   if (name === "sky") return "sky";
-  if (name.startsWith("day_")) return "day";
+  if (DAY_ORDER.includes(name)) return "day";
   return "circuit";
 }
 
-/** Order the day passes are crossfaded in, earliest first. */
-export const DAY_ORDER = ["day_morning", "day_midday", "day_evening"];
+
 
 /** `"rs_general"` -> `"rs-general"`, the device id the store knows it by. */
 export function deviceIdOf(layer: string): string {

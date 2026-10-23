@@ -38,6 +38,7 @@ import { RoomSwitch } from "@/components/presenter/RoomSwitch";
 const TABS = [
   { id: "scenes", label: "Scenes" },
   { id: "controls", label: "Controls" },
+  { id: "automation", label: "Automation" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];

@@ -1,0 +1,59 @@
+{
+  "gamma": 5.0,
+  "width": 1920,
+  "height": 1080,
+  "sd": [
+    960,
+    540
+  ],
+  "layers": {
+    "ca_accent": {
+      "scale": 0.208942,
+      "clipped_pct": 0.0
+    },
+    "ca_arch": {
+      "scale": 36.9375,
+      "clipped_pct": 0.0
+    },
+    "ca_cove": {
+      "scale": 11.308594,
+      "clipped_pct": 0.0
+    },
+    "ca_deco": {
+      "scale": 96.375008,
+      "clipped_pct": 0.004
+    },
+    "ca_facade": {
+      "scale": 36.822659,
+      "clipped_pct": 0.0
+    },
+    "ca_feature": {
+      "scale": 36.916409,
+      "clipped_pct": 0.0
+    },
+    "ca_tunable": {
+      "scale": 31.1625,
+      "clipped_pct": 0.0
+    },
+    "day_sky": {
+      "scale": 3.417188,
+      "clipped_pct": 0.0
+    },
+    "sky": {
+      "scale": 0.391113,
+      "clipped_pct": 0.0
+    },
+    "day_morning": {
+      "scale": 2.347266,
+      "clipped_pct": 0.004
+    },
+    "day_midday": {
+      "scale": 0.490723,
+      "clipped_pct": 0.001
+    },
+    "day_evening": {
+      "scale": 0.998291,
+      "clipped_pct": 0.003
+    }
+  }
+}

@@ -221,6 +221,13 @@ export function computeWeights(
   states: Record<string, DeviceState>,
   clockMin: number,
   profile: PlateProfile,
+  /**
+   * Exterior layer weights the active scene is asking for, 0-100 per layer.
+   *
+   * Null means follow the clock, which is the default and what every space
+   * did before scenes could name an hour of their own.
+   */
+  mix: Record<string, number> | null,
 ): boolean {
   let changed = false;
   /**
@@ -277,16 +284,20 @@ export function computeWeights(
         return put(i, w * r, w * g, w * b);
       }
       case "day": {
-        const w = (day[DAY_ORDER.indexOf(layer)] ?? 0) * gain;
+        const w =
+          (mix ? (mix[layer] ?? 0) / 100 : (day[DAY_ORDER.indexOf(layer)] ?? 0)) * gain;
         return put(i, w, w, w);
       }
-      // The two views are a crossfade, not two independent layers: their
-      // shares always sum to one so the glazing never goes empty between
-      // them, which is exactly what fading the night view to nothing did.
-      case "sky":
-        return put(i, night * gain, night * gain, night * gain);
+      // The two views are a crossfade, not two independent layers: under the
+      // clock their shares always sum to one, so the glazing never goes
+      // empty between them — which is exactly what fading the night view to
+      // nothing did. A scene that names them is trusted to balance itself.
+      case "sky": {
+        const w = (mix ? (mix[layer] ?? 0) / 100 : night) * gain;
+        return put(i, w, w, w);
+      }
       case "skyDay": {
-        const w = (1 - night) * gain;
+        const w = (mix ? (mix[layer] ?? 0) / 100 : 1 - night) * gain;
         return put(i, w, w, w);
       }
     }

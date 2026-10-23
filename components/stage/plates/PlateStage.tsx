@@ -275,9 +275,12 @@ export function PlateStage({
       };
 
       const refresh = () => {
-        const { space, states, clockMin } = useSim.getState();
+        const { space, states, clockMin, daylightMix } = useSim.getState();
         if (!space) return;
-        if (!computeWeights(target, layers, space, states, clockMin, profile)) return;
+        if (
+          !computeWeights(target, layers, space, states, clockMin, profile, daylightMix)
+        )
+          return;
 
         // Circuits pass straight through; the clock layers start a tween from
         // wherever they currently are, so a scene that moves the clock slides

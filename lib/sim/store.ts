@@ -468,6 +468,11 @@ export interface SimStore {
    * nothing in the next room.
    */
   selectionId: string | null;
+  /**
+   * Exterior layer weights the active scene has asked for, or null for the
+   * clock. Set by a scene's `daylight` and by any stage that names one.
+   */
+  daylightMix: Record<string, number> | null;
   /** Products the presenter has actually shown. Feeds the spec sheet. */
   touchedProductIds: string[];
   /**
@@ -560,6 +565,7 @@ export const useSim = create<SimStore>((set, get) => ({
   hoveredDeviceId: null,
   stageStatic: false,
   selectionId: null,
+  daylightMix: null,
   touchedProductIds: [],
   commanded: {},
   cctLocked: {},
@@ -601,6 +607,7 @@ export const useSim = create<SimStore>((set, get) => ({
       rate: 0,
       activeSceneId: null,
       selectionId: null,
+      daylightMix: null,
       ruleEnabled,
       ruleMemory: {},
       events: [],
@@ -763,6 +770,7 @@ export const useSim = create<SimStore>((set, get) => ({
     set({
       states: nextStates,
       activeSceneId: sceneId,
+      daylightMix: scene.daylight ?? null,
       touchedProductIds: [...touched],
       commanded,
       cctLocked,
@@ -913,6 +921,7 @@ export const useSim = create<SimStore>((set, get) => ({
     let cctLocked = state.cctLocked;
     let sequenceUpdate: SimStore["sequence"] | undefined;
     let touchedProducts: string[] | null = null;
+    let stepDaylight: Record<string, number> | null = null;
 
     // A `while`, not an `if`: one tick can span several holds when the tab has
     // been backgrounded, or under the headless harness where dt is whatever the
@@ -959,6 +968,10 @@ export const useSim = create<SimStore>((set, get) => ({
       commanded = stepCommanded;
       cctLocked = stepCctLocked;
       touchedProducts = [...touched];
+      // A stage can move the sky as well as the lights. The lobby's Evening
+      // is the case: its second beat is the daylight going, which is not a
+      // device and so cannot travel through `targets`.
+      if (step.daylight) stepDaylight = step.daylight;
 
       const last = index + 1 >= steps.length;
       sequenceUpdate = last
@@ -1074,6 +1087,7 @@ export const useSim = create<SimStore>((set, get) => ({
     if (commanded !== state.commanded) next.commanded = commanded;
     if (cctLocked !== state.cctLocked) next.cctLocked = cctLocked;
     if (touchedProducts) next.touchedProductIds = touchedProducts;
+    if (stepDaylight) next.daylightMix = stepDaylight;
     if (state.busy && realNow >= busyUntil) next.busy = false;
     const movingDevices = expireDeviceLocks(realNow, state.busyDevices);
     if (movingDevices) next.busyDevices = movingDevices;

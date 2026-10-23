@@ -330,6 +330,8 @@ export interface SceneStep {
   label: string;
   /** Device id -> partial state, exactly as `Scene.targets`. */
   targets: Record<string, StatePatch & { fadeMs?: number }>;
+  /** Exterior layer weights for this stage, exactly as `Scene.daylight`. */
+  daylight?: Record<string, number>;
   /**
    * Wall-clock pause before this stage is applied, measured from the previous
    * stage.
@@ -403,6 +405,27 @@ export interface SceneDrift {
   periodMs: number;
 }
 
+/**
+ * What an empty room does, for the Automation tab's occupancy demonstration.
+ *
+ * Deliberately separate from the `occupancy` rule in `rules`, which works in
+ * simulated minutes against a sensor and is the honest model. This one is
+ * the showable version: real seconds, a button to trigger it, and a named
+ * set of circuits that fall back while the architecture stays lit — because
+ * the point being made is that an empty lobby should still look like a
+ * lobby, not that a sensor exists.
+ */
+export interface SpaceAutoDim {
+  /** Circuits that fall back. Everything else holds its level. */
+  deviceIds: string[];
+  /** Fraction of the scene level they fall to, 0..1. */
+  toFraction: number;
+  /** Real milliseconds of vacancy before they do. */
+  afterMs: number;
+  /** Real milliseconds to come back over. */
+  restoreMs: number;
+}
+
 export interface Scene {
   id: string;
   name: string;
@@ -416,6 +439,19 @@ export interface Scene {
   targets: Record<string, StatePatch & { fadeMs?: number }>;
   /** A hue drift that runs while this scene is the active one. */
   drift?: SceneDrift;
+  /**
+   * What the sky and daylight layers should be doing, 0-100 per layer.
+   *
+   * Omitted means "follow the clock", which is what every space did before
+   * this existed and what most scenes still want. A scene that names it is
+   * saying the hour is part of the preset — the lobby's Evening is a dusk
+   * whatever the scrubber says, because the demonstration is *about* the
+   * light going.
+   *
+   * Only the exterior layers can be set this way. The circuits are devices
+   * and go through `targets` like everything else.
+   */
+  daylight?: Record<string, number>;
   /**
    * Ordered stages that run after `targets` is applied.
    *
@@ -632,6 +668,17 @@ export interface Space {
   openingClockMin?: number;
   /** A group of devices the presenter picks one of. See `SpaceSelection`. */
   selection?: SpaceSelection;
+  /**
+   * Scenes on a timetable, in clock order.
+   *
+   * Read-only as data: it drives the Automation tab's schedule card, and the
+   * time-based toggle there plays it. Nothing applies it on its own — a
+   * building that changed scene while a presenter was mid-sentence would be
+   * a worse demonstration than one that did not.
+   */
+  schedule?: { atMin: number; sceneId: string }[];
+  /** Fall-back dimming when the room is empty. See `SpaceAutoDim`. */
+  autoDim?: SpaceAutoDim;
   environment: SpaceEnvironment;
   baseline: SpaceBaseline;
   /** Electricity tariff in local currency per kWh. */

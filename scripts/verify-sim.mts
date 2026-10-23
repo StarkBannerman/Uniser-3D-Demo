@@ -966,11 +966,12 @@ console.log("\n18. Scenes settle inside the client's two to three seconds");
    * beats, and it was the only staged scene in the demo when this gate was
    * written. The showroom's brief asks for about four for its Vehicle
    * Presentation, and that is a longer demonstration with a vehicle at the
-   * end of it rather than a slower version of the same one. So the budget
-   * belongs to the space.
+   * end of it rather than a slower version of the same one. The lobby's
+   * Evening asks for six, because it is narrating a whole dusk. So the
+   * budget belongs to the space.
    */
   const STAGED_BUDGET_MS = 3000;
-  const SPACE_BUDGET_MS: Record<string, number> = { showroom: 4500 };
+  const SPACE_BUDGET_MS: Record<string, number> = { showroom: 4500, lobby: 7000 };
   const budgetFor = (spaceId: string) => SPACE_BUDGET_MS[spaceId] ?? STAGED_BUDGET_MS;
   const HARDWARE_PACED = new Set([
     "master-bedroom/goodnight",
