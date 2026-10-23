@@ -209,6 +209,17 @@ export function PlateStage({
       const shown = emptyWeights(layers.length);
       /** The tween's start value, for the clock layers only. */
       const from = emptyWeights(layers.length);
+      /**
+       * The clock layers' last *target*, which is what decides a new tween.
+       *
+       * Restarting whenever any weight moved looked equivalent and was not:
+       * a scene fade changes the circuit weights on every tick, so the clock
+       * tween was re-based sixty times a second, `p` never grew past a frame
+       * and the window crawled from night to day over far longer than the
+       * 1.5 s it was supposed to take. Only a change in where the clock
+       * layers are *going* starts a tween.
+       */
+      const lastClockTarget = emptyWeights(layers.length);
       let tweenStart = 0;
       let tweening = false;
       let dirty = true;
@@ -236,7 +247,10 @@ export function PlateStage({
           }
         }
         if (p >= 1) tweening = false;
-        return tweening;
+        // True because something moved this frame, including the frame that
+        // lands on the target — returning `tweening` there skipped the draw
+        // that put the final value on screen.
+        return true;
       };
 
       const schedule = () => {
@@ -244,12 +258,12 @@ export function PlateStage({
         frame = requestAnimationFrame((now) => {
           frame = 0;
           if (!renderer) return;
-          const moving = easeClockLayers(now);
-          if (dirty || moving) {
+          const moved = easeClockLayers(now);
+          if (dirty || moved) {
             dirty = false;
             renderer.draw(shown, exposure);
           }
-          if (moving) schedule();
+          if (tweening) schedule();
         });
       };
 
@@ -261,15 +275,19 @@ export function PlateStage({
         // Circuits pass straight through; the clock layers start a tween from
         // wherever they currently are, so a scene that moves the clock slides
         // the window instead of cutting it.
-        let clockMoved = false;
+        let clockRetargeted = false;
         for (let i = 0; i < layers.length; i++) {
           for (let c = 0; c < 3; c++) {
             const o = i * 3 + c;
-            if (!clockIdx[i]) shown[o] = target[o];
-            else if (Math.abs(shown[o] - target[o]) > 1e-4) clockMoved = true;
+            if (!clockIdx[i]) {
+              shown[o] = target[o];
+            } else if (Math.abs(lastClockTarget[o] - target[o]) > 1e-6) {
+              lastClockTarget[o] = target[o];
+              clockRetargeted = true;
+            }
           }
         }
-        if (clockMoved) {
+        if (clockRetargeted) {
           from.set(shown);
           tweenStart = performance.now();
           tweening = true;
@@ -304,6 +322,7 @@ export function PlateStage({
       // The first frame has nothing to slide from, so land it rather than
       // tween it up from black.
       shown.set(target);
+      lastClockTarget.set(target);
       tweening = false;
       unsubscribe = useSim.subscribe(refresh);
 
