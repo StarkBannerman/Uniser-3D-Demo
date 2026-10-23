@@ -1,0 +1,59 @@
+{
+  "gamma": 5.0,
+  "width": 1920,
+  "height": 1080,
+  "sd": [
+    960,
+    540
+  ],
+  "layers": {
+    "rs_general": {
+      "scale": 31.293751,
+      "clipped_pct": 0.0
+    },
+    "rs_tunable": {
+      "scale": 0.122021,
+      "clipped_pct": 0.0
+    },
+    "rs_cove": {
+      "scale": 0.059253,
+      "clipped_pct": 0.0
+    },
+    "rs_pendant": {
+      "scale": 231.750015,
+      "clipped_pct": 0.0
+    },
+    "rs_arch": {
+      "scale": 36.581253,
+      "clipped_pct": 0.0
+    },
+    "rs_feature": {
+      "scale": 37.139065,
+      "clipped_pct": 0.0
+    },
+    "rs_table": {
+      "scale": 1.381055,
+      "clipped_pct": 0.002
+    },
+    "rs_rgb": {
+      "scale": 36.243752,
+      "clipped_pct": 0.0
+    },
+    "sky": {
+      "scale": 1.444922,
+      "clipped_pct": 0.0
+    },
+    "day_morning": {
+      "scale": 2.176758,
+      "clipped_pct": 0.004
+    },
+    "day_midday": {
+      "scale": 0.391626,
+      "clipped_pct": 0.003
+    },
+    "day_evening": {
+      "scale": 0.890625,
+      "clipped_pct": 0.0
+    }
+  }
+}

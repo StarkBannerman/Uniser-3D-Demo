@@ -59,6 +59,7 @@ import { WorkspaceStage } from "./rooms3d/WorkspaceStage";
 import { CxoCabinStage } from "./rooms3d/CxoCabinStage";
 import { HotelLobbyStage } from "./rooms3d/HotelLobbyStage";
 import { RestaurantStage } from "./rooms3d/RestaurantStage";
+import { PlateStage } from "./plates/PlateStage";
 import { CarShowroomStage } from "./rooms3d/CarShowroomStage";
 
 /** Window luminance that counts as "fully bright" for compositing. */
@@ -170,6 +171,43 @@ export function SpaceCanvas() {
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-shell-500">
             No 3D room registered for “{space.model}”.
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /**
+   * A plates room is a photograph of itself, recomposited live.
+   *
+   * It wants neither of the two paths above. Like the 3D stage it needs none
+   * of the compositing below — the tint, the darkness and the glow layers are
+   * all there to fake illumination on a flat image, and in a plate set every
+   * circuit was genuinely rendered. But unlike the 3D stage its aspect is not
+   * negotiable: the frame is the camera that rendered the plates, so it holds
+   * 16:9 at every width the way the illustrated path does, and gains letterbox
+   * rather than ceiling when the layout has height to spare.
+   */
+  if (space.renderer === "plates") {
+    return (
+      <div
+        className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black ring-1 ring-shell-800"
+        style={
+          pin
+            ? {
+                width: pin.width,
+                height: pin.height,
+                aspectRatio: "auto",
+                flex: "none",
+              }
+            : undefined
+        }
+      >
+        {space.plates ? (
+          <PlateStage dir={space.plates.dir} />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-shell-500">
+            No plate set registered for “{space.id}”.
           </div>
         )}
       </div>

@@ -33,9 +33,18 @@ export const restaurant: Space = {
   segment: "commercial",
   category: "Commercial",
   blurb:
-    "A 330 m² hotel restaurant in real-time 3D — eight separately controlled lighting layers across the dining floor, a bar and wine wall, a pendant cluster and a glazed façade, with music, climate, occupancy and daylight response, and the eight scenes a restaurant runs through from breakfast to the last table.",
-  renderer: "3d",
+    "A 330 m² hotel restaurant, path-traced offline and relit live — eight separately controlled lighting layers across the dining floor, a bar and wine wall, a pendant cluster and a glazed façade, with music, climate, occupancy and daylight response, and the eight scenes a restaurant runs through from breakfast to the last table.",
+  renderer: "plates",
+  /**
+   * Kept although `renderer` no longer reads it.
+   *
+   * `RestaurantStage` is still registered in `SpaceCanvas` and is still the
+   * only thing that can produce a new plate set, so the live 3D room has to
+   * stay buildable. One line here is what makes flipping this room back to
+   * `"3d"` a one-word change when a pass needs re-rendering.
+   */
   model: "restaurant",
+  plates: { dir: "/plates" },
 
   keypad: {
     layout: "grid",

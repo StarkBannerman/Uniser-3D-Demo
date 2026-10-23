@@ -1,0 +1,45 @@
+{
+  "camera": "hero",
+  "points": {
+    "rs-general": {
+      "u": 0.4776,
+      "v": 0.2569,
+      "visible": true
+    },
+    "rs-tunable": {
+      "u": 0.1873,
+      "v": 0.2626,
+      "visible": true
+    },
+    "rs-cove": {
+      "u": 0.7417,
+      "v": 0.2772,
+      "visible": true
+    },
+    "rs-pendant": {
+      "u": 0.428,
+      "v": 0.3548,
+      "visible": true
+    },
+    "rs-arch": {
+      "u": 0.3519,
+      "v": 0.3102,
+      "visible": true
+    },
+    "rs-feature": {
+      "u": 0.4128,
+      "v": 0.439,
+      "visible": true
+    },
+    "rs-table": {
+      "u": 0.1454,
+      "v": 0.6381,
+      "visible": true
+    },
+    "rs-rgb": {
+      "u": 0.9724,
+      "v": 0.629,
+      "visible": true
+    }
+  }
+}

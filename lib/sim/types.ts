@@ -518,11 +518,23 @@ export interface Space {
   category: string;
   blurb: string;
   /** Which stage renderer to use. */
-  renderer: "illustrated" | "photo" | "floorplan" | "3d";
+  renderer: "illustrated" | "photo" | "floorplan" | "3d" | "plates";
   /** Selects the SVG scene when `renderer` is "illustrated". */
   illustration?: string;
   /** Selects the 3D room when `renderer` is "3d". */
   model?: string;
+  /**
+   * Where the plate set lives when `renderer` is "plates", e.g. "/plates".
+   *
+   * The directory and nothing else, because everything else about a plate set
+   * — its two tiers, their dimensions, the decode gamma and the per-layer
+   * scales — is written by the offline renderer that produced it and read back
+   * from its `manifest.json`. Restating any of that here would be a second
+   * source of truth for numbers the room cannot be composited without, and the
+   * failure mode of the two disagreeing is a silently mis-exposed room rather
+   * than anything that throws.
+   */
+  plates?: { dir: string };
   /**
    * Keep this space out of the space picker.
    *
