@@ -1,0 +1,10 @@
+<!--
+  A placeholder mark, here to stop the browser's automatic /favicon.ico
+  request 404ing into the console on every page. It is a lit aperture in the
+  demo's own brass, not a logo: swap it for the real one when there is one.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#15181d"/>
+  <circle cx="16" cy="16" r="8" fill="#efbb64"/>
+  <circle cx="16" cy="16" r="3.5" fill="#fff6e4"/>
+</svg>
