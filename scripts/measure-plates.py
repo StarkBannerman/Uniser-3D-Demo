@@ -51,7 +51,7 @@ WINDOW_X = 0.62
 # import path from Python to TypeScript and inventing one would be worse.
 GAIN = {
     "rs_general": 90, "rs_tunable": 260, "rs_cove": 7, "rs_pendant": 1.2,
-    "rs_arch": 5, "rs_feature": 0.1, "rs_table": 5, "rs_rgb": 0.6,
+    "rs_arch": 5, "rs_feature": 0.1, "rs_table": 5, "rs_rgb": 1.5,
     "sky": 6.7, "sky_day": 43.5,
     "day_morning": 600, "day_midday": 25, "day_evening": 15,
 }
@@ -167,14 +167,21 @@ def render(targets, clock, gain=None, exposure=EXPOSURE):
     hdr = np.zeros_like(LIN["sky"])
     night = 1 - dayness(clock)
     dw = day_weights(clock, ENV)
+    # The colour bus, mirroring weights.ts: a live saturated rs-rgb pulls the
+    # RGBW circuits onto its hue.
+    busst = targets.get("rs-rgb")
+    bus = busst if busst and busst.get("on") and busst.get("sat", 0) > 0 else None
     for l in LAYERS:
         if l in CIRCUITS:
             st = targets.get(l.replace("_", "-"))
             if not st or not st.get("on"):
                 continue
             w = (st.get("level", 0) / 100) ** 2.2 * g[l]
+            lit = dict(st)
+            if bus and l in ("rs_cove", "rs_arch"):
+                lit = {**st, "hue": bus.get("hue", 0), "sat": 100}
             t = np.array([1.0, 1.0, 1.0]) if l == "rs_pendant" else tint(
-                st.get("cct", 2700), st.get("hue", 0), st.get("sat", 0))
+                lit.get("cct", 2700), lit.get("hue", 0), lit.get("sat", 0))
             hdr += LIN[l] * (w * t)
         elif l == "sky":
             hdr += LIN[l] * (night * g[l])

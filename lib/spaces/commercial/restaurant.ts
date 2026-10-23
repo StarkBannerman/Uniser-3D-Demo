@@ -525,19 +525,49 @@ export const restaurant: Space = {
         "Colour takes the room. Ambient down to a floor-safety level, the white layers pulled back, and the RGB runs at full saturation — the one scene where the architecture stops being the subject.",
       fadeMs: 1200,
       targets: {
-        "rs-general": { on: true, level: 14, cct: 2700, sat: 0 },
-        "rs-tunable": { on: true, level: 20, cct: 2300, sat: 0 },
-        "rs-cove": { on: true, level: 35, cct: 2200, sat: 0 },
-        "rs-pendant": { on: true, level: 55, cct: 2000, sat: 0 },
-        "rs-arch": { on: true, level: 30, cct: 2500, sat: 0 },
-        "rs-feature": { on: true, level: 55, cct: 2700, sat: 0 },
-        "rs-table": { on: true, level: 60, cct: 2000, sat: 0 },
-        // Magenta at 92, which is the sheet's own Party frame. The white
-        // layers come down rather than off so faces still read — colour with
-        // nothing under it makes everybody look ill.
-        "rs-rgb": { on: true, level: 92, cct: 4000, hue: 312, sat: 92 },
+        /**
+         * The colour is carried by the architecture, not by a strip of tape.
+         *
+         * The earlier version ran the colour circuit alone against a dimmed
+         * white room, and because that circuit is mounted low it put a bright
+         * line along the sill and left everything above it grey. A party is
+         * not a line; it is the ceiling.
+         *
+         * So the cove and the architectural profiles come up rather than
+         * down — they are RGBW fixtures and `weights.ts` puts them on the
+         * colour bus's hue while it is running — and the white layers go to
+         * almost nothing, because colour on top of white is a pastel and the
+         * point here is saturation. What is left in white is the five per
+         * cent of ambient that keeps the floor safe, the table lamps at a
+         * third so every cover still has its own pool, and enough pendant to
+         * keep the cluster readable as glass rather than as silhouette.
+         */
+        "rs-general": { on: true, level: 5, cct: 2700, sat: 0 },
+        "rs-tunable": { on: false },
+        "rs-cove": { on: true, level: 80, cct: 2200, sat: 0 },
+        "rs-pendant": { on: true, level: 25, cct: 2000, sat: 0 },
+        "rs-arch": { on: true, level: 60, cct: 2500, sat: 0 },
+        "rs-feature": { on: true, level: 30, cct: 2700, sat: 0 },
+        "rs-table": { on: true, level: 35, cct: 2000, sat: 0 },
+        "rs-rgb": { on: true, level: 100, cct: 4000, hue: 320, sat: 100 },
         "rs-ac": { on: true, setpointC: 20, mode: "cool", fan: 4 },
         "rs-music": { on: true, source: "Club Set", volume: 56 },
+      },
+      /**
+       * Magenta to violet and back, twice a minute.
+       *
+       * Slow enough that nobody watches it happen and fast enough that the
+       * room is never the same colour twice in a sitting, which is the
+       * difference between a party and a photograph of one. Forty-five
+       * degrees is a deliberately short arc: a full hue rotation sweeps
+       * through green on its way round and a dining room lit green is a
+       * fault report, not a scene.
+       */
+      drift: {
+        deviceId: "rs-rgb",
+        fromHue: 320,
+        toHue: 275,
+        periodMs: 20000,
       },
       highlight: ["flexi-delta-rgb", "smartspaces-audio"],
     },

@@ -142,6 +142,26 @@ export function tintLinear(state: LightState): [number, number, number] {
  */
 const NEUTRAL_LAYERS = new Set<string>(["rs_pendant"]);
 
+/**
+ * Circuits whose fixtures are RGBW rather than tunable white.
+ *
+ * A cove run and a linear architectural profile are almost always RGBW in a
+ * room specified like this one — the white dies are what you light dinner
+ * with, and the colour dies are why the same room can be sold for a party.
+ * So when the colour circuit is running saturated, these two follow it onto
+ * the same hue instead of staying on the blackbody locus.
+ *
+ * Driven from the state of `rs-rgb` rather than from the scene's name, which
+ * matters more than it looks: a presenter who nudges a dimmer during Party
+ * drops `activeSceneId`, and a room that reverts its ceiling to white the
+ * moment you touch a slider would look broken. The colour follows the colour
+ * bus, which is how the hardware would do it.
+ */
+const RGBW_LAYERS = new Set<string>(["rs_cove", "rs_arch"]);
+
+/** The circuit the RGBW fixtures take their hue from. */
+const COLOUR_BUS = "rs-rgb";
+
 /* ------------------------------------------------------------------ */
 /* Daylight                                                            */
 /* ------------------------------------------------------------------ */
@@ -243,6 +263,12 @@ export function computeWeights(
   const night = 1 - dayness(clockMin);
   const day = dayWeights(daylightAmount(space, clockMin), dayFraction(space, clockMin));
 
+  // The colour bus, if it is running colour at all. Party is the only scene
+  // in this room that turns it on, so in every other one this is null and the
+  // RGBW circuits stay white.
+  const busState = states[COLOUR_BUS] as LightState | undefined;
+  const bus = busState?.on && busState.sat > 0 ? busState : null;
+
   layers.forEach((layer, i) => {
     const gain = gainOf(layer);
     switch (layerRole(layer)) {
@@ -250,7 +276,12 @@ export function computeWeights(
         const state = states[deviceIdOf(layer)] as LightState | undefined;
         if (!state || !state.on) return put(i, 0, 0, 0);
         const w = plateOutput(state.level) * gain;
-        const [r, g, b] = NEUTRAL_LAYERS.has(layer) ? [1, 1, 1] : tintLinear(state);
+        // An RGBW circuit under a live colour bus takes the bus's hue at full
+        // saturation: a cove doing a pastel version of the wash reads as a
+        // mistake rather than as a choice.
+        const lit =
+          bus && RGBW_LAYERS.has(layer) ? { ...state, hue: bus.hue, sat: 100 } : state;
+        const [r, g, b] = NEUTRAL_LAYERS.has(layer) ? [1, 1, 1] : tintLinear(lit);
         return put(i, w * r, w * g, w * b);
       }
       case "day": {

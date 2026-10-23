@@ -341,6 +341,29 @@ export interface SceneStep {
   holdMs?: number;
 }
 
+/**
+ * A slow colour movement held for as long as its scene is the active one.
+ *
+ * Only hue, and only one device, because that is the whole of what a colour
+ * wash in a dining room should ever do. The swing is a raised cosine rather
+ * than a triangle so it decelerates into each end: a linear ramp reverses
+ * with a visible corner, and anything faster than this reads as a nightclub
+ * effect rather than as a room that is quietly alive.
+ *
+ * It stops the moment another scene is applied, because `activeSceneId` is
+ * what drives it. Moving a control by hand also stops it — letting go of the
+ * scene is how this app says "you are driving now".
+ */
+export interface SceneDrift {
+  /** The device whose hue moves. */
+  deviceId: string;
+  /** Degrees. The cycle starts at `fromHue` when the scene is applied. */
+  fromHue: number;
+  toHue: number;
+  /** Milliseconds for a full there-and-back. */
+  periodMs: number;
+}
+
 export interface Scene {
   id: string;
   name: string;
@@ -352,6 +375,8 @@ export interface Scene {
   fadeMs: number;
   /** Device id -> partial state. Per-device `fadeMs` overrides the default. */
   targets: Record<string, StatePatch & { fadeMs?: number }>;
+  /** A hue drift that runs while this scene is the active one. */
+  drift?: SceneDrift;
   /**
    * Ordered stages that run after `targets` is applied.
    *

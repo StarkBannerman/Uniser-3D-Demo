@@ -74,6 +74,17 @@ export const TOGGLE_FADE_MS = 700;
 /** Thermal time constant of a room, simulated minutes. */
 const THERMAL_TAU_MIN = 25;
 const MAX_EVENTS = 40;
+/**
+ * Hue quantisation for a scene drift, in degrees.
+ *
+ * The drift is the only thing in this engine that moves on its own with
+ * nothing being pressed, so it is the only thing that can turn an idle room
+ * into sixty store writes a second — and every one of those re-renders the
+ * phone and redraws the stage. Rounding to half a degree makes a 45-degree
+ * swing about ninety steps, which is smooth at this speed and costs under
+ * ten writes a second.
+ */
+const DRIFT_STEP_DEG = 0.5;
 
 /* ------------------------------------------------------------------ */
 /* Non-reactive scratch                                                */
@@ -92,6 +103,15 @@ let lastRuleAt = 0;
 let lastSensorAt = 0;
 let lastPublishAt = 0;
 let lastRuleMin = 0;
+/**
+ * When the active scene's drift started, so its cycle begins at `fromHue`.
+ *
+ * Module scope with the other wall-clock marks. Phasing it off absolute time
+ * instead would start the swing wherever the clock happened to be, so Party
+ * would come up at some arbitrary colour between magenta and violet rather
+ * than at the one the scene asked for.
+ */
+let driftStart = 0;
 /**
  * Simulated minutes banked since the last sensor pass. Derived sensors run at
  * 10Hz while `tick` runs at 60, so they have to be handed the time that elapsed
@@ -653,6 +673,9 @@ export const useSim = create<SimStore>((set, get) => ({
       scene.clockMin === undefined ? undefined : wrapMinutes(scene.clockMin);
     if (clockMin !== undefined) lastRuleMin = clockMin;
 
+    driftStart =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+
     set({
       states: nextStates,
       activeSceneId: sceneId,
@@ -745,6 +768,34 @@ export const useSim = create<SimStore>((set, get) => ({
           changed = true;
         }
         states[deviceId] = { ...current, on: false, level: restore };
+      }
+    }
+
+    /* 2b. Scene drift ------------------------------------------------ */
+    /**
+     * Applied after the fades, so it wins.
+     *
+     * The scene's own target sets the hue the drift starts from, and the
+     * tween is still travelling toward it for the first second or so. Both
+     * agree at t=0 by construction — `driftStart` is set when the scene is
+     * applied and the cycle begins at `fromHue` — so overwriting here is
+     * continuous rather than a jump.
+     */
+    const drift = space.scenes.find((sc) => sc.id === state.activeSceneId)?.drift;
+    if (drift) {
+      const driven = states[drift.deviceId] as LightState | undefined;
+      if (driven?.on) {
+        const phase =
+          (1 - Math.cos((2 * Math.PI * (realNow - driftStart)) / drift.periodMs)) / 2;
+        const raw = drift.fromHue + (drift.toHue - drift.fromHue) * phase;
+        const hue = Math.round(raw / DRIFT_STEP_DEG) * DRIFT_STEP_DEG;
+        if (driven.hue !== hue) {
+          if (!changed) {
+            states = { ...states };
+            changed = true;
+          }
+          states[drift.deviceId] = { ...driven, hue };
+        }
       }
     }
 

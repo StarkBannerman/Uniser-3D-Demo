@@ -40,7 +40,17 @@ export const LAYER_GAIN: Record<string, number> = {
   rs_arch: 5,
   rs_feature: 0.1,
   rs_table: 5,
-  rs_rgb: 0.6,
+  /**
+   * 2.5x what lumen share alone would give it.
+   *
+   * The colour circuit is mounted low, behind the planters and up the window
+   * piers, so at its fair share it washed a thin bright line along the sill
+   * and nothing else — which read as a strip of tape rather than as a room
+   * with colour in it. Party is the one scene that uses it and the one scene
+   * whose whole argument is the colour, so it is allowed to be louder than
+   * its lumens.
+   */
+  rs_rgb: 1.5,
 
   /**
    * Exterior and daylight, calibrated by `scripts/measure-plates.py`.
