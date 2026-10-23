@@ -430,18 +430,25 @@ export const showroom: Space = {
       blurb:
         "The sheet's own demonstration, run as one button: general lighting dims, the selected car's spotlights come up, accent light focuses on it, everything around it steps back, and the colour temperature moves to 5000 K for the paint. Five stages, about four seconds, on whichever vehicle is selected.",
       fadeMs: 800,
+      /**
+       * Stage zero sets only what the narration does not.
+       *
+       * This is the trap in a staged scene and it is silent: `targets` is
+       * applied before the first step, so anything named here that a step
+       * also names has already arrived by the time that step runs. The
+       * sequence runner skips a step that commands nothing new, so writing
+       * the demonstration's end state here made all five steps no-ops — the
+       * room cut straight to the answer and not one caption appeared.
+       *
+       * So the five circuits the beats talk about are deliberately absent,
+       * and what is left is the housekeeping: the architectural line settles
+       * to 40, the colour goes off, and the plant carries on.
+       */
       targets: {
-        "sr-general": { on: true, level: 20, cct: 5000, sat: 0 },
-        "@selected": { on: true, level: 100, cct: 4500, sat: 0 },
-        "@others": { on: true, level: 25, cct: 4500, sat: 0 },
-        "sr-track": { on: true, level: 30, cct: 4500, sat: 0 },
-        "sr-linear": { on: true, level: 25 },
-        "sr-tunable": { on: true, level: 30, cct: 4500, sat: 0 },
-        "sr-accent": { on: true, level: 30 },
-        "sr-floor": { on: true, level: 70 },
         "sr-arch": { on: true, level: 40 },
         "sr-rgb": { on: false },
         "sr-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
+        "sr-music": { on: true, source: "Showroom", volume: 20 },
       },
       /**
        * The five beats, in the sheet's order and its words.
