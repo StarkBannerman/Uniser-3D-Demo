@@ -465,13 +465,19 @@ export const lobby: Space = {
         /**
          * The downlights go to the top of their range, not to 5500 K.
          *
-         * Cleaning has to read as flat cool white, and the architectural
-         * circuit is what stops it: it is fixed 2700 K on the sheet, so at
-         * full it was supplying enough warm light to keep the room
-         * red-dominant however cool the downlights went. Thirty-five per
-         * cent is enough to keep the edges of a double-height room legible
-         * for someone working in it, and little enough that the 6500 K
-         * downlights decide the colour.
+         * Cleaning has to read as flat cool white, and it gets as close as
+         * this engine allows. Dropping the architecture from 100 to 35 was
+         * most of it — fixed 2700 K on the sheet, it was supplying enough
+         * warm light to swamp everything else.
+         *
+         * It is still not blue-dominant, and that is not this scene's
+         * fault. `cctToRgb` normalises the brightest channel to 255, and at
+         * 6500 K that channel is still red: the tint it returns is
+         * (1.005, 1.000, 0.981). The warmest colour temperature is warm and
+         * the coolest is white, so no scene can tint a room cool. Measured
+         * on the interior, Cleaning lands at R-B +0.059 against Event's
+         * +0.099 and Evening's +0.090 — the coolest scene after dark by a
+         * clear margin, which is as far as the colour model goes.
          */
         "ca-tunable": { on: true, level: 100, cct: 6500, sat: 0 },
         "ca-arch": { on: true, level: 35 },

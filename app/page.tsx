@@ -37,13 +37,6 @@ const DOORS: { segment: Segment; title: string; lead: string; blurb: string }[] 
     blurb:
       "A hotel restaurant, a hotel lobby and a luxury car showroom — the rooms a business is judged on in the first ten seconds, with the lighting layers that do the judging on separate circuits.",
   },
-  {
-    segment: "commercial",
-    title: "Office",
-    lead: "Workplaces",
-    blurb:
-      "Zoned floors, meeting spaces and executive rooms, with occupancy, daylight response and the tunable white a working day is specified to.",
-  },
 ];
 
 export default function Home() {

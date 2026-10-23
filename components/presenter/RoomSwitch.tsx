@@ -24,7 +24,6 @@ import type { Segment } from "@/lib/sim/types";
 
 const SEGMENTS: { id: Segment; label: string }[] = [
   { id: "hospitality", label: "Commercial" },
-  { id: "commercial", label: "Office" },
 ];
 
 export function RoomSwitch({

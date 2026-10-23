@@ -19,14 +19,7 @@ import { showroom } from "./commercial/showroom";
 import { hotelLobby } from "./hospitality/hotel-lobby";
 import { lobby } from "./hospitality/lobby";
 
-export const spaces: Space[] = [
-  restaurant,
-  showroom,
-  lobby,
-  workspace,
-  boardroom,
-  cxoCabin,
-];
+export const spaces: Space[] = [restaurant, showroom, lobby];
 
 /**
  * Registered but not offered.
@@ -43,6 +36,9 @@ export const retired: Space[] = [
   den,
   kitchen,
   livingRoomIllustrated,
+  workspace,
+  boardroom,
+  cxoCabin,
 ];
 
 export function getSpace(id: string): Space | undefined {
