@@ -35,15 +35,6 @@ export const restaurant: Space = {
   blurb:
     "A 330 m² hotel restaurant, path-traced offline and relit live — eight separately controlled lighting layers across the dining floor, a bar and wine wall, a pendant cluster and a glazed façade, with music, climate, occupancy and daylight response, and the eight scenes a restaurant runs through from breakfast to the last table.",
   renderer: "plates",
-  /**
-   * Kept although `renderer` no longer reads it.
-   *
-   * `RestaurantStage` is still registered in `SpaceCanvas` and is still the
-   * only thing that can produce a new plate set, so the live 3D room has to
-   * stay buildable. One line here is what makes flipping this room back to
-   * `"3d"` a one-word change when a pass needs re-rendering.
-   */
-  model: "restaurant",
   plates: { dir: "/plates" },
 
   keypad: {
@@ -282,6 +273,27 @@ export const restaurant: Space = {
   /* Scenes — the eight on the client's sheet                          */
   /* ---------------------------------------------------------------- */
 
+  /**
+   * What these levels actually render as.
+   *
+   * Mean display luminance of the plates composite at each scene's own
+   * clock, measured by `scripts/measure-plates.py`. Levels are tuned against
+   * these ratios rather than against each other, because the circuits are
+   * wildly unequal in what they put into the picture and a number that looks
+   * balanced in this table is not necessarily balanced on screen.
+   *
+   *     Party           0.075   0.37x Dinner
+   *     Fine Dining     0.084   0.42x
+   *     Dinner          0.200   1.00x
+   *     Evening         0.251   1.26x
+   *     Cleaning        0.256   1.28x
+   *     Lunch           0.257   1.28x
+   *     Day             0.261   1.31x
+   *     Private Event   0.279   1.40x
+   *
+   * Re-measure after any plate re-render: the gains in `plates/gains.ts` are
+   * derived from the plates, and these ratios move with them.
+   */
   scenes: [
     {
       id: "day",
@@ -292,12 +304,24 @@ export const restaurant: Space = {
         "Breakfast and the room between services. Cool, bright and even, with the façade doing most of it — the decorative layers are off because a filament globe in daylight is a switched-on bulb and nothing more.",
       fadeMs: 2200,
       targets: {
-        "rs-general": { on: true, level: 72, cct: 4600, sat: 0 },
-        "rs-tunable": { on: true, level: 55, cct: 4800, sat: 0 },
-        "rs-cove": { on: true, level: 40, cct: 3800, sat: 0 },
+        /**
+         * Carried by the track rather than the downlights, on purpose.
+         *
+         * `rs-daylight` regulates the general layer and nothing else, and at
+         * nine in the morning the façade is supplying enough that it trims
+         * it to its 12% floor whatever this says. So a Day scene written
+         * around the general layer renders at a fifth of what it asks for —
+         * measured, the interior drops from 0.225 to 0.123 — which is the
+         * dark brown room. The track is outside the rule, so it is what
+         * actually lights breakfast, and the cove stays up because a 10%
+         * cove is most of the difference between even and gloomy.
+         */
+        "rs-general": { on: true, level: 60, cct: 4500, sat: 0 },
+        "rs-tunable": { on: true, level: 95, cct: 4500, sat: 0 },
+        "rs-cove": { on: true, level: 50, cct: 4000, sat: 0 },
         "rs-pendant": { on: false },
-        "rs-arch": { on: true, level: 30, cct: 3600, sat: 0 },
-        "rs-feature": { on: true, level: 45, cct: 3600, sat: 0 },
+        "rs-arch": { on: true, level: 25, cct: 4000, sat: 0 },
+        "rs-feature": { on: true, level: 30, cct: 4000, sat: 0 },
         "rs-table": { on: false },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 23, mode: "cool", fan: 2 },
@@ -336,13 +360,13 @@ export const restaurant: Space = {
         "The turn. Daylight has gone, the ceiling comes down and the decorative layers come up — this is the scene that makes the glazing read as a view instead of a dark wall.",
       fadeMs: 2400,
       targets: {
-        "rs-general": { on: true, level: 38, cct: 3000, sat: 0 },
-        "rs-tunable": { on: true, level: 52, cct: 2700, sat: 0 },
-        "rs-cove": { on: true, level: 72, cct: 2600, sat: 0 },
-        "rs-pendant": { on: true, level: 72, cct: 2300, sat: 0 },
-        "rs-arch": { on: true, level: 62, cct: 2800, sat: 0 },
-        "rs-feature": { on: true, level: 78, cct: 2900, sat: 0 },
-        "rs-table": { on: true, level: 70, cct: 2200, sat: 0 },
+        "rs-general": { on: true, level: 52, cct: 3000, sat: 0 },
+        "rs-tunable": { on: true, level: 64, cct: 2700, sat: 0 },
+        "rs-cove": { on: true, level: 86, cct: 2600, sat: 0 },
+        "rs-pendant": { on: true, level: 70, cct: 2300, sat: 0 },
+        "rs-arch": { on: true, level: 66, cct: 2800, sat: 0 },
+        "rs-feature": { on: true, level: 88, cct: 2900, sat: 0 },
+        "rs-table": { on: true, level: 66, cct: 2200, sat: 0 },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
         "rs-music": { on: true, source: "Bossa", volume: 30 },
@@ -433,20 +457,25 @@ export const restaurant: Space = {
       fadeMs: 2600,
       targets: {
         /**
-         * Twelve per cent, and it stays on.
+         * Ten per cent, and it stays on.
          *
          * The temptation in a fine-dining preset is to switch the ambient
          * layer off entirely, and it is wrong: with nothing on the floor the
-         * room loses its edges and staff cannot read a table number. Twelve
-         * per cent is below conscious notice and is the difference between
+         * room loses its edges and staff cannot read a table number. Ten per
+         * cent is below conscious notice and is the difference between
          * intimate and unusable.
+         *
+         * The cove comes down with it, to fifteen. This is the one scene in
+         * the room whose argument is contrast, and a lit ceiling ring is the
+         * single thing most able to flatten it — the light has to come from
+         * the tables and the pendants or the scene is just a dimmer Dinner.
          */
-        "rs-general": { on: true, level: 12, cct: 2700, sat: 0 },
-        "rs-tunable": { on: true, level: 30, cct: 2200, sat: 0 },
-        "rs-cove": { on: true, level: 55, cct: 2200, sat: 0 },
+        "rs-general": { on: true, level: 10, cct: 2700, sat: 0 },
+        "rs-tunable": { on: true, level: 26, cct: 2200, sat: 0 },
+        "rs-cove": { on: true, level: 15, cct: 2200, sat: 0 },
         "rs-pendant": { on: true, level: 95, cct: 2000, sat: 0 },
-        "rs-arch": { on: true, level: 72, cct: 2500, sat: 0 },
-        "rs-feature": { on: true, level: 85, cct: 2700, sat: 0 },
+        "rs-arch": { on: true, level: 50, cct: 2500, sat: 0 },
+        "rs-feature": { on: true, level: 64, cct: 2700, sat: 0 },
         "rs-table": { on: true, level: 100, cct: 1950, sat: 0 },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 22, mode: "cool", fan: 1 },
@@ -463,13 +492,13 @@ export const restaurant: Space = {
         "A booked floor. Brighter and more even than dinner service because the room is now a venue rather than a restaurant — people stand, circulate and look at each other rather than at a plate.",
       fadeMs: 2000,
       targets: {
-        "rs-general": { on: true, level: 48, cct: 3000, sat: 0 },
-        "rs-tunable": { on: true, level: 66, cct: 2800, sat: 0 },
-        "rs-cove": { on: true, level: 85, cct: 2700, sat: 0 },
-        "rs-pendant": { on: true, level: 80, cct: 2300, sat: 0 },
-        "rs-arch": { on: true, level: 75, cct: 2900, sat: 0 },
-        "rs-feature": { on: true, level: 90, cct: 3000, sat: 0 },
-        "rs-table": { on: true, level: 80, cct: 2200, sat: 0 },
+        "rs-general": { on: true, level: 72, cct: 3000, sat: 0 },
+        "rs-tunable": { on: true, level: 76, cct: 2800, sat: 0 },
+        "rs-cove": { on: true, level: 88, cct: 2700, sat: 0 },
+        "rs-pendant": { on: true, level: 70, cct: 2300, sat: 0 },
+        "rs-arch": { on: true, level: 70, cct: 2900, sat: 0 },
+        "rs-feature": { on: true, level: 88, cct: 3000, sat: 0 },
+        "rs-table": { on: true, level: 70, cct: 2200, sat: 0 },
         /**
          * Off, where it used to carry a low amber wash.
          *

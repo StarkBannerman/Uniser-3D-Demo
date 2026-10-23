@@ -211,6 +211,7 @@ function LightRow({
   moving: boolean;
 }) {
   const patch = useSim((s) => s.patch);
+  const hover = useSim((s) => s.hover);
   const selected = useSim((s) => s.selectedDeviceId === device.id);
   const ref = useRef<HTMLDivElement>(null);
   const [on, predictOn] = usePredicted(state.on, TOGGLE_FADE_MS + 400);
@@ -234,6 +235,10 @@ function LightRow({
   return (
     <div
       ref={ref}
+      // Hovering a row lights that circuit's marker on the room, which is
+      // the cheapest possible answer to "which of these is the cove?".
+      onPointerEnter={() => hover(device.id)}
+      onPointerLeave={() => hover(null)}
       className={
         selected ? "rounded-xl ring-1 ring-brass-500/70 transition-shadow" : undefined
       }
@@ -448,6 +453,7 @@ export function AppPanel({ view }: { view: AppView }) {
   }, [sceneRunId, settleMs]);
   const busyDevices = useSim((s) => s.busyDevices);
   const applyScene = useSim((s) => s.applyScene);
+  const stageStatic = useSim((s) => s.stageStatic);
 
   if (!space) return null;
 
@@ -497,7 +503,9 @@ export function AppPanel({ view }: { view: AppView }) {
                  * not be pressing yet.
                  */
                 const owns = running || (settling && !sequence && active);
-                const blocked = (settling || Boolean(sequence)) && !owns;
+                // A still stage cannot show a scene, so the buttons say so.
+                const blocked =
+                  stageStatic || ((settling || Boolean(sequence)) && !owns);
                 return (
                   <button
                     key={scene.id}

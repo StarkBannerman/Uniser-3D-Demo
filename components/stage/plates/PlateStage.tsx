@@ -151,7 +151,6 @@ export function PlateStage({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tier, setTier] = useState<PlateTier | null>(null);
   const [hotspots, setHotspots] = useState<HotspotFile | null>(null);
-  const [hovered, setHovered] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -196,7 +195,10 @@ export function PlateStage({
           toneCurve(),
         );
       } catch (e) {
-        if (!cancelled) setFailed(e instanceof Error ? e.message : "WebGL2 unavailable");
+        if (!cancelled) {
+          setFailed(e instanceof Error ? e.message : "WebGL2 unavailable");
+          useSim.getState().setStageStatic(true);
+        }
         return;
       }
 
@@ -354,29 +356,34 @@ export function PlateStage({
       if (frame) cancelAnimationFrame(frame);
       observer?.disconnect();
       unsubscribe?.();
+      // Drops the thirteen textures, the program and the context. Without
+      // this, leaving and re-entering the room leaks a plate set each time,
+      // which on the HD tier is about 130 MB a visit.
       renderer?.dispose();
+      useSim.getState().setStageStatic(false);
     };
   }, [dir]);
 
   const space = useSim((s) => s.space);
   const select = useSim((s) => s.select);
+  const hoveredDeviceId = useSim((s) => s.hoveredDeviceId);
   /**
-   * Shown on hover, or whenever the Controls tab is open.
+   * Markers appear with the Controls tab, and not otherwise.
    *
-   * At rest the room is a photograph and markers on it read as dirt. Hover
-   * covers a presenter reaching for a fixture with a mouse; the Controls tab
-   * covers touch, where there is no hover and where someone looking at a list
-   * of circuit names wants to know which part of the room each one is.
+   * An earlier version revealed them whenever the pointer crossed the stage,
+   * which meant they turned up in screenshots and in screen-shares the
+   * moment anyone moved the mouse — on the one surface in this demo that is
+   * meant to look like a photograph. Now they belong to the Controls tab,
+   * where someone is already looking at a list of circuit names and wants to
+   * know which part of the room each one is. The single exception is a row
+   * being hovered: that marker shows wherever you are, because pointing at
+   * one control and lighting one spot is unambiguous in a way eight spots
+   * are not.
    */
-  const showHotspots = controlsOpen || hovered;
+  const showHotspots = controlsOpen;
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute inset-0"
-      onPointerEnter={(e) => e.pointerType === "mouse" && setHovered(true)}
-      onPointerLeave={() => setHovered(false)}
-    >
+    <div ref={containerRef} className="absolute inset-0">
       <canvas
         ref={canvasRef}
         className="h-full w-full"
@@ -398,18 +405,16 @@ export function PlateStage({
 
       {ready && !failed && hotspots && space && (
         <div
-          className="absolute inset-0 transition-opacity duration-200"
-          style={{
-            opacity: showHotspots ? 1 : 0,
-            // On the wrapper rather than per button, so a hidden marker is
-            // not a target you can hit by accident.
-            pointerEvents: showHotspots ? "auto" : "none",
-          }}
+          className="absolute inset-0"
+          // On the wrapper rather than per button, so a hidden marker is not
+          // a target you can hit by accident.
+          style={{ pointerEvents: showHotspots ? "auto" : "none" }}
         >
           {Object.entries(hotspots.points).map(([deviceId, point]) => {
             if (!point.visible) return null;
             const device = space.devices.find((d) => d.id === deviceId);
             if (!device) return null;
+            const shown = showHotspots || hoveredDeviceId === deviceId;
             return (
               <button
                 key={deviceId}
@@ -417,13 +422,20 @@ export function PlateStage({
                 tabIndex={showHotspots ? 0 : -1}
                 onClick={() => select(deviceId)}
                 aria-label={`Show ${device.name} controls`}
-                className="group absolute -translate-x-1/2 -translate-y-1/2 p-2.5"
+                className="group absolute -translate-x-1/2 -translate-y-1/2 p-2.5 transition-opacity duration-200"
                 style={{
                   left: `${clampEdge(point.u) * 100}%`,
                   top: `${clampEdge(point.v) * 100}%`,
+                  opacity: shown ? 1 : 0,
                 }}
               >
-                <span className="block h-2 w-2 rounded-full bg-brass-400/80 ring-1 ring-black/50 transition group-hover:scale-125 group-hover:bg-brass-300" />
+                <span
+                  className={`block h-2 w-2 rounded-full ring-1 ring-black/50 transition group-hover:scale-125 group-hover:bg-brass-300 ${
+                    hoveredDeviceId === deviceId
+                      ? "scale-150 bg-brass-300"
+                      : "bg-brass-400/80"
+                  }`}
+                />
                 <span className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 text-[10px] text-shell-100 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
                   {device.name}
                 </span>
@@ -456,7 +468,8 @@ function Fallback({ reason }: { reason: string }) {
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
       <p className="text-xs text-white/70">
-        Static view — this device has no WebGL2. Controls and scenes still run.
+        Static view — this device has no WebGL2, so the room cannot change.
+        Scenes are disabled; the keypad, schedules and energy figures still run.
       </p>
     </div>
   );

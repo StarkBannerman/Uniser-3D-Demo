@@ -350,6 +350,26 @@ export interface SimStore {
   totals: EnergyTotals;
   power: PowerSnapshot | null;
   selectedDeviceId: string | null;
+  /**
+   * The control row the pointer is over, or null.
+   *
+   * Pure presentation, and it lives here for the same reason
+   * `selectedDeviceId` does: the thing that needs to know is the stage, and
+   * the thing that knows is a row inside the phone, with the whole page
+   * between them. The plates stage reads it to light that circuit's hotspot
+   * and nothing else does.
+   */
+  hoveredDeviceId: string | null;
+  /**
+   * The stage is a still image and cannot show a scene change.
+   *
+   * Set by the plates stage when there is no WebGL2 to composite with. The
+   * room is then a correct photograph of one lighting state and nothing can
+   * move it, so the scene buttons go quiet rather than looking live and
+   * doing nothing — which is the difference between a device that cannot do
+   * this and a demo that appears broken.
+   */
+  stageStatic: boolean;
   /** Products the presenter has actually shown. Feeds the spec sheet. */
   touchedProductIds: string[];
   /**
@@ -421,6 +441,8 @@ export interface SimStore {
   setRate: (rate: number) => void;
   toggleRule: (ruleId: string) => void;
   select: (deviceId: string | null) => void;
+  hover: (deviceId: string | null) => void;
+  setStageStatic: (isStatic: boolean) => void;
   tick: (dtRealMs: number) => void;
 }
 
@@ -436,6 +458,8 @@ export const useSim = create<SimStore>((set, get) => ({
   totals: { ...zeroTotals },
   power: null,
   selectedDeviceId: null,
+  hoveredDeviceId: null,
+  stageStatic: false,
   touchedProductIds: [],
   commanded: {},
   cctLocked: {},
@@ -675,6 +699,10 @@ export const useSim = create<SimStore>((set, get) => ({
     })),
 
   select: (deviceId) => set({ selectedDeviceId: deviceId }),
+  hover: (deviceId) =>
+    set((s) => (s.hoveredDeviceId === deviceId ? s : { hoveredDeviceId: deviceId })),
+  setStageStatic: (isStatic) =>
+    set((s) => (s.stageStatic === isStatic ? s : { stageStatic: isStatic })),
 
   tick: (dtRealMs) => {
     const state = get();

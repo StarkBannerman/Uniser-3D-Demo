@@ -43,22 +43,29 @@ export const LAYER_GAIN: Record<string, number> = {
   rs_rgb: 0.6,
 
   /**
-   * Exterior and daylight.
+   * Exterior and daylight, calibrated by `scripts/measure-plates.py`.
    *
-   * `sky_day` carries the daytime view and the daylight coming in with it,
-   * so it is the one that has to make the room read as naturally lit. `sky`
-   * is the night view and sits lower, because a city at night should be
-   * visible through the glass without lighting the dining room. The two are
-   * crossfaded against each other and always sum to one share, so the
-   * glazing is never empty between them.
+   * Both are measured inside a mask of the glazing rather than a box over
+   * the right-hand third of frame, because in this camera that box is mostly
+   * columns and tables: with the room lit at 1 AM it reads 0.252 against the
+   * daytime 0.230, which says the night sky is as bright as noon when it is
+   * not. And the night figure is a median rather than a mean, because the
+   * glass is a dark sky behind thousands of lit tower windows and the mean
+   * lands between the two describing neither.
    *
-   * The three sun angles sit on top of whichever view is showing and are
-   * accents rather than illumination. `day_morning` needs 600 to register at
-   * all: its plate decodes to a mean of 0.00001, close enough to empty that
-   * it is listed here mostly so the asymmetry is on the record.
+   *   sky     01:00, circuits off — glass median 0.03-0.12, p98 above 0.45
+   *                                 so the skyline still reads as lights.
+   *   sky_day 13:00, circuits off — glass mean 0.65-0.80, frame not clipping.
+   *
+   * `sky` was 50, which put the night sky background at a 0.342 mid-grey and
+   * poured sky bounce over the dining room after dark. The three sun angles
+   * sit on top of whichever view is showing and are accents rather than
+   * illumination; `day_morning` needs 600 to register at all, its plate
+   * decoding to a mean of 0.00001, which is close enough to empty that it is
+   * listed mostly so the asymmetry is on the record.
    */
-  sky: 50,
-  sky_day: 100,
+  sky: 6.7,
+  sky_day: 43.5,
   day_morning: 600,
   day_midday: 25,
   day_evening: 15,
