@@ -62,20 +62,14 @@ import { HotelLobbyStage } from "./rooms3d/HotelLobbyStage";
 import { PlateStage } from "./plates/PlateStage";
 
 /**
- * The two rooms that preload glTF, imported on demand.
+ * The one room that preloads glTF, imported on demand.
  *
- * `Restaurant3D` and `CarModel` both call `useGLTF.preload()` at module
- * scope, which is right for a room about to mount and quite wrong for one
- * that is merely imported. A static import here put 33 MB of car and
- * restaurant glb on the wire for *every* space — measured, and including the
- * flat rooms and the restaurant now that it composites from plates. Loading
- * them on demand is what makes a plates room cost what a plates room is
- * supposed to cost.
+ * `CarModel` calls `useGLTF.preload()` at module scope, which is right for a
+ * room about to mount and quite wrong for one that is merely imported. A
+ * static import here put the car glb on the wire for *every* space, flat
+ * rooms included. Loading it on demand is what makes a plates room cost what
+ * a plates room is supposed to cost.
  */
-const RestaurantStage = dynamic(
-  () => import("./rooms3d/RestaurantStage").then((m) => m.RestaurantStage),
-  { ssr: false },
-);
 const CarShowroomStage = dynamic(
   () => import("./rooms3d/CarShowroomStage").then((m) => m.CarShowroomStage),
   { ssr: false },
@@ -181,8 +175,6 @@ export function SpaceCanvas({ controlsOpen = false }: { controlsOpen?: boolean }
           <CxoCabinStage />
         ) : space.model === "hotel-lobby" ? (
           <HotelLobbyStage />
-        ) : space.model === "restaurant" ? (
-          <RestaurantStage />
         ) : space.model === "car-showroom" ? (
           <CarShowroomStage />
         ) : space.model === "kitchen" ? (
