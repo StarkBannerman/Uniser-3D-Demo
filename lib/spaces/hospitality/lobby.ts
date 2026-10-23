@@ -520,7 +520,17 @@ export const lobby: Space = {
       enabledByDefault: true,
       deviceIds: ["ca-tunable"],
       targetLux: 300,
-      minLevel: 15,
+      /**
+       * A high floor, because this room is deeper than its glazing.
+       *
+       * At 15 the rule trimmed the downlights from the Day scene's 80 to
+       * their floor at one in the afternoon, which is the correct answer
+       * for a seat by the glass and the wrong one for a lobby forty metres
+       * deep — measured, it took the whole cool component out of the scene
+       * and Day rendered warmer and dimmer than Morning. 55 is still a
+       * visible saving against 80 and leaves the scene its character.
+       */
+      minLevel: 55,
     },
     {
       id: "ca-circadian",
@@ -568,10 +578,12 @@ export const lobby: Space = {
      *
      * A double-height lobby behind a fully glazed entrance wall is the most
      * daylit space in a hotel, and this one has the sun passes to show it.
-     * The figure is well above the restaurant's because the glass here runs
-     * floor to soffit rather than to a head height.
+     * Above the restaurant's because the glass runs floor to soffit rather
+     * than to a head height — but not as far above as the glazing suggests,
+     * because the plates show what the room actually is: a deep floor whose
+     * back half the façade never reaches.
      */
-    windowFactor: 0.0085,
+    windowFactor: 0.0045,
     designLux: 300,
     outdoorMinC: 26,
     outdoorMaxC: 34,
