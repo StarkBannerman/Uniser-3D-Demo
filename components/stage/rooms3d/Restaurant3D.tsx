@@ -151,7 +151,7 @@ const M = {
   }),
   /** Upholstery on the chairs - the taupe the client's frame uses. */
   seat: new THREE.MeshPhysicalMaterial({
-    color: "#5c5244",
+    color: "#574e40",
     roughness: 0.86,
     /*
      * Sheen, but not a pale one.
@@ -561,54 +561,47 @@ function StoneColumns() {
 /* Bar and wine wall                                                   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The client's bar, decimated from seventy-four meshes to five.
+ *
+ * The counter and back-bar shelving built here first were legible as shapes
+ * and nothing more - a brown block against a wall. This model carries the
+ * bottles, the shelf detail and the back fittings that make a back bar read
+ * as one, and after `join` it costs five draws instead of the seventy-four it
+ * arrived with.
+ *
+ * Still positioned by the plan rather than by the model: the feature circuit
+ * aims its strips at `RS_PLAN.bar`, so the model is fitted to that run and
+ * the lighting continues to land where the lighting was designed to land.
+ */
 function Bar() {
   const b = RS_PLAN.bar;
-  const len = b.z1 - b.z0;
-  const mid = (b.z0 + b.z1) / 2;
-  const bottles = useRef<THREE.InstancedMesh>(null);
-  const COUNT = 54;
-  useLayoutEffect(() => {
-    const mesh = bottles.current;
-    if (!mesh) return;
-    const m = new THREE.Matrix4();
-    let i = 0;
-    // Three shelves of back-bar stock, jittered so it does not read as a
-    // vending machine. A real back bar is never evenly spaced.
-    for (let shelf = 0; shelf < 3; shelf++) {
-      for (let n = 0; n < 18; n++) {
-        const t = (n + 0.5) / 18;
-        m.makeScale(1, 0.85 + ((n * 37) % 11) / 36, 1);
-        m.setPosition(
-          0.52 + (((n * 53) % 7) - 3) * 0.012,
-          1.52 + shelf * 0.52,
-          b.z0 + 0.5 + t * (len - 1.0),
-        );
-        mesh.setMatrixAt(i++, m);
-      }
-    }
-    mesh.instanceMatrix.needsUpdate = true;
-  }, [b, len]);
+  /**
+   * Fitted by HEIGHT, which is the only axis that means anything here.
+   *
+   * The model's raw bounds are 946 x 4353 x 3387 and the tallest axis is y -
+   * it is a compact back-bar unit with a tall display behind it, not a long
+   * counter run. Fitting its footprint to the 8.6 m of wall the plan gives
+   * the bar scaled the height to eleven metres, in a room that is 4.2 to the
+   * slab, and the result was a black slab across half the frame.
+   *
+   * So it is sized by its 2.8 m height and repeated down the run instead,
+   * which is how back bars are actually built: identical bays, not one
+   * continuous joinery special.
+   */
+  const bays = [b.z0 + 1.6, b.z0 + 4.0, b.z0 + 6.4];
   return (
     <group>
-      {/* Counter and its brass rail. */}
-      <mesh position={[(b.x0 + b.x1) / 2, b.h / 2, mid]} castShadow receiveShadow>
-        <boxGeometry args={[b.x1 - b.x0, b.h, len]} />
-        <primitive object={M.timberDark} attach="material" />
-      </mesh>
-      <mesh position={[b.x1 - 0.02, b.h + 0.025, mid]}>
-        <boxGeometry args={[0.1, 0.05, len]} />
-        <primitive object={M.brass} attach="material" />
-      </mesh>
-      {/* Back-bar shelving against the wall. */}
-      {[1.42, 1.94, 2.46].map((y, i) => (
-        <mesh key={i} position={[0.52, y, mid]}>
-          <boxGeometry args={[0.42, 0.045, len - 0.6]} />
-          <primitive object={M.timber} attach="material" />
-        </mesh>
+      {bays.map((z, i) => (
+        <FittedModel
+          key={i}
+          url={MODELS.bar}
+          position={[b.x0 + 0.5, 0, z]}
+          fitMetres={2.8}
+          axis="y"
+          rotY={Math.PI / 2}
+        />
       ))}
-      <instancedMesh ref={bottles} args={[GEOM.bottle, M.bottleGreen, COUNT]}>
-        <primitive object={GEOM.bottle} attach="geometry" />
-      </instancedMesh>
     </group>
   );
 }
@@ -672,91 +665,74 @@ function WineWall() {
  * Chairs are placed around each top by angle rather than from a list, so a
  * table's seat count is the only thing that has to change to re-lay it.
  */
+/**
+ * Twelve covers, each the client's own dining set.
+ *
+ * Procedural tables and chairs came first and were cheaper - five instanced
+ * meshes for the whole floor against ten draws per cover here - but they read
+ * as boxes, and a boxy chair is the one thing that stops a dining room
+ * looking like a restaurant. The decimated set is 15,673 triangles, so twelve
+ * of them is 188k: well inside what this room can afford, and the draw calls
+ * are what it costs.
+ *
+ * The model is a table and its covers - linen, china, cutlery, glassware -
+ * and despite the name it has no chairs in it at all. Inspecting it says so:
+ * 900 x 441 x 1200 of bounds is a 1.6 x 2.1 m top at 0.78 m and nothing
+ * standing beside it. So the chairs stay procedural and instanced, which is
+ * also where they belong: forty-eight of them is one draw call that way and
+ * would be forty-eight if each came from a model.
+ */
 function DiningFloor() {
-  const tops = useRef<THREE.InstancedMesh>(null);
-  const bases = useRef<THREE.InstancedMesh>(null);
   const chairs = useRef<THREE.InstancedMesh>(null);
-  const plates = useRef<THREE.InstancedMesh>(null);
-  const glasses = useRef<THREE.InstancedMesh>(null);
-
   const seatTotal = useMemo(() => TABLES.reduce((n, t) => n + t.seats, 0), []);
 
   useLayoutEffect(() => {
+    const mesh = chairs.current;
+    if (!mesh) return;
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const e = new THREE.Euler();
     const pos = new THREE.Vector3();
-    const scl = new THREE.Vector3();
-
-    const topM = tops.current;
-    const baseM = bases.current;
-    if (topM && baseM) {
-      TABLES.forEach((t, i) => {
-        scl.set(t.r * 2, 0.045, t.r * 2);
-        pos.set(t.x, 0.735, t.z);
-        m.compose(pos, new THREE.Quaternion(), scl);
-        topM.setMatrixAt(i, m);
-        scl.set(0.17, 0.72, 0.17);
-        pos.set(t.x, 0.36, t.z);
-        m.compose(pos, new THREE.Quaternion(), scl);
-        baseM.setMatrixAt(i, m);
-      });
-      topM.instanceMatrix.needsUpdate = true;
-      baseM.instanceMatrix.needsUpdate = true;
-    }
-
-    const chairM = chairs.current;
-    const plateM = plates.current;
-    const glassM = glasses.current;
-    if (chairM && plateM && glassM) {
-      let c = 0;
-      TABLES.forEach((t) => {
-        for (let s = 0; s < t.seats; s++) {
-          const a = t.rot + (s / t.seats) * Math.PI * 2;
-          const rad = t.r + 0.44;
-          e.set(0, a + Math.PI, 0);
-          q.setFromEuler(e);
-          pos.set(t.x + Math.sin(a) * rad, 0, t.z + Math.cos(a) * rad);
-          m.compose(pos, q, new THREE.Vector3(1, 1, 1));
-          chairM.setMatrixAt(c, m);
-
-          // A cover: plate on the cloth, glass up and to the right of it,
-          // which is where a glass goes and where the eye expects one.
-          const pr = t.r - 0.17;
-          pos.set(t.x + Math.sin(a) * pr, 0.758, t.z + Math.cos(a) * pr);
-          m.compose(pos, new THREE.Quaternion(), new THREE.Vector3(1, 1, 1));
-          plateM.setMatrixAt(c, m);
-
-          const ga = a - 0.3;
-          const gr = t.r - 0.09;
-          pos.set(t.x + Math.sin(ga) * gr, 0.758, t.z + Math.cos(ga) * gr);
-          m.compose(pos, new THREE.Quaternion(), new THREE.Vector3(1, 1, 1));
-          glassM.setMatrixAt(c, m);
-          c++;
-        }
-      });
-      chairM.instanceMatrix.needsUpdate = true;
-      plateM.instanceMatrix.needsUpdate = true;
-      glassM.instanceMatrix.needsUpdate = true;
-    }
+    const one = new THREE.Vector3(1, 1, 1);
+    let c = 0;
+    TABLES.forEach((t) => {
+      for (let s = 0; s < t.seats; s++) {
+        const a = t.rot + (s / t.seats) * Math.PI * 2;
+        const rad = 1.02 + t.r * 0.25;
+        e.set(0, a + Math.PI, 0);
+        q.setFromEuler(e);
+        pos.set(t.x + Math.sin(a) * rad, 0, t.z + Math.cos(a) * rad);
+        m.compose(pos, q, one);
+        mesh.setMatrixAt(c++, m);
+      }
+    });
+    mesh.instanceMatrix.needsUpdate = true;
   }, [seatTotal]);
 
   return (
     <group>
-      <instancedMesh ref={tops} args={[GEOM.cyl, M.tableTop, TABLES.length]} castShadow receiveShadow>
-        <primitive object={GEOM.cyl} attach="geometry" />
-      </instancedMesh>
-      <instancedMesh ref={bases} args={[GEOM.cyl, M.metal, TABLES.length]} castShadow>
-        <primitive object={GEOM.cyl} attach="geometry" />
-      </instancedMesh>
+      {TABLES.map((t, i) => (
+        <FittedModel
+          key={i}
+          url={MODELS.dining}
+          position={[t.x, 0, t.z]}
+          /*
+           * Fitted by height, not footprint.
+           *
+           * Scaling this set to a table's diameter put its top at 0.59 m -
+           * below the seat of the chairs around it, so the covers read as
+           * laid out on a coffee table. Dining height is 0.75 and it is one
+           * of the few dimensions a viewer checks without knowing they are
+           * checking it, so height is the axis that has to be right and the
+           * footprint follows from it.
+           */
+          fitMetres={0.76}
+          axis="y"
+          rotY={t.rot}
+        />
+      ))}
       <instancedMesh ref={chairs} args={[GEOM.chair, M.seat, seatTotal]} castShadow receiveShadow>
         <primitive object={GEOM.chair} attach="geometry" />
-      </instancedMesh>
-      <instancedMesh ref={plates} args={[GEOM.plate, M.china, seatTotal]}>
-        <primitive object={GEOM.plate} attach="geometry" />
-      </instancedMesh>
-      <instancedMesh ref={glasses} args={[GEOM.glass, M.glass, seatTotal]}>
-        <primitive object={GEOM.glass} attach="geometry" />
       </instancedMesh>
     </group>
   );
@@ -766,7 +742,85 @@ function DiningFloor() {
 /* Planting                                                            */
 /* ------------------------------------------------------------------ */
 
-const MONSTERA_URL = "/models/cars/monstera_deliciosa_potted_mid-century_plant.glb";
+/**
+ * The downloaded models, after decimation.
+ *
+ * None of these were usable as they arrived. `elegant_dining_table_set.glb`
+ * was 194,790 triangles for one cover - two and a quarter million across
+ * twelve - and `bar_with_bottles.glb` was 56,830 triangles spread over
+ * SEVENTY-FOUR meshes, which is the worse of the two problems: triangles are
+ * cheap and draw calls are not.
+ *
+ * Run through gltf-transform - weld, simplify, flatten, join - they come out
+ * at 15,673 triangles in 10 meshes and 29,596 in 5. The dining set is a 12.4x
+ * cut with the silhouette intact, because almost all of that budget was in
+ * turned legs and seam detail nobody sees from across a dining room.
+ *
+ * `bar_bar.glb` is still not here. 1349 meshes does not decimate into
+ * something sensible; it needs rebuilding, not simplifying.
+ */
+const MODELS = {
+  dining: "/models/restaurant/dining-set.glb",
+  bar: "/models/restaurant/bar.glb",
+  monstera: "/models/restaurant/monstera.glb",
+} as const;
+
+/**
+ * Load a model and scale it to a size in metres.
+ *
+ * These arrive in centimetres with node transforms on top, so what a scale of
+ * 1 means differs per file and is not worth hand-solving. Measuring the
+ * bounding box after load and fitting to a stated footprint makes the call
+ * site say what it wants - "this bar is 8.6 m long" - instead of carrying a
+ * magic number that breaks if the asset is ever re-exported.
+ *
+ * Cloned per placement: `useGLTF` caches one scene graph per URL, so twelve
+ * covers sharing it would be twelve references to one object and only the
+ * last transform would survive.
+ */
+function FittedModel({
+  url,
+  position,
+  fitMetres,
+  axis = "xz",
+  rotY = 0,
+}: {
+  url: string;
+  position: [number, number, number];
+  /** Target size in metres of the axis named by `axis`. */
+  fitMetres: number;
+  /** "xz" fits the larger horizontal extent; "y" fits height. */
+  axis?: "xz" | "y";
+  rotY?: number;
+}) {
+  const { scene } = useGLTF(url);
+  const fitted = useMemo(() => {
+    const c = scene.clone(true);
+    c.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    });
+    const box = new THREE.Box3().setFromObject(c);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const current = axis === "y" ? size.y : Math.max(size.x, size.z);
+    const k = current > 0.0001 ? fitMetres / current : 1;
+    c.scale.setScalar(k);
+    // Re-measure after scaling and sit the model on the floor, so a call site
+    // never has to know how far below its own origin a model's feet are.
+    const after = new THREE.Box3().setFromObject(c);
+    c.position.y = -after.min.y;
+    return c;
+  }, [scene, fitMetres, axis]);
+  return (
+    <group position={position} rotation={[0, rotY, 0]}>
+      <primitive object={fitted} />
+    </group>
+  );
+}
 
 /**
  * The one downloaded model that earns its place.
@@ -782,39 +836,25 @@ const MONSTERA_URL = "/models/cars/monstera_deliciosa_potted_mid-century_plant.g
  * three planters sharing it would be three references to one object and only
  * the last transform would survive.
  */
-function Monstera({ position, scale, rot }: { position: [number, number, number]; scale: number; rot: number }) {
-  const { scene } = useGLTF(MONSTERA_URL);
-  const copy = useMemo(() => {
-    const c = scene.clone(true);
-    c.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (mesh.isMesh) {
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-      }
-    });
-    return c;
-  }, [scene]);
-  return <primitive object={copy} position={position} scale={scale} rotation={[0, rot, 0]} />;
-}
-
 function Planting() {
+  // Placed where the camera can see them. The first pass put five of these at
+  // the far end and one behind the lens, which is the same as not having them.
+  const at: { p: [number, number, number]; h: number; r: number }[] = [
+    { p: [1.15, 0, 11.4], h: 1.9, r: 0.4 },
+    { p: [13.85, 0, 8.4], h: 1.7, r: 2.1 },
+    { p: [12.6, 0, 19.3], h: 2.05, r: -0.8 },
+    { p: [4.6, 0, 2.0], h: 1.75, r: 1.3 },
+  ];
   return (
     <group>
-      {[
-        { p: [0.95, 0, 8.6] as [number, number, number], s: 1.15, r: 0.4 },
-        { p: [13.9, 0, 6.2] as [number, number, number], s: 0.95, r: 2.1 },
-        { p: [13.6, 0, 20.1] as [number, number, number], s: 1.25, r: -0.8 },
-        { p: [11.6, 0, 1.5] as [number, number, number], s: 1.05, r: 1.3 },
-        { p: [4.4, 0, 1.6] as [number, number, number], s: 1.1, r: -2.0 },
-      ].map((m, i) => (
-        <Monstera key={i} position={m.p} scale={m.s} rot={m.r} />
+      {at.map((m, i) => (
+        <FittedModel key={i} url={MODELS.monstera} position={m.p} fitMetres={m.h} axis="y" rotY={m.r} />
       ))}
     </group>
   );
 }
 
-useGLTF.preload(MONSTERA_URL);
+Object.values(MODELS).forEach((u) => useGLTF.preload(u));
 
 /* ------------------------------------------------------------------ */
 
