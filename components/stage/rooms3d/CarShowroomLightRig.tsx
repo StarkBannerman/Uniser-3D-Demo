@@ -34,7 +34,7 @@ import { useQuality } from "../Stage3D";
 
 const GAIN = {
   downlight: 100,
-  downlightEmissive: 6,
+  downlightEmissive: 9,
   /**
    * Fifty-two, not seventy.
    *
@@ -64,7 +64,7 @@ const GAIN = {
   floor: 4,
   floorEmissive: 2.4,
   arch: 12,
-  archEmissive: 2.1,
+  archEmissive: 3.0,
   rgb: 24,
   rgbEmissive: 4.4,
 };
@@ -248,7 +248,7 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
   const out = output(state);
   const glow = aperture(state);
   const lens = useEmissiveMaterial(colour, GAIN.downlightEmissive * glow);
-  const halo = useGlowMaterial("#ffd9a6", 0.5 * glow);
+  const halo = useGlowMaterial("#ffd9a6", 0.65 * glow);
   const pool = useGlowMaterial("#ffe2bc", 0.3 * out);
   const y = SH.h - 0.015;
 
@@ -272,7 +272,7 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
   return (
     <group>
       <instancedMesh ref={ref} args={[undefined, undefined, LENSES.length]}>
-        <circleGeometry args={[0.06, 14]} />
+        <circleGeometry args={[0.08, 14]} />
         <primitive object={lens} attach="material" />
       </instancedMesh>
       {/*
@@ -282,7 +282,7 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
         warm glowing points on pale plaster.
       */}
       <instancedMesh ref={halos} args={[undefined, undefined, LENSES.length]}>
-        <planeGeometry args={[0.7, 0.7]} />
+        <planeGeometry args={[1.05, 1.05]} />
         <primitive object={halo} attach="material" />
       </instancedMesh>
       {DOWN_EMITTERS.slice(0, budget.downlights).map((p, i) => (
@@ -333,8 +333,16 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
  * only knows "x0 to x1 at one z" cannot say at all.
  */
 const TRACKS = [
-  { x0: 1.8, z0: 13.8, x1: 7.2, z1: 3.2 },
-  { x0: 9.8, z0: 12.5, x1: 9.8, z1: 4.0 },
+  /**
+   * Both rails run down the room, converging on the vanishing point, which is
+   * what the reference's "diagonals" are. The first follows the canopy's
+   * right edge between the white panel and the dark band; the second sits
+   * over the brand wall on the left. The previous diagonal cut straight
+   * across the ring's face, which no fit-out would ever do - track needs a
+   * slab to fix to, and the ring is not one.
+   */
+  { x0: 10.2, z0: 1.0, x1: 10.2, z1: 13.0 },
+  { x0: 2.6, z0: 2.0, x1: 2.6, z1: 9.0 },
 ] as const;
 
 const HEADS: { x: number; z: number }[] = [];
@@ -801,6 +809,39 @@ function Architectural({ state, gain }: { state: LightState; gain: number }) {
         <ringGeometry args={[1 + 0.1 / c.rx, 1 + 0.21 / c.rx, 64]} />
         <primitive object={mat} attach="material" />
       </mesh>
+      {/* And its inner edge - the reference lights both sides of the ring. */}
+      <mesh
+        position={[h.x, c.y + 0.02, h.z]}
+        rotation={[Math.PI / 2, 0, 0]}
+        scale={[c.rx, c.rz, 1]}
+      >
+        <ringGeometry
+          args={[1 - (c.band + 0.21) / c.rx, 1 - (c.band + 0.1) / c.rx, 64]}
+        />
+        <primitive object={mat} attach="material" />
+      </mesh>
+      {/*
+        The canopy's traced outline: one strip along each edge of the plan
+        polygon, a hand's width below the panel so the line reads against it.
+        This is the ceiling's signature mark in the reference - the angular
+        white panel with light drawn around its rim and the ring beneath.
+      */}
+      {SH_PLAN.canopy.map((pt, i) => {
+        const nxt = SH_PLAN.canopy[(i + 1) % SH_PLAN.canopy.length];
+        const dx = nxt[0] - pt[0];
+        const dz = nxt[1] - pt[1];
+        const len = Math.hypot(dx, dz);
+        return (
+          <mesh
+            key={`cny-${i}`}
+            position={[(pt[0] + nxt[0]) / 2, SH.h - 0.135, (pt[1] + nxt[1]) / 2]}
+            rotation={[Math.PI / 2, 0, -Math.atan2(dz, dx)]}
+          >
+            <planeGeometry args={[len - 0.08, 0.09]} />
+            <primitive object={mat} attach="material" />
+          </mesh>
+        );
+      })}
       {MOUNTED && budget.accentWall && (
         <rectAreaLight
           position={[h.x, c.y - 0.05, h.z]}

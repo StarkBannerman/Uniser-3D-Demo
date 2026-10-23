@@ -129,6 +129,27 @@ export const SH_PLAN = {
   slats: { x0: 10.8, x1: SH.w, z0: 0, z1: 10.0, y: SH.h },
   /** The stepped soffit band around the white ceiling. */
   soffit: { drop: 0.3, zBack: 2.4, xLeft: 1.6, zFront: 16.0, xRight: 10.8 },
+  /**
+   * The angular canopy over the display floor: a white panel dropped a hand's
+   * width below the slab, its perimeter traced by an LED line, with the oval
+   * ring hanging beneath it. In the reference this traced outline is the
+   * ceiling's signature mark - the ring alone was only half the feature.
+   * Corners in plan coordinates, wound clockwise when seen from below.
+   */
+  canopy: [
+    /*
+     * Wider than the ring by a good margin on every side: the camera sits low
+     * and two metres off the ring's axis, so a tight polygon's traced outline
+     * parallaxes INTO the ring's opening and the two features tangle. These
+     * corners keep the outline clear of the ring from the actual viewpoint.
+     */
+    [0.8, 6.0],
+    [3.4, 0.9],
+    [10.1, 0.9],
+    [12.3, 6.0],
+    [10.1, 11.1],
+    [3.4, 11.1],
+  ],
 } as const;
 
 /**
@@ -225,10 +246,17 @@ const M = {
    * the same finish as the straight track runs crossing the ceiling beside
    * it. One component, bent into a circle.
    */
+  /**
+   * White plaster, after the client's ceiling crop settled it: the ring's
+   * visible face is pale with the black track heads bolted onto it and a lit
+   * line along each edge. It has been black twice and white once before now,
+   * each time read off a different zoom of a different reference; this crop
+   * is the closest view of the ring there has been, and it is unambiguous.
+   */
   coffer: new THREE.MeshStandardMaterial({
-    color: "#1c1a18",
-    roughness: 0.3,
-    metalness: 0.6,
+    color: "#d8d2c6",
+    roughness: 0.55,
+    metalness: 0.08,
   }),
   /**
    * Painted board, and dark after all.
@@ -312,6 +340,14 @@ function Shell() {
   const c = SH_PLAN.coffer;
   const sf = SH_PLAN.soffit;
   const hero = SH_PLAN.hero;
+  const canopyShape = useMemo(() => {
+    const shape = new THREE.Shape();
+    SH_PLAN.canopy.forEach(([x, z], i) =>
+      i === 0 ? shape.moveTo(x, z) : shape.lineTo(x, z),
+    );
+    shape.closePath();
+    return shape;
+  }, []);
   const quality = useQuality();
 
   return (
@@ -430,6 +466,16 @@ function Shell() {
         cylinders, which is how the first pass of this looked.
       */}
       {/*
+        The canopy: a white panel a hand's width below the slab, with the ring
+        hung beneath it. Its traced LED outline lives in the light rig, because
+        it is a circuit; the panel itself is plaster and lives here.
+      */}
+      <mesh position={[0, SH.h - 0.12, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
+        <shapeGeometry args={[canopyShape]} />
+        <primitive object={M.ceiling} attach="material" />
+      </mesh>
+
+      {/*
         Drawn as a unit ring inside a group scaled on X and Z, so the oval is
         one definition rather than two. The rail's apparent width then varies
         between the major and minor axes by the ratio of the radii - 180 mm
@@ -535,8 +581,8 @@ function SlatCeiling() {
     if (!mesh) return;
     const m = new THREE.Matrix4();
     const colour = new THREE.Color();
-    const a = new THREE.Color("#4a3722");
-    const b = new THREE.Color("#2a1d0e");
+    const a = new THREE.Color("#7a5530");
+    const b = new THREE.Color("#47301a");
     for (let i = 0; i < count; i++) {
       m.makeTranslation(s.x0 + SLAT.w / 2 + i * pitch, s.y - SLAT.d / 2, s.z0 + span / 2);
       mesh.setMatrixAt(i, m);
@@ -562,7 +608,7 @@ function SlatCeiling() {
         rotation={[Math.PI / 2, 0, 0]}
       >
         <planeGeometry args={[s.x1 - s.x0, span]} />
-        <meshBasicMaterial color="#6a4a24" toneMapped={false} />
+        <meshBasicMaterial color="#7d5428" toneMapped={false} />
       </mesh>
       <instancedMesh ref={ref} args={[undefined, undefined, count]} castShadow receiveShadow>
         <boxGeometry args={[SLAT.w, SLAT.d, span]} />
@@ -573,6 +619,22 @@ function SlatCeiling() {
         <boxGeometry args={[0.24, 0.68, span]} />
         <primitive object={M.darker} attach="material" />
       </mesh>
+      {/*
+        Recessed cans: a row set into the dark band and a scatter between the
+        strip runs, which the reference's ceiling crop shows clearly - the
+        timber bay is peppered with small warm points, not lit by its strips
+        alone. Emissive discs; the bay's real light stays with the rig.
+      */}
+      {[
+        ...Array.from({ length: 6 }, (_, i) => [s.x0 - 0.12, s.y - 0.69, 1.2 + i * 1.7]),
+        [13.4, s.y - 0.02, 2.2], [13.4, s.y - 0.02, 5.4], [13.4, s.y - 0.02, 8.4],
+        [16.2, s.y - 0.02, 3.6], [16.2, s.y - 0.02, 7.0],
+      ].map(([x, y, z], i) => (
+        <mesh key={`bd-${i}`} position={[x, y, z]} rotation={[Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.055, 12]} />
+          <meshBasicMaterial color="#ffd9a4" toneMapped={false} />
+        </mesh>
+      ))}
     </group>
   );
 }
