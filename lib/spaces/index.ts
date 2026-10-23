@@ -17,7 +17,6 @@ import { workspace } from "./commercial/workspace";
 import { restaurant } from "./commercial/restaurant";
 import { showroom } from "./commercial/showroom";
 import { hotelLobby } from "./hospitality/hotel-lobby";
-import { carShowroom } from "./hospitality/car-showroom";
 
 export const spaces: Space[] = [
   masterBedroom,
@@ -29,7 +28,6 @@ export const spaces: Space[] = [
   restaurant,
   showroom,
   hotelLobby,
-  carShowroom,
   kitchen,
   livingRoomIllustrated,
 ];

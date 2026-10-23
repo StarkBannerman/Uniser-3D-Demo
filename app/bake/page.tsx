@@ -3,14 +3,14 @@
 /**
  * Offline path-trace of a room, for baking backplates. Development only.
  *
- *   /bake?scene=premium&samples=400
+ *   /bake?samples=400
  *
  * The live stage rasterises: every light is evaluated per fragment, nothing
  * bounces, and the bounce is faked with a single hemisphere term. That is the
  * right trade for sixty frames a second and the wrong one for a still. Here
- * the same scene — same geometry, same rig, same fixture states, pulled from
- * `useShowroomState` so the two cannot drift — is handed to a path tracer,
- * which computes the bounce for real and has all the time in the world.
+ * the same scene — the component the live stage mounts, not a second copy of
+ * the room — is handed to a path tracer, which computes the bounce for real
+ * and has all the time in the world.
  *
  * The fake bounce is deliberately *not* added. `Stage3D` mounts a hemisphere
  * light scaled from `roomAmbience` to stand in for inter-reflection; a path
@@ -27,19 +27,17 @@ import { WebGLPathTracer } from "three-gpu-pathtracer";
 import { LockHorizontalFov } from "@/components/stage/Stage3D";
 import { useSim } from "@/lib/sim/store";
 import { useTicker } from "@/lib/sim/useTicker";
-import { carShowroom } from "@/lib/spaces/hospitality/car-showroom";
 import { hotelLobby } from "@/lib/spaces/hospitality/hotel-lobby";
-import { useShowroomState, ShowroomScene, SHOWROOM_CAMERA } from "@/components/stage/rooms3d/CarShowroomStage";
 import { LobbyScene, LOBBY_CAMERA } from "@/components/stage/rooms3d/HotelLobbyStage";
 
 /**
- * Which room to trace. `?room=lobby` or the showroom by default.
+ * Which room to trace.
  *
- * Both entries mount the same scene component the live stage does, so the
- * trace is of the shipping room and not of a second model of it.
+ * The lobby, since the car showroom retired — it mounts the same scene
+ * component the live stage does, so the trace is of the shipping room and
+ * not of a second model of it. A room added here needs the same property.
  */
 const ROOMS = {
-  showroom: { space: carShowroom, camera: SHOWROOM_CAMERA },
   lobby: { space: hotelLobby, camera: LOBBY_CAMERA },
 } as const;
 
@@ -195,9 +193,8 @@ function Bake() {
    * at stage zero its spotlights and product lighting are still switched off.
    */
   useTicker();
-  const roomKey = (q.get("room") === "lobby" ? "lobby" : "showroom") as keyof typeof ROOMS;
+  const roomKey = "lobby" as keyof typeof ROOMS;
   const room = ROOMS[roomKey];
-  const state = useShowroomState();
 
   useEffect(() => {
     const sim = useSim.getState();
@@ -242,7 +239,7 @@ function Bake() {
       <Suspense fallback={null}>
         <Environment preset="night" background={false} />
       </Suspense>
-      {roomKey === "lobby" ? <LobbyScene /> : <ShowroomScene state={state} />}
+      <LobbyScene />
       {/*
         The live stage reads `CameraSpec.fov` as the vertical field *at 16:9*
         and re-solves it for the real aspect, so the sides never crop. Setting

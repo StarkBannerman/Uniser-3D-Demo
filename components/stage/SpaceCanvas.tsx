@@ -23,7 +23,6 @@
  */
 
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import type {
   AvDevice,
   AvState,
@@ -61,19 +60,7 @@ import { CxoCabinStage } from "./rooms3d/CxoCabinStage";
 import { HotelLobbyStage } from "./rooms3d/HotelLobbyStage";
 import { PlateStage } from "./plates/PlateStage";
 
-/**
- * The one room that preloads glTF, imported on demand.
- *
- * `CarModel` calls `useGLTF.preload()` at module scope, which is right for a
- * room about to mount and quite wrong for one that is merely imported. A
- * static import here put the car glb on the wire for *every* space, flat
- * rooms included. Loading it on demand is what makes a plates room cost what
- * a plates room is supposed to cost.
- */
-const CarShowroomStage = dynamic(
-  () => import("./rooms3d/CarShowroomStage").then((m) => m.CarShowroomStage),
-  { ssr: false },
-);
+
 
 /** Window luminance that counts as "fully bright" for compositing. */
 const WINDOW_REFERENCE_LUX = 400;
@@ -175,8 +162,6 @@ export function SpaceCanvas({ controlsOpen = false }: { controlsOpen?: boolean }
           <CxoCabinStage />
         ) : space.model === "hotel-lobby" ? (
           <HotelLobbyStage />
-        ) : space.model === "car-showroom" ? (
-          <CarShowroomStage />
         ) : space.model === "kitchen" ? (
           <KitchenStage />
         ) : (
