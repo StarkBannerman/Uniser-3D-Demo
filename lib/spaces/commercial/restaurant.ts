@@ -18,10 +18,10 @@ import type { Space } from "@/lib/sim/types";
  * usual value-engineering cut, and it is why value-engineered restaurants only
  * ever have one atmosphere.
  *
- * Filed under commercial at the client's request. It is a hospitality room by
- * any ordinary reading — it sits inside a hotel and the sheet is headed
- * hospitality — so if the picker ought to group it with the lobby instead, the
- * only change needed is `segment`.
+ * Grouped with the lobby and the showroom under the door titled
+ * "Commercial", which is the `hospitality` segment — the `commercial`
+ * segment is the one behind the Office door, and a dining room listed
+ * beside a boardroom reads as a filing error rather than as a range.
  */
 
 /** 15 x 22 m of dining floor, a single tall volume down one glazed side. */
@@ -30,7 +30,7 @@ const AREA = 330;
 export const restaurant: Space = {
   id: "restaurant",
   name: "Hotel Restaurant",
-  segment: "commercial",
+  segment: "hospitality",
   category: "Commercial",
   blurb:
     "A 330 m² hotel restaurant, path-traced offline and relit live — eight separately controlled lighting layers across the dining floor, a bar and wine wall, a pendant cluster and a glazed façade, with music, climate, occupancy and daylight response, and the eight scenes a restaurant runs through from breakfast to the last table.",

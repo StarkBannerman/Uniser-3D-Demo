@@ -20,27 +20,29 @@ import type { Segment } from "@/lib/sim/types";
  * by being finished rather than by being wired in.
  */
 
+/**
+ * Two doors, and the segment ids behind them are not the titles.
+ *
+ * `hospitality` is the door a client sees as "Commercial" — the rooms a
+ * business is judged on by the people who walk into them. `commercial` is
+ * the Office door. The names have been crossed since before the plates
+ * work and renaming the segment would touch every space file, so the
+ * mapping lives here and nowhere else.
+ */
 const DOORS: { segment: Segment; title: string; lead: string; blurb: string }[] = [
   {
-    segment: "residential",
-    title: "Residential",
-    lead: "Homes and apartments",
+    segment: "hospitality",
+    title: "Commercial",
+    lead: "Hospitality, retail and public spaces",
     blurb:
-      "Scenes a family actually presses — waking, watching, winding down — with curtains, climate and media on the same button as the light.",
+      "A hotel restaurant, a hotel lobby and a luxury car showroom — the rooms a business is judged on in the first ten seconds, with the lighting layers that do the judging on separate circuits.",
   },
   {
     segment: "commercial",
-    title: "Commercial",
-    lead: "Hospitality, retail, workplaces and public spaces",
+    title: "Office",
+    lead: "Workplaces",
     blurb:
-      "A hotel restaurant, a hotel lobby, a luxury car showroom and the floors a business works on — the rooms it is judged on in the first ten seconds, with the lighting layers that do the judging on separate circuits.",
-  },
-  {
-    segment: "hospitality",
-    title: "Hospitality",
-    lead: "Hotels and guest spaces",
-    blurb:
-      "Guest-facing rooms where the lighting is the product, on the layers a hotel actually specifies.",
+      "Zoned floors, meeting spaces and executive rooms, with occupancy, daylight response and the tunable white a working day is specified to.",
   },
 ];
 

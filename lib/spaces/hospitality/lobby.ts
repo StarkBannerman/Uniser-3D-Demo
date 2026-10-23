@@ -23,7 +23,7 @@ const AREA = 620;
 export const lobby: Space = {
   id: "lobby",
   name: "Hotel Lobby",
-  segment: "commercial",
+  segment: "hospitality",
   category: "Commercial",
   blurb:
     "A 620 m² hotel common area — lobby, reception and lounge — path-traced offline and relit live. Seven lighting layers across a glazed façade, a double-height soffit, a crystal chandelier and a water wall, with the time-of-day automation a building like this actually runs on.",

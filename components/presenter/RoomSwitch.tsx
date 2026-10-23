@@ -23,9 +23,8 @@ import { spacesBySegment } from "@/lib/spaces";
 import type { Segment } from "@/lib/sim/types";
 
 const SEGMENTS: { id: Segment; label: string }[] = [
-  { id: "residential", label: "Residential" },
-  { id: "commercial", label: "Office" },
   { id: "hospitality", label: "Commercial" },
+  { id: "commercial", label: "Office" },
 ];
 
 export function RoomSwitch({

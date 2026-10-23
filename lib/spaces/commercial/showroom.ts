@@ -30,7 +30,7 @@ const DEFAULT_CCT = 4000;
 export const showroom: Space = {
   id: "showroom",
   name: "Car Showroom",
-  segment: "commercial",
+  segment: "hospitality",
   category: "Commercial",
   blurb:
     "A 900 m² luxury car showroom, path-traced offline and relit live — ten lighting types across the display floor, a turntable, a brand wall and a mezzanine, with the adjustable spotlights split per vehicle so any of the six cars can be made the subject of the room.",

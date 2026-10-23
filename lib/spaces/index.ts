@@ -20,27 +20,30 @@ import { hotelLobby } from "./hospitality/hotel-lobby";
 import { lobby } from "./hospitality/lobby";
 
 export const spaces: Space[] = [
-  masterBedroom,
-  livingRoom,
-  den,
-  workspace,
-  boardroom,
-  cxoCabin,
   restaurant,
   showroom,
   lobby,
-  kitchen,
-  livingRoomIllustrated,
+  workspace,
+  boardroom,
+  cxoCabin,
 ];
 
 /**
- * Registered but not offered: the live 3D hotel lobby.
+ * Registered but not offered.
  *
- * Retired from the picker when the plates lobby replaced it, and kept here
- * rather than deleted because `/bake` still path-traces it and because an
- * import is what keeps it compiling. Everything else is on the list above.
+ * The live 3D hotel lobby, retired when the plates lobby replaced it, and
+ * the residential rooms. Kept rather than deleted: `/bake` still
+ * path-traces the 3D lobby, and an import is what keeps all of them
+ * compiling, so a change to the engine still has to satisfy them.
  */
-export const retired: Space[] = [hotelLobby];
+export const retired: Space[] = [
+  hotelLobby,
+  masterBedroom,
+  livingRoom,
+  den,
+  kitchen,
+  livingRoomIllustrated,
+];
 
 export function getSpace(id: string): Space | undefined {
   return spaces.find((s) => s.id === id);
