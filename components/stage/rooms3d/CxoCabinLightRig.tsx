@@ -316,7 +316,7 @@ function Decorative({ state, GAIN }: { state: LightState; GAIN: typeof BASE }) {
        */}
       <group position={[d.x - 1.02, d.h, d.z - 0.2]}>
         <mesh position={[0, 0.01, 0]}>
-          <cylinderGeometry args={[0.075, 0.085, 0.022, 18]} />
+          <cylinderGeometry args={[0.075, 0.085, 0.022, 20]} />
           <meshStandardMaterial color="#1a1b1d" roughness={0.6} metalness={0.2} />
         </mesh>
         <mesh position={[0, 0.2, 0]}>
@@ -388,7 +388,7 @@ function Heads({
     <group>
       {heads.map((h) => (
         <mesh key={`${h.x}-${h.z}`} position={[h.x, CX.h - 0.02, h.z]} rotation={[Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[radius, 16]} />
+          <circleGeometry args={[radius, 24]} />
           <primitive object={face} attach="material" />
         </mesh>
       ))}

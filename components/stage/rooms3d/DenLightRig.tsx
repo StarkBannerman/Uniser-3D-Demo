@@ -204,7 +204,7 @@ function Downlights({
             />
           )}
           <mesh position={[p.x, DN.h - 0.035, p.z]} rotation={[Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.05, 18]} />
+            <circleGeometry args={[0.05, 20]} />
             <primitive object={lens} attach="material" />
           </mesh>
         </group>

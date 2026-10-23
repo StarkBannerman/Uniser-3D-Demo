@@ -272,7 +272,7 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
   return (
     <group>
       <instancedMesh ref={ref} args={[undefined, undefined, LENSES.length]}>
-        <circleGeometry args={[0.08, 14]} />
+        <circleGeometry args={[0.08, 32]} />
         <primitive object={lens} attach="material" />
       </instancedMesh>
       {/*
@@ -419,13 +419,13 @@ function Spotlights({
       })}
       {/* Thirty-two heads, one draw. */}
       <instancedMesh ref={ref} args={[undefined, undefined, HEADS.length]} castShadow>
-        <cylinderGeometry args={[0.055, 0.075, 0.2, 12]} />
+        <cylinderGeometry args={[0.055, 0.075, 0.2, 20]} />
         <meshStandardMaterial color="#17181a" roughness={0.42} metalness={0.45} />
       </instancedMesh>
       {/* Their lit faces. */}
       {HEADS.map((p, i) => (
         <mesh key={`hl-${i}`} position={[p.x, SH.h - 0.44, p.z]} rotation={[Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.05, 10]} />
+          <circleGeometry args={[0.05, 20]} />
           <primitive object={lens} attach="material" />
         </mesh>
       ))}
@@ -514,11 +514,11 @@ function ProductLighting({
       {ring.map((p, i) => (
         <group key={`pr-${i}`}>
           <mesh position={[p.x, c.y - 0.1, p.z]} castShadow>
-            <cylinderGeometry args={[0.05, 0.07, 0.2, 10]} />
+            <cylinderGeometry args={[0.05, 0.07, 0.2, 20]} />
             <primitive object={M_TRACK} attach="material" />
           </mesh>
           <mesh position={[p.x, c.y - 0.201, p.z]} rotation={[Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.045, 10]} />
+            <circleGeometry args={[0.045, 20]} />
             <primitive object={lens} attach="material" />
           </mesh>
         </group>

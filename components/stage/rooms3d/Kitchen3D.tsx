@@ -225,7 +225,7 @@ function CabinetRun() {
       {[-0.19, 0.19].map((dx) =>
         [-0.12, 0.12].map((dz) => (
           <mesh key={`burner-${dx}-${dz}`} position={[4.15 + dx, KT.counter + 0.03, 0.34 + dz]}>
-            <cylinderGeometry args={[0.07, 0.07, 0.02, 14]} />
+            <cylinderGeometry args={[0.07, 0.07, 0.02, 20]} />
             <primitive object={M.black} attach="material" />
           </mesh>
         )),
@@ -253,11 +253,11 @@ function CabinetRun() {
       {[2.9, 5.05].map((x) => (
         <group key={`plant-${x}`} position={[x, KT.counter + 0.06, 0.3]}>
           <mesh>
-            <cylinderGeometry args={[0.08, 0.065, 0.12, 14]} />
+            <cylinderGeometry args={[0.08, 0.065, 0.12, 32]} />
             <primitive object={M.pot} attach="material" />
           </mesh>
           <mesh position={[0, 0.13, 0]}>
-            <sphereGeometry args={[0.12, 12, 9]} />
+            <sphereGeometry args={[0.12, 32, 9]} />
             <primitive object={M.foliage} attach="material" />
           </mesh>
         </group>
@@ -329,11 +329,11 @@ function Island() {
         <primitive object={M.stone} attach="material" />
       </mesh>
       <mesh position={[x - 0.72, h + 0.12, z - 0.1]}>
-        <cylinderGeometry args={[0.09, 0.07, 0.14, 14]} />
+        <cylinderGeometry args={[0.09, 0.07, 0.14, 32]} />
         <primitive object={M.pot} attach="material" />
       </mesh>
       <mesh position={[x - 0.72, h + 0.26, z - 0.1]}>
-        <sphereGeometry args={[0.13, 12, 9]} />
+        <sphereGeometry args={[0.13, 32, 9]} />
         <primitive object={M.foliage} attach="material" />
       </mesh>
 
@@ -399,7 +399,7 @@ function Glazing({ blind, daylight }: { blind: number; daylight: number }) {
       </mesh>
       <group position={[KT.w + 0.6, 0, cz - 1.1]}>
         <mesh position={[0, 0.22, 0]}>
-          <cylinderGeometry args={[0.2, 0.16, 0.44, 16]} />
+          <cylinderGeometry args={[0.2, 0.16, 0.44, 48]} />
           <primitive object={M.pot} attach="material" />
         </mesh>
         {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -407,7 +407,7 @@ function Glazing({ blind, daylight }: { blind: number; daylight: number }) {
             key={`lf-${i}`}
             position={[Math.sin(i * 1.1) * 0.16, 0.85 + (i % 3) * 0.22, Math.cos(i * 1.1) * 0.16]}
           >
-            <sphereGeometry args={[0.24, 10, 7]} />
+            <sphereGeometry args={[0.24, 48, 7]} />
             <primitive object={M.foliage} attach="material" />
           </mesh>
         ))}
@@ -461,7 +461,7 @@ function CeilingFan({ speed }: { speed: number }) {
         <primitive object={M.fan} attach="material" />
       </mesh>
       <mesh>
-        <cylinderGeometry args={[0.1, 0.13, 0.1, 16]} />
+        <cylinderGeometry args={[0.1, 0.13, 0.1, 32]} />
         <primitive object={M.fan} attach="material" />
       </mesh>
       <group ref={blades}>

@@ -276,7 +276,7 @@ function BedsideLamp({
       )}
       {/* Tapered drum shade. */}
       <mesh position={[x, y, z]} castShadow={false}>
-        <cylinderGeometry args={[0.13, 0.17, 0.22, 24, 1, true]} />
+        <cylinderGeometry args={[0.13, 0.17, 0.22, 32, 1, true]} />
         <primitive object={shadeMat} attach="material" />
       </mesh>
     </group>
@@ -341,7 +341,7 @@ function ReadingLight({
         position={[headPos[0], headPos[1] - 0.045, headPos[2] + 0.025]}
         rotation={[1.05, 0, 0]}
       >
-        <circleGeometry args={[0.037, 16]} />
+        <circleGeometry args={[0.037, 20]} />
         <primitive object={lensMat} attach="material" />
       </mesh>
     </group>

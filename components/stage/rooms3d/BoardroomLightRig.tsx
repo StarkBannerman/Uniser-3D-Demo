@@ -278,7 +278,7 @@ function Downlights({
     <group>
       {heads.map((h) => (
         <mesh key={`${h.x}-${h.z}`} position={[h.x, BR.h - 0.02, h.z]} rotation={[Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[radius, 16]} />
+          <circleGeometry args={[radius, 24]} />
           <primitive object={face} attach="material" />
         </mesh>
       ))}

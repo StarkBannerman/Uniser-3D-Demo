@@ -972,15 +972,15 @@ function BreakArea() {
       {[0.18, 0.39, 0.61, 0.82].map((f, i) => (
         <group key={i} position={[c.x - 0.74, 0, c.z0 + len * f]}>
           <mesh position={[0, 0.66, 0]} castShadow>
-            <cylinderGeometry args={[0.17, 0.17, 0.06, 16]} />
+            <cylinderGeometry args={[0.17, 0.17, 0.06, 32]} />
             <primitive object={M.upholstery} attach="material" />
           </mesh>
           <mesh position={[0, 0.33, 0]}>
-            <cylinderGeometry args={[0.03, 0.03, 0.62, 10]} />
+            <cylinderGeometry args={[0.03, 0.03, 0.62, 20]} />
             <primitive object={M.metal} attach="material" />
           </mesh>
           <mesh position={[0, 0.02, 0]}>
-            <cylinderGeometry args={[0.18, 0.18, 0.03, 16]} />
+            <cylinderGeometry args={[0.18, 0.18, 0.03, 32]} />
             <primitive object={M.matteBlack} attach="material" />
           </mesh>
         </group>
@@ -1010,11 +1010,11 @@ function BreakArea() {
         </group>
       ))}
       <mesh position={[l.x - 0.1, 0.33, l.z]} castShadow>
-        <cylinderGeometry args={[0.42, 0.42, 0.06, 24]} />
+        <cylinderGeometry args={[0.42, 0.42, 0.06, 48]} />
         <primitive object={M.oak} attach="material" />
       </mesh>
       <mesh position={[l.x - 0.1, 0.16, l.z]}>
-        <cylinderGeometry args={[0.07, 0.1, 0.32, 12]} />
+        <cylinderGeometry args={[0.07, 0.1, 0.32, 20]} />
         <primitive object={M.metal} attach="material" />
       </mesh>
 
@@ -1022,15 +1022,15 @@ function BreakArea() {
       {WS_PLAN.cafeTables.map((t, i) => (
         <group key={i} position={[t.x, 0, t.z]}>
           <mesh position={[0, 0.73, 0]} castShadow>
-            <cylinderGeometry args={[0.44, 0.44, 0.05, 24]} />
+            <cylinderGeometry args={[0.44, 0.44, 0.05, 48]} />
             <primitive object={M.oak} attach="material" />
           </mesh>
           <mesh position={[0, 0.37, 0]}>
-            <cylinderGeometry args={[0.05, 0.07, 0.72, 12]} />
+            <cylinderGeometry args={[0.05, 0.07, 0.72, 20]} />
             <primitive object={M.metal} attach="material" />
           </mesh>
           <mesh position={[0, 0.02, 0]}>
-            <cylinderGeometry args={[0.3, 0.3, 0.03, 20]} />
+            <cylinderGeometry args={[0.3, 0.3, 0.03, 48]} />
             <primitive object={M.matteBlack} attach="material" />
           </mesh>
         </group>
@@ -1103,11 +1103,11 @@ function Plants() {
       {WS_PLAN.plants.map((p, i) => (
         <group key={i} position={[p.x, 0, p.z]} scale={p.s}>
           <mesh position={[0, 0.26, 0]} castShadow>
-            <cylinderGeometry args={[0.2, 0.17, 0.52, 18]} />
+            <cylinderGeometry args={[0.2, 0.17, 0.52, 48]} />
             <primitive object={M.planter} attach="material" />
           </mesh>
           <mesh position={[0, 0.88, 0]}>
-            <cylinderGeometry args={[0.014, 0.018, 0.74, 8]} />
+            <cylinderGeometry args={[0.014, 0.018, 0.74, 10]} />
             <meshStandardMaterial color="#415037" roughness={0.9} />
           </mesh>
         </group>
@@ -1157,11 +1157,11 @@ function Fan({ x, z, speed }: { x: number; z: number; speed: number }) {
   return (
     <group position={[x, WS.h - 0.42, z]}>
       <mesh position={[0, 0.22, 0]}>
-        <cylinderGeometry args={[0.03, 0.03, 0.44, 8]} />
+        <cylinderGeometry args={[0.03, 0.03, 0.44, 20]} />
         <primitive object={M.matteBlack} attach="material" />
       </mesh>
       <mesh>
-        <cylinderGeometry args={[0.11, 0.13, 0.1, 16]} />
+        <cylinderGeometry args={[0.11, 0.13, 0.1, 32]} />
         <primitive object={M.matteBlack} attach="material" />
       </mesh>
       <group ref={blades}>
@@ -1190,7 +1190,7 @@ function Housings({ fanSpeed }: { fanSpeed: number }) {
     <group>
       {/* Downlight apertures: 51 identical discs, so one call rather than 51. */}
       <Instances limit={64} range={APERTURES.length} material={M.housing}>
-        <circleGeometry args={[0.07, 16]} />
+        <circleGeometry args={[0.07, 20]} />
         {APERTURES.map((a, i) => (
           <Instance key={i} position={a.pos} rotation={[Math.PI / 2, 0, 0]} scale={a.s} />
         ))}
@@ -1219,7 +1219,7 @@ function Housings({ fanSpeed }: { fanSpeed: number }) {
             </mesh>
             {[r.z0 + 0.4, cz, r.z1 - 0.4].map((z, j) => (
               <mesh key={j} position={[r.x, (r.y + WS.h) / 2 + 0.1, z]}>
-                <cylinderGeometry args={[0.006, 0.006, WS.h - r.y - 0.1, 6]} />
+                <cylinderGeometry args={[0.006, 0.006, WS.h - r.y - 0.1, 10]} />
                 <primitive object={M.matteBlack} attach="material" />
               </mesh>
             ))}
@@ -1231,11 +1231,11 @@ function Housings({ fanSpeed }: { fanSpeed: number }) {
       {WS_PLAN.counterPendants.map((z, i) => (
         <group key={i} position={[WS_PLAN.counter.x - 0.35, 0, z]}>
           <mesh position={[0, 2.08, 0]} castShadow>
-            <coneGeometry args={[0.17, 0.26, 20, 1, true]} />
+            <coneGeometry args={[0.17, 0.26, 32, 1, true]} />
             <primitive object={M.matteBlack} attach="material" />
           </mesh>
           <mesh position={[0, (2.2 + WS.h) / 2, 0]}>
-            <cylinderGeometry args={[0.005, 0.005, WS.h - 2.2, 6]} />
+            <cylinderGeometry args={[0.005, 0.005, WS.h - 2.2, 10]} />
             <primitive object={M.matteBlack} attach="material" />
           </mesh>
         </group>

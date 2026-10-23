@@ -521,7 +521,7 @@ function Shell() {
               hero.z + Math.sin(ang) * rr * c.rz,
             ]}
           >
-            <cylinderGeometry args={[0.016, 0.016, rod, 6]} />
+            <cylinderGeometry args={[0.016, 0.016, rod, 10]} />
             <primitive object={M.darker} attach="material" />
           </mesh>
         );
@@ -631,7 +631,7 @@ function SlatCeiling() {
         [16.2, s.y - 0.02, 3.6], [16.2, s.y - 0.02, 7.0],
       ].map(([x, y, z], i) => (
         <mesh key={`bd-${i}`} position={[x, y, z]} rotation={[Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.055, 12]} />
+          <circleGeometry args={[0.055, 20]} />
           <meshBasicMaterial color="#ffd9a4" toneMapped={false} />
         </mesh>
       ))}
@@ -1145,7 +1145,7 @@ export function Car({
                 position={[x1 + 0.02, at(0.17), side * (w * 0.6)]}
                 rotation={[0, 0, Math.PI / 2]}
               >
-                <cylinderGeometry args={[0.036, 0.036, 0.07, 12]} />
+                <cylinderGeometry args={[0.036, 0.036, 0.07, 20]} />
                 <primitive object={M.chrome} attach="material" />
               </mesh>
             ))}
@@ -1430,18 +1430,18 @@ function Lounge() {
             cushion sits inside it with a shadow gap all round.
           */}
           <mesh position={[0, 0.52, -0.03]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.42, 0.38, 0.62, 26, 1, true, Math.PI * 0.16, Math.PI * 1.4]} />
+            <cylinderGeometry args={[0.42, 0.38, 0.62, 48, 1, true, Math.PI * 0.16, Math.PI * 1.4]} />
             <primitive object={leather} attach="material" />
           </mesh>
           {/* The rolled rim: the same arc as the shell, flared a little, so
               the two can never part company the way a torus at its own start
               angle did. */}
           <mesh position={[0, 0.85, -0.03]} castShadow>
-            <cylinderGeometry args={[0.45, 0.41, 0.09, 26, 1, true, Math.PI * 0.16, Math.PI * 1.4]} />
+            <cylinderGeometry args={[0.45, 0.41, 0.09, 48, 1, true, Math.PI * 0.16, Math.PI * 1.4]} />
             <primitive object={leather} attach="material" />
           </mesh>
           <mesh position={[0, 0.42, 0.06]} castShadow>
-            <cylinderGeometry args={[0.34, 0.34, 0.13, 24]} />
+            <cylinderGeometry args={[0.34, 0.34, 0.13, 48]} />
             <primitive object={leather} attach="material" />
           </mesh>
           {/* Four slim legs, which is what lifts it off the rug. */}
@@ -1451,7 +1451,7 @@ function Lounge() {
               position={[Math.cos(la) * 0.3, 0.14, Math.sin(la) * 0.3]}
               castShadow
             >
-              <cylinderGeometry args={[0.022, 0.018, 0.28, 8]} />
+              <cylinderGeometry args={[0.022, 0.018, 0.28, 10]} />
               <primitive object={M.track} attach="material" />
             </mesh>
           ))}
@@ -1460,15 +1460,15 @@ function Lounge() {
       {/* Low round table, off centre, with a tray on it. */}
       <group position={[0.35, 0, 0.5]}>
         <mesh position={[0, 0.4, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.37, 0.37, 0.05, 30]} />
+          <cylinderGeometry args={[0.37, 0.37, 0.05, 48]} />
           <meshStandardMaterial color="#3e2c1c" roughness={0.5} />
         </mesh>
         <mesh position={[0, 0.2, 0]} castShadow>
-          <cylinderGeometry args={[0.055, 0.055, 0.4, 14]} />
+          <cylinderGeometry args={[0.055, 0.055, 0.4, 20]} />
           <primitive object={M.track} attach="material" />
         </mesh>
         <mesh position={[0, 0.3, 0]}>
-          <cylinderGeometry args={[0.3, 0.3, 0.025, 24]} />
+          <cylinderGeometry args={[0.3, 0.3, 0.025, 48]} />
           <meshStandardMaterial color="#3e2c1c" roughness={0.5} />
         </mesh>
       </group>
@@ -1538,11 +1538,11 @@ function Mezzanine() {
       ].map((p, i) => (
         <group key={`mc-${i}`} position={[p.x, m.y, p.z]} rotation={[0, 2.2 + i * 0.5, 0]}>
           <mesh position={[0, 0.42, 0]} castShadow>
-            <cylinderGeometry args={[0.34, 0.32, 0.6, 18, 1, false, Math.PI * 0.2, Math.PI * 1.3]} />
+            <cylinderGeometry args={[0.34, 0.32, 0.6, 48, 1, false, Math.PI * 0.2, Math.PI * 1.3]} />
             <primitive object={M.dark} attach="material" />
           </mesh>
           <mesh position={[0, 0.14, 0]}>
-            <cylinderGeometry args={[0.2, 0.25, 0.28, 14]} />
+            <cylinderGeometry args={[0.2, 0.25, 0.28, 48]} />
             <primitive object={M.track} attach="material" />
           </mesh>
         </group>
@@ -1585,11 +1585,11 @@ function Mezzanine() {
       {[1.8, 4.2, 6.6, 8.6].map((o, i) => (
         <group key={`mo-${i}`} position={[m.x0 + o, m.y, m.z0 + 1.5]}>
           <mesh position={[0, 0.62, 0]} castShadow>
-            <cylinderGeometry args={[0.26, 0.24, 0.5, 14, 1, false, Math.PI * 0.2, Math.PI * 1.3]} />
+            <cylinderGeometry args={[0.26, 0.24, 0.5, 48, 1, false, Math.PI * 0.2, Math.PI * 1.3]} />
             <primitive object={M.darker} attach="material" />
           </mesh>
           <mesh position={[0, 0.2, 0]}>
-            <cylinderGeometry args={[0.04, 0.05, 0.4, 8]} />
+            <cylinderGeometry args={[0.04, 0.05, 0.4, 20]} />
             <primitive object={M.darker} attach="material" />
           </mesh>
           {i % 2 === 0 && (
@@ -1701,7 +1701,7 @@ function Foliage({ scale = 1 }: { scale?: number }) {
     <group scale={scale}>
       <instancedMesh ref={ref} args={[LEAF_GEOM, leaf, LEAF_COUNT]} castShadow />
       <mesh position={[0, 0.86, 0]}>
-        <cylinderGeometry args={[0.013, 0.017, 0.74, 8]} />
+        <cylinderGeometry args={[0.013, 0.017, 0.74, 10]} />
         <meshStandardMaterial color="#374f2c" roughness={0.84} />
       </mesh>
     </group>
@@ -1735,7 +1735,7 @@ function Planting() {
       {PLANTERS.map((p, i) => (
         <group key={`pl-${i}`} position={[p.x, 0, p.z]}>
           <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.42, 0.34, 0.6, 22]} />
+            <cylinderGeometry args={[0.42, 0.34, 0.6, 48]} />
             <primitive object={M.darker} attach="material" />
           </mesh>
           <group position={[0, 0.6, 0]}>

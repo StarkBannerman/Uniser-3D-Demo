@@ -411,7 +411,7 @@ function Glazing({ sheer, blackout, view }: BoardroomBlinds & { view: THREE.Text
       {/* Roller cassettes, one pair per bay. */}
       {Array.from({ length: BAYS }, (_, i) => (
         <mesh key={`c${i}`} position={[0.11, win.y1 + 0.03, win.z0 + bay * (i + 0.5)]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.055, 0.055, bay - 0.08, 10]} />
+          <cylinderGeometry args={[0.055, 0.055, bay - 0.08, 20]} />
           <primitive object={M.housing} attach="material" />
         </mesh>
       ))}
@@ -661,7 +661,7 @@ function ScreenWall({
           </mesh>
           {[0.55, 0.95, 1.35].map((y) => (
             <mesh key={y} position={[0, y, 0.07]}>
-              <circleGeometry args={[0.058, 16]} />
+              <circleGeometry args={[0.058, 20]} />
               <meshStandardMaterial color="#111316" roughness={0.9} />
             </mesh>
           ))}
@@ -697,7 +697,7 @@ function Projector({ on }: { on: boolean }) {
     <group position={[p.x, p.y, p.z]}>
       {/* Drop pole to the coffer. */}
       <mesh position={[0, 0.16, 0]}>
-        <cylinderGeometry args={[0.022, 0.022, 0.3, 8]} />
+        <cylinderGeometry args={[0.022, 0.022, 0.3, 10]} />
         <primitive object={M.metal} attach="material" />
       </mesh>
       <mesh castShadow>
@@ -706,7 +706,7 @@ function Projector({ on }: { on: boolean }) {
       </mesh>
       {/* Lens, facing the screen. */}
       <mesh position={[0, 0, -0.17]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.05, 0.05, 0.05, 14]} />
+        <cylinderGeometry args={[0.05, 0.05, 0.05, 20]} />
         <meshStandardMaterial
           color={on ? "#dfe7f6" : "#15181c"}
           emissive={new THREE.Color(on ? "#cfe0ff" : "#000000")}
@@ -748,7 +748,7 @@ function Chair({
         </mesh>
       ))}
       <mesh position={[0, 0.26, 0]}>
-        <cylinderGeometry args={[0.035, 0.045, 0.42, 10]} />
+        <cylinderGeometry args={[0.035, 0.045, 0.42, 20]} />
         <primitive object={M.chrome} attach="material" />
       </mesh>
 
@@ -886,7 +886,7 @@ function Plants() {
       {BR_PLAN.plants.map((p, i) => (
         <group key={i} position={[p.x, 0, p.z]}>
           <mesh position={[0, 0.26, 0]} castShadow>
-            <cylinderGeometry args={[0.24, 0.19, 0.52, 14]} />
+            <cylinderGeometry args={[0.24, 0.19, 0.52, 48]} />
             <primitive object={M.planter} attach="material" />
           </mesh>
           {[
@@ -942,7 +942,7 @@ function Housings() {
       </mesh>
       {([p.pendant.z0 + 0.7, p.pendant.z1 - 0.7] as const).map((z) => (
         <mesh key={z} position={[p.pendant.x, (p.pendant.y + BR.h) / 2 + 0.05, z]}>
-          <cylinderGeometry args={[0.006, 0.006, BR.h - p.pendant.y - 0.1, 6]} />
+          <cylinderGeometry args={[0.006, 0.006, BR.h - p.pendant.y - 0.1, 10]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
       ))}
@@ -951,7 +951,7 @@ function Housings() {
       {p.generalRows.flatMap((x) =>
         p.generalZ.map((z) => (
           <mesh key={`g${x}-${z}`} position={[x, BR.h - 0.012, z]} rotation={[Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0.055, 0.075, 18]} />
+            <ringGeometry args={[0.055, 0.075, 20]} />
             <primitive object={M.housing} attach="material" />
           </mesh>
         )),
@@ -959,14 +959,14 @@ function Housings() {
       {p.tableHeads.rows.flatMap((x) =>
         p.tableHeads.z.map((z) => (
           <mesh key={`t${x}-${z}`} position={[x, BR.h - 0.012, z]} rotation={[Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0.04, 0.056, 16]} />
+            <ringGeometry args={[0.04, 0.056, 20]} />
             <primitive object={M.housing} attach="material" />
           </mesh>
         )),
       )}
       {p.frontX.map((x) => (
         <mesh key={`f${x}`} position={[x, BR.h - 0.012, p.frontZ]} rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.055, 0.075, 18]} />
+          <ringGeometry args={[0.055, 0.075, 20]} />
           <primitive object={M.housing} attach="material" />
         </mesh>
       ))}

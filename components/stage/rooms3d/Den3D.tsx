@@ -338,7 +338,7 @@ function Foliage({ scale = 1 }: { scale?: number }) {
         </group>
       ))}
       <mesh position={[0, 0.82, 0]}>
-        <cylinderGeometry args={[0.012, 0.016, 0.7, 8]} />
+        <cylinderGeometry args={[0.012, 0.016, 0.7, 10]} />
         <primitive object={M.foliage} attach="material" />
       </mesh>
     </group>
@@ -560,14 +560,14 @@ function DisplayWall({ deskOn }: { deskOn: boolean }) {
             {i === 2 && (
               /* Helmet. */
               <mesh position={[0.16, y + 0.13, sh.z1 - 0.5]} castShadow>
-                <sphereGeometry args={[0.13, 16, 14]} />
+                <sphereGeometry args={[0.13, 32, 14]} />
                 <meshStandardMaterial color="#b3b0a8" roughness={0.28} metalness={0.2} />
               </mesh>
             )}
             {i === 3 && (
               <group position={[0.16, y + 0.12, sh.z1 - 0.5]}>
                 <mesh castShadow>
-                  <cylinderGeometry args={[0.07, 0.09, 0.16, 16]} />
+                  <cylinderGeometry args={[0.07, 0.09, 0.16, 20]} />
                   <primitive object={M.pot} attach="material" />
                 </mesh>
                 <group position={[0, 0.07, 0]}>
@@ -638,11 +638,11 @@ function DisplayWall({ deskOn }: { deskOn: boolean }) {
             <primitive object={M.leather} attach="material" />
           </mesh>
           <mesh position={[0, 0.22, 0]}>
-            <cylinderGeometry args={[0.04, 0.04, 0.44, 12]} />
+            <cylinderGeometry args={[0.04, 0.04, 0.44, 20]} />
             <primitive object={M.metal} attach="material" />
           </mesh>
           <mesh position={[0, 0.03, 0]}>
-            <cylinderGeometry args={[0.3, 0.3, 0.05, 20]} />
+            <cylinderGeometry args={[0.3, 0.3, 0.05, 48]} />
             <primitive object={M.metal} attach="material" />
           </mesh>
         </group>
@@ -1146,11 +1146,11 @@ function Seating() {
         {/* ~1 m across and centred in front of the long side. */}
         <group position={[0, 0, -1.15]}>
           <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.52, 0.52, 0.09, 36]} />
+            <cylinderGeometry args={[0.52, 0.52, 0.09, 64]} />
             <primitive object={M.marble} attach="material" />
           </mesh>
           <mesh position={[0, 0.17, 0]} castShadow>
-            <cylinderGeometry args={[0.24, 0.3, 0.34, 28]} />
+            <cylinderGeometry args={[0.24, 0.3, 0.34, 48]} />
             <primitive object={M.marble} attach="material" />
           </mesh>
           {/* A stack of three books, each a little off the one below. */}
@@ -1170,11 +1170,11 @@ function Seating() {
           ))}
           {/* A wide shallow bowl, and a remote lying beside it. */}
           <mesh position={[0.24, 0.45, 0.06]} castShadow>
-            <cylinderGeometry args={[0.16, 0.1, 0.09, 28]} />
+            <cylinderGeometry args={[0.16, 0.1, 0.09, 32]} />
             <primitive object={M.joinery} attach="material" />
           </mesh>
           <mesh position={[0.24, 0.49, 0.06]}>
-            <cylinderGeometry args={[0.135, 0.135, 0.02, 24]} />
+            <cylinderGeometry args={[0.135, 0.135, 0.02, 32]} />
             <meshStandardMaterial color="#c8a978" roughness={0.75} />
           </mesh>
           <mesh position={[0.02, 0.415, 0.36]} rotation={[0, -0.5, 0]} castShadow>
@@ -1210,11 +1210,11 @@ function Seating() {
         </group>
         <group position={[-2.55, 0, -1.6]}>
           <mesh position={[0, 0.44, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.3, 0.3, 0.05, 24]} />
+            <cylinderGeometry args={[0.3, 0.3, 0.05, 48]} />
             <primitive object={M.marble} attach="material" />
           </mesh>
           <mesh position={[0, 0.22, 0]} castShadow>
-            <cylinderGeometry args={[0.04, 0.04, 0.42, 12]} />
+            <cylinderGeometry args={[0.04, 0.04, 0.42, 20]} />
             <primitive object={M.metal} attach="material" />
           </mesh>
           {/* The control tablet, propped up. */}
@@ -1273,11 +1273,11 @@ function Seating() {
           </RoundedBox>
         ))}
         <mesh position={[0, 0.16, 0]} castShadow>
-          <cylinderGeometry args={[0.06, 0.06, 0.3, 12]} />
+          <cylinderGeometry args={[0.06, 0.06, 0.3, 20]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
         <mesh position={[0, 0.02, 0]}>
-          <cylinderGeometry args={[0.34, 0.34, 0.04, 20]} />
+          <cylinderGeometry args={[0.34, 0.34, 0.04, 48]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
         <RoundedBox
@@ -1301,7 +1301,7 @@ function Seating() {
       ].map((p, i) => (
         <group key={`plant-${i}`} position={[p.x, 0, p.z]}>
           <mesh position={[0, 0.2, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.22, 0.17, 0.4, 18]} />
+            <cylinderGeometry args={[0.22, 0.17, 0.4, 48]} />
             <primitive object={M.pot} attach="material" />
           </mesh>
           <Foliage scale={1.15} />

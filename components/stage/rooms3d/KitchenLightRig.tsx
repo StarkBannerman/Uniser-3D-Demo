@@ -122,19 +122,19 @@ function Pendants({ state, gain }: { state: LightState; gain: number }) {
         <group key={`pend-${i}`}>
           {/* Cord, dome shade and a brass collar, as in the reference. */}
           <mesh position={[p.x, (KT.h + p.y + 0.12) / 2, p.z]}>
-            <cylinderGeometry args={[0.005, 0.005, KT.h - p.y - 0.12, 6]} />
+            <cylinderGeometry args={[0.005, 0.005, KT.h - p.y - 0.12, 10]} />
             <primitive object={shade} attach="material" />
           </mesh>
           <mesh position={[p.x, p.y + 0.14, p.z]}>
-            <cylinderGeometry args={[0.045, 0.045, 0.07, 14]} />
+            <cylinderGeometry args={[0.045, 0.045, 0.07, 20]} />
             <primitive object={shade} attach="material" />
           </mesh>
           <mesh position={[p.x, p.y, p.z]} castShadow>
-            <sphereGeometry args={[0.13, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
+            <sphereGeometry args={[0.13, 32, 12, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
             <primitive object={shade} attach="material" />
           </mesh>
           <mesh position={[p.x, p.y - 0.05, p.z]} rotation={[Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.1, 18]} />
+            <circleGeometry args={[0.1, 32]} />
             <primitive object={lens} attach="material" />
           </mesh>
           {MOUNTED && (
@@ -177,7 +177,7 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
             />
           )}
           <mesh position={[d.x, KT.h - 0.026, d.z]} rotation={[Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.045, 18]} />
+            <circleGeometry args={[0.045, 20]} />
             <primitive object={lens} attach="material" />
           </mesh>
         </group>

@@ -535,6 +535,24 @@ function RoomLoader({ name, gone }: { name: string; gone: boolean }) {
  */
 const QUIET_MS = 450;
 
+/**
+ * How long something that animates forever keeps animating.
+ *
+ * A water cascade, a ceiling fan - anything registered as continuous motion
+ * means the room never goes still, and still is the state the renderer saves
+ * its sharpest frame for. Four rooms carry a fan and one a cascade, so most
+ * of the project was permanently locked a tier below its best resolution.
+ *
+ * Eight seconds is long enough to demonstrate the thing - press the fan, watch
+ * it spin, talk over it - and after that the room settles and sharpens. Any
+ * change at all restarts it, because the signature test below resets the
+ * clock, so a salesperson who touches anything gets the motion back
+ * immediately. A held frame of a fan or a cascade is also simply not
+ * distinguishable from a moving one in a screenshot, which is what people
+ * actually look at while they talk.
+ */
+const AMBIENT_SETTLE_MS = 8000;
+
 function RenderPump({
   fps,
   onCalm,
@@ -561,6 +579,7 @@ function RenderPump({
     let last = 0;
     let signature = "";
     let quietSince = 0;
+    let ambientSince = 0;
     let calm: "busy" | "ambient" | "still" = "busy";
     const minDelta = 1000 / fps;
 
@@ -578,7 +597,8 @@ function RenderPump({
         if (next !== signature) {
           signature = next;
           draw = true;
-        } else if (motion === "ambient") {
+          ambientSince = t;
+        } else if (motion === "ambient" && t - ambientSince < AMBIENT_SETTLE_MS) {
           draw = true;
           gap = minDelta * 2;
         }
@@ -599,7 +619,10 @@ function RenderPump({
       const want: "busy" | "ambient" | "still" =
         motion === "transition" || (draw && motion !== "ambient")
           ? "busy"
-          : motion === "ambient"
+          : // Ambient only counts while it is actually still drawing. Once it
+            // has settled the room is as still as any other, and takes the
+            // full still resolution rather than the half-step.
+            draw && motion === "ambient"
             ? "ambient"
             : t - quietSince > QUIET_MS
               ? "still"
@@ -923,6 +946,16 @@ export function Stage3D({
    */
   const [calm, setCalm] = useState<"busy" | "ambient" | "still">("busy");
   /**
+   * Set the first time this canvas loses its WebGL context, and never unset.
+   *
+   * A lost context is the symptom of having asked for more than the device
+   * had, so the response is to stop asking: supersampling is abandoned for
+   * the rest of the session and the room holds whatever rung the governor
+   * settled on. Without this there was no handler at all - the canvas simply
+   * went black, or the tab went with it.
+   */
+  const [lostContext, setLostContext] = useState(false);
+  /**
    * Gated on the governor having finished, NOT on the probe being paused -
    * which is what the first version did, and it was wrong in a way that
    * froze the resolution entirely.
@@ -950,9 +983,26 @@ export function Stage3D({
    * any ordinary display.
    */
   const stillDpr = useMemo(() => {
-    const want = quality === "low" ? 1.5 : 2.5;
-    if (typeof window === "undefined") return want;
-    return Math.max(1, Math.min(want, 4000 / Math.max(640, window.innerWidth)));
+    /*
+     * Nothing at all on the low tier, and that is a correction.
+     *
+     * Raising the resolution when a room settles re-allocates every target
+     * the composer holds - colour, depth, the bloom chain - and for a moment
+     * both the old set and the new one are live. On a machine with a few
+     * gigabytes of SHARED memory and an integrated part, that peak is enough
+     * to fail an allocation; ANGLE's `loseContextOnOutOfMemory` then drops
+     * the context and Chrome's `exit_on_context_lost` workaround takes the
+     * GPU process with it, which is a crashed tab rather than a slow one.
+     *
+     * Reported from an Intel UHD laptop opening the hotel lobby - the
+     * heaviest room - on 7 GB of shared memory. The low tier exists for
+     * exactly those machines, so it gets the resolution it can hold and no
+     * speculative extra. The ceiling for everyone else is 3000 px on the long
+     * edge rather than 4000, for the same reason.
+     */
+    if (quality === "low") return 0;
+    if (typeof window === "undefined") return 2.5;
+    return Math.max(1, Math.min(2.5, 3000 / Math.max(640, window.innerWidth)));
   }, [quality]);
   /**
    * A still room gets the full still target; a room with something animating
@@ -963,7 +1013,7 @@ export function Stage3D({
    */
   const target =
     calm === "still" ? stillDpr : calm === "ambient" ? Math.min(dpr * 1.5, stillDpr) : dpr;
-  const effectiveDpr = governed && target > dpr ? target : dpr;
+  const effectiveDpr = governed && !lostContext && target > dpr ? target : dpr;
   /**
    * Climb while the frame is still vsync-bound, and come back down once if a
    * rung proves too dear.
@@ -1077,9 +1127,33 @@ export function Stage3D({
         preserveDrawingBuffer: true,
       }}
       camera={{ position: camera.position, fov: camera.fov, near: 0.05, far: 80 }}
-      onCreated={({ camera: cam }) => {
+      onCreated={({ camera: cam, gl }) => {
         cam.lookAt(...camera.target);
         cam.updateProjectionMatrix();
+        /*
+         * Catch a lost context rather than let it take the tab.
+         *
+         * `preventDefault` is what tells the browser the page intends to
+         * restore itself, which is the difference between a canvas that comes
+         * back and one that stays black. The restore is three.js's job; ours
+         * is to stop asking for whatever lost it, so `setLostContext` pins
+         * the resolution to the governed rung for the rest of the session.
+         *
+         * Reported from an Intel UHD laptop: ANGLE is configured there with
+         * `loseContextOnOutOfMemory`, and Chrome applies `exit_on_context_lost`
+         * because the driver cannot reset the D3D device inside the sandbox -
+         * so an allocation failure is a crashed tab, with no handler of any
+         * kind in the way.
+         */
+        const canvas = gl.domElement;
+        canvas.addEventListener(
+          "webglcontextlost",
+          (e) => {
+            e.preventDefault();
+            setLostContext(true);
+          },
+          { once: true },
+        );
       }}
     >
       <Suspense fallback={null}>

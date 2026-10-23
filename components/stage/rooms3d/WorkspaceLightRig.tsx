@@ -343,7 +343,7 @@ function Downlights({
     <group>
       {heads.map((h, i) => (
         <mesh key={i} position={[h.x, ceilingY - 0.008, h.z]} rotation={[Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[radius, 16]} />
+          <circleGeometry args={[radius, 24]} />
           <primitive object={face} attach="material" />
         </mesh>
       ))}
@@ -449,7 +449,7 @@ function Break({ state }: { state: LightState }) {
         <group key={i}>
           {/* The lit aperture on the underside of the cone. */}
           <mesh position={[c.x - 0.35, 1.952, z]} rotation={[Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.155, 18]} />
+            <circleGeometry args={[0.155, 32]} />
             <primitive object={face} attach="material" />
           </mesh>
           {MOUNTED && i % 2 === 0 && (

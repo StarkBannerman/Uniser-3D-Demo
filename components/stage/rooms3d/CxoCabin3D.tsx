@@ -588,7 +588,7 @@ function BayContents({
       const vh = Math.min(height - 0.08, tall ? 0.3 : 0.17);
       items.push(
         <mesh key={`v${n}`} position={[x + r + 0.02, y + vh / 2, 0.26]} castShadow>
-          <cylinderGeometry args={[r * 0.72, r, vh, 18]} />
+          <cylinderGeometry args={[r * 0.72, r, vh, 24]} />
           <primitive object={rnd() < 0.5 ? M.ceramic : M.ceramicDark} attach="material" />
         </mesh>,
       );
@@ -599,15 +599,15 @@ function BayContents({
       items.push(
         <group key={`g${n}`} position={[x + r + 0.03, y, 0.26]}>
           <mesh position={[0, 0.02, 0]}>
-            <cylinderGeometry args={[r * 0.5, r * 0.62, 0.035, 16]} />
+            <cylinderGeometry args={[r * 0.5, r * 0.62, 0.035, 24]} />
             <primitive object={M.brushed} attach="material" />
           </mesh>
           <mesh position={[0, r + 0.06, 0]} rotation={[0, 0, 0.3]} castShadow>
-            <torusGeometry args={[r * 1.12, 0.008, 8, 28]} />
+            <torusGeometry args={[r * 1.12, 0.008, 24, 28]} />
             <primitive object={M.brushed} attach="material" />
           </mesh>
           <mesh position={[0, r + 0.06, 0]} castShadow>
-            <sphereGeometry args={[r, 20, 16]} />
+            <sphereGeometry args={[r, 24, 16]} />
             <primitive object={M.ceramicDark} attach="material" />
           </mesh>
         </group>,
@@ -921,7 +921,7 @@ function Glazing({ sheer, blackout, view }: CxoCurtains & { view: THREE.Texture 
       })}
       {/* Curtain track. */}
       <mesh position={[0.3, win.y1 + 0.08, (win.z0 + win.z1) / 2]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.022, 0.022, span + 0.2, 8]} />
+        <cylinderGeometry args={[0.022, 0.022, span + 0.2, 10]} />
         <primitive object={M.matteBlack} attach="material" />
       </mesh>
     </group>
@@ -1054,7 +1054,7 @@ function Chair({
         </mesh>
       ))}
       <mesh position={[0, 0.26, 0]}>
-        <cylinderGeometry args={[0.038, 0.05, 0.44, 10]} />
+        <cylinderGeometry args={[0.038, 0.05, 0.44, 20]} />
         <primitive object={M.metal} attach="material" />
       </mesh>
       <RoundedBox args={[seatW, exec ? 0.18 : 0.14, seatD]} radius={0.06} smoothness={3} position={[0, 0.5, 0]} castShadow>
@@ -1144,11 +1144,11 @@ function Lounge() {
       {/* Round stone coffee table. */}
       <group position={[p.coffee.x, 0, p.coffee.z]}>
         <mesh position={[0, 0.15, 0]} castShadow>
-          <cylinderGeometry args={[0.3, 0.34, 0.3, 24]} />
+          <cylinderGeometry args={[0.3, 0.34, 0.3, 48]} />
           <primitive object={M.stone} attach="material" />
         </mesh>
         <mesh position={[0, 0.32, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.44, 0.44, 0.045, 28]} />
+          <cylinderGeometry args={[0.44, 0.44, 0.045, 48]} />
           <primitive object={M.stone} attach="material" />
         </mesh>
         {[0, 1].map((i) => (
@@ -1222,7 +1222,7 @@ function Plants() {
         <group key={i} position={[p.x, 0, p.z]} scale={p.s}>
           {/* Tall, narrow, matte black. */}
           <mesh position={[0, 0.28, 0]} castShadow>
-            <cylinderGeometry args={[0.17, 0.14, 0.56, 18]} />
+            <cylinderGeometry args={[0.17, 0.14, 0.56, 32]} />
             <primitive object={M.planter} attach="material" />
           </mesh>
           {LEAVES.map((l, j) => (
@@ -1243,7 +1243,7 @@ function Plants() {
             </group>
           ))}
           <mesh position={[0, 0.95, 0]}>
-            <cylinderGeometry args={[0.012, 0.016, 0.8, 8]} />
+            <cylinderGeometry args={[0.012, 0.016, 0.8, 10]} />
             <meshStandardMaterial color="#3d4a32" roughness={0.9} />
           </mesh>
         </group>
@@ -1282,24 +1282,24 @@ function Housings() {
       </mesh>
       {([-1, 1] as const).map((s) => (
         <mesh key={s} position={[p.pendant.x + s * (p.pendant.len / 2 - 0.3), (p.pendant.y + CX.h) / 2 + 0.05, p.pendant.z]}>
-          <cylinderGeometry args={[0.006, 0.006, CX.h - p.pendant.y - 0.1, 6]} />
+          <cylinderGeometry args={[0.006, 0.006, CX.h - p.pendant.y - 0.1, 10]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
       ))}
       {p.generalHeads.map((h) => (
         <mesh key={`g${h.x}-${h.z}`} position={[h.x, CX.h - 0.012, h.z]} rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.05, 0.07, 18]} />
+          <ringGeometry args={[0.05, 0.07, 20]} />
           <primitive object={M.housing} attach="material" />
         </mesh>
       ))}
       {p.taskHeads.map((h) => (
         <mesh key={`t${h.x}-${h.z}`} position={[h.x, CX.h - 0.012, h.z]} rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.034, 0.048, 16]} />
+          <ringGeometry args={[0.034, 0.048, 20]} />
           <primitive object={M.housing} attach="material" />
         </mesh>
       ))}
       <mesh position={[p.artHead.x, CX.h - 0.012, p.artHead.z]} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.034, 0.048, 16]} />
+        <ringGeometry args={[0.034, 0.048, 20]} />
         <primitive object={M.housing} attach="material" />
       </mesh>
     </group>

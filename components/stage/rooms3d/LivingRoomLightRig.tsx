@@ -248,7 +248,7 @@ function Downlights({
           position={[p.x, LR.h - 0.035, p.z]}
           rotation={[Math.PI / 2, 0, 0]}
         >
-          <circleGeometry args={[0.05, 18]} />
+          <circleGeometry args={[0.05, 20]} />
           <primitive object={lens} attach="material" />
         </mesh>
       ))}
@@ -361,7 +361,7 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
       {LR_PENDANT_GLOBES.map((g, i) => (
         <group key={`globe-${i}`}>
           <mesh position={[x + g.dx, g.y, z + g.dz]}>
-            <sphereGeometry args={[g.r, 20, 16]} />
+            <sphereGeometry args={[g.r, 24, 16]} />
             <primitive object={globe} attach="material" />
           </mesh>
           {/* Two of the seven carry the actual light. Seven point lights in one

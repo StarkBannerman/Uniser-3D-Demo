@@ -22,7 +22,7 @@
  * which is the only way a room this size runs at all. See `HotelLobbyLightRig`.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import type { ShadeState } from "@/lib/sim/types";
@@ -37,7 +37,6 @@ import {
   makeRugSlab,
   sweepProfile,
 } from "./geometry";
-import { useSim } from "@/lib/sim/store";
 import { useContinuousMotion, useQuality } from "../Stage3D";
 
 /* ------------------------------------------------------------------ */
@@ -535,7 +534,7 @@ function Foliage({ scale = 1 }: { scale?: number }) {
     <group scale={scale}>
       <instancedMesh ref={ref} args={[LEAF_GEOM, leaf, LEAF_COUNT]} castShadow />
       <mesh position={[0, 0.86, 0]}>
-        <cylinderGeometry args={[0.013, 0.017, 0.74, 8]} />
+        <cylinderGeometry args={[0.013, 0.017, 0.74, 10]} />
         <primitive object={M.foliageDark} attach="material" />
       </mesh>
     </group>
@@ -580,7 +579,7 @@ function Palm({ height = 3.4 }: { height?: number }) {
   return (
     <group>
       <mesh position={[0, height / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.09, 0.15, height, 10]} />
+        <cylinderGeometry args={[0.09, 0.15, height, 32]} />
         <primitive object={M.woodDark} attach="material" />
       </mesh>
       <instancedMesh ref={ref} args={[FROND_GEOM, M.foliage, FROND_COUNT]} castShadow />
@@ -975,7 +974,7 @@ function Reception() {
             <primitive object={M.woodDark} attach="material" />
           </mesh>
           <mesh position={[0, 1.63, 0]} castShadow>
-            <sphereGeometry args={[0.115, 24, 18]} />
+            <sphereGeometry args={[0.115, 32, 18]} />
             <primitive object={M.woodDark} attach="material" />
           </mesh>
         </group>
@@ -1136,7 +1135,7 @@ function BarrelChair({ mat }: { mat: THREE.Material }) {
         <primitive object={mat} attach="material" />
       </RoundedBox>
       <mesh position={[0, 0.17, -0.02]} castShadow>
-        <cylinderGeometry args={[0.3, 0.36, 0.34, 24]} />
+        <cylinderGeometry args={[0.3, 0.36, 0.34, 48]} />
         <primitive object={M.metal} attach="material" />
       </mesh>
     </group>
@@ -1173,18 +1172,18 @@ function CoffeeTable({
             {[0, 1, 2, 3, 4, 5].map((j) => (
               <group key={j} rotation={[0, j * 1.2, 0.14 + (j % 3) * 0.08]}>
                 <mesh position={[0, 0.2, 0]} castShadow>
-                  <cylinderGeometry args={[0.004, 0.005, 0.26, 6]} />
+                  <cylinderGeometry args={[0.004, 0.005, 0.26, 10]} />
                   <primitive object={M.foliageDark} attach="material" />
                 </mesh>
                 <mesh position={[0, 0.33, 0]} scale={[1, 0.8, 1]} castShadow>
-                  <sphereGeometry args={[0.035, 10, 8]} />
+                  <sphereGeometry args={[0.035, 20, 8]} />
                   <primitive object={M.bloom} attach="material" />
                 </mesh>
               </group>
             ))}
           </group>
           <mesh position={[-r * 0.34, 0.012, r * 0.16]} castShadow>
-            <cylinderGeometry args={[0.2, 0.2, 0.024, 28]} />
+            <cylinderGeometry args={[0.2, 0.2, 0.024, 48]} />
             <primitive object={M.brass} attach="material" />
           </mesh>
           <mesh position={[-r * 0.3, 0.048, r * 0.18]} rotation={[0, 0.3, 0]} castShadow>
@@ -1206,7 +1205,7 @@ function SideTable({ h = 0.56 }: { h?: number }) {
   return (
     <group>
       <mesh position={[0, h, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.26, 0.26, 0.05, 28]} />
+        <cylinderGeometry args={[0.26, 0.26, 0.05, 48]} />
         <primitive object={M.marble} attach="material" />
       </mesh>
       <mesh position={[0, h / 2, 0]} castShadow>
@@ -1593,36 +1592,10 @@ export function WaterWall({
    * the moment the page opens. On the low tier the water holds a still frame
    * and the room goes idle between presses like every other room.
    */
-  /**
-   * ...and only until the room has been left alone for a while.
-   *
-   * Continuous motion is what stops a room ever being "still", and still is
-   * the state the renderer saves its sharpest frame for. This cascade ran
-   * forever, so the lobby sat permanently one tier below its best resolution
-   * - measured, 1.5 where the showroom reaches 2.5.
-   *
-   * A frozen cascade and a flowing one are the same picture: the streaks are
-   * a static texture scrolled by a uniform, so a held frame is indis-
-   * tinguishable from a moving one in a screenshot. Nobody looking at a still
-   * image can tell, and anybody *watching* the room is interacting with it,
-   * which starts it again. So it flows for eight seconds after anything
-   * changes and then settles, and the room gets its sharp frame.
-   */
-  const [flowing, setFlowing] = useState(true);
-  const idle = useRef(0);
-  const states = useSim((st) => st.states);
-  useEffect(() => {
-    idle.current = 0;
-    setFlowing(true);
-  }, [states]);
-
-  const animated = level > 0.02 && useQuality() === "high" && flowing;
+  const animated = level > 0.02 && useQuality() === "high";
   useContinuousMotion("hl-water", animated);
   useFrame((_, dt) => {
-    if (!animated) return;
-    mat.uniforms.uTime.value += dt * 0.42;
-    idle.current += dt;
-    if (idle.current > 8) setFlowing(false);
+    if (animated) mat.uniforms.uTime.value += dt * 0.42;
   });
 
   return (
@@ -1775,7 +1748,7 @@ function Artwork() {
       </mesh>
       {/* Picture light over the frame: the fitting that explains the beam. */}
       <mesh position={[a.x, a.y + a.h / 2 + 0.24, a.z + 0.3]} rotation={[0, 0, Math.PI / 2]} castShadow>
-        <cylinderGeometry args={[0.035, 0.035, a.w * 0.5, 14, 1, false, 0, Math.PI]} />
+        <cylinderGeometry args={[0.035, 0.035, a.w * 0.5, 20, 1, false, 0, Math.PI]} />
         <primitive object={M.brass} attach="material" />
       </mesh>
     </group>
@@ -2108,11 +2081,11 @@ function Facade({
         window goes white.
       */}
       <mesh position={[HL.w / 2, -0.03, HL.d / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[52, 48]} />
+        <circleGeometry args={[52, 64]} />
         <primitive object={groundMat} attach="material" />
       </mesh>
       <mesh position={[HL.w / 2, 14, HL.d / 2]}>
-        <cylinderGeometry args={[50, 50, 70, 56, 1, true]} />
+        <cylinderGeometry args={[50, 50, 70, 64, 1, true]} />
         <primitive object={viewMat} attach="material" />
       </mesh>
 
@@ -2138,7 +2111,7 @@ function Facade({
       </mesh>
       {[0.22, 0.56, 0.9].map((t, i) => (
         <mesh key={`cc-${i}`} position={[f.x + 6.6, 3.25, f.z0 + span * t]} castShadow>
-          <cylinderGeometry args={[0.24, 0.28, 6.5, 32]} />
+          <cylinderGeometry args={[0.24, 0.28, 6.5, 48]} />
           <primitive object={M.stone} attach="material" />
         </mesh>
       ))}
@@ -2235,7 +2208,7 @@ function Car() {
             rotation={[0, 0, Math.PI / 2]}
             castShadow
           >
-            <cylinderGeometry args={[0.33, 0.33, 0.24, 40]} />
+            <cylinderGeometry args={[0.33, 0.33, 0.24, 48]} />
             <meshStandardMaterial color="#0c0d0f" roughness={0.85} />
           </mesh>
         )),

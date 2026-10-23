@@ -475,7 +475,7 @@ function Foliage({ scale = 1 }: { scale?: number }) {
         receiveShadow
       />
       <mesh position={[0, 0.86, 0]}>
-        <cylinderGeometry args={[0.013, 0.017, 0.74, 8]} />
+        <cylinderGeometry args={[0.013, 0.017, 0.74, 10]} />
         <primitive object={M.foliageDark} attach="material" />
       </mesh>
     </group>
@@ -742,7 +742,7 @@ function MediaWall({ tvOn, audioLevel }: { tvOn: boolean; audioLevel: number }) 
             */}
             {i !== 2 && (
               <mesh position={[n.x0 + 0.2, base + 0.14, 0.14]} castShadow>
-                <cylinderGeometry args={[0.05, 0.07, 0.26, 16]} />
+                <cylinderGeometry args={[0.05, 0.07, 0.26, 20]} />
                 <primitive object={M.marble} attach="material" />
               </mesh>
             )}
@@ -764,7 +764,7 @@ function MediaWall({ tvOn, audioLevel }: { tvOn: boolean; audioLevel: number }) 
             {i !== 1 && (
               <group position={[n.x1 - 0.3, base + 0.07, 0.14]}>
                 <mesh castShadow>
-                  <cylinderGeometry args={[0.07, 0.055, 0.14, 16]} />
+                  <cylinderGeometry args={[0.07, 0.055, 0.14, 20]} />
                   <primitive object={M.pot} attach="material" />
                 </mesh>
                 <Foliage scale={0.32} />
@@ -855,7 +855,7 @@ function MediaWall({ tvOn, audioLevel }: { tvOn: boolean; audioLevel: number }) 
               position={[0, y, 0.137 + audioLevel * (0.014 - j * 0.003)]}
               rotation={[Math.PI / 2, 0, 0]}
             >
-              <cylinderGeometry args={[0.075 - j * 0.015, 0.075 - j * 0.015, 0.014, 18]} />
+              <cylinderGeometry args={[0.075 - j * 0.015, 0.075 - j * 0.015, 0.014, 24]} />
               <primitive object={M.cone} attach="material" />
             </mesh>
           ))}
@@ -1247,11 +1247,11 @@ function SeatingGroup() {
           sofa's middle seat. */}
       <group position={[0, 0, 0]}>
         <mesh position={[0, 0.36, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.6, 0.6, 0.09, 36]} />
+          <cylinderGeometry args={[0.6, 0.6, 0.09, 64]} />
           <primitive object={M.marble} attach="material" />
         </mesh>
         <mesh position={[0, 0.17, 0]} castShadow>
-          <cylinderGeometry args={[0.3, 0.38, 0.34, 28]} />
+          <cylinderGeometry args={[0.3, 0.38, 0.34, 48]} />
           <primitive object={M.marble} attach="material" />
         </mesh>
         {/*
@@ -1265,7 +1265,7 @@ function SeatingGroup() {
         */}
         <group position={[0.2, 0.405, 0.1]}>
           <mesh castShadow>
-            <cylinderGeometry args={[0.055, 0.075, 0.2, 18]} />
+            <cylinderGeometry args={[0.055, 0.075, 0.2, 20]} />
             <primitive object={M.marble} attach="material" />
           </mesh>
           {[0, 1, 2, 3, 4].map((j) => {
@@ -1273,11 +1273,11 @@ function SeatingGroup() {
             return (
               <group key={`stem-${j}`} rotation={[0, a, 0.12 + (j % 3) * 0.07]}>
                 <mesh position={[0, 0.17, 0]} castShadow>
-                  <cylinderGeometry args={[0.004, 0.005, 0.22, 6]} />
+                  <cylinderGeometry args={[0.004, 0.005, 0.22, 10]} />
                   <primitive object={M.foliageDark} attach="material" />
                 </mesh>
                 <mesh position={[0, 0.28, 0]} scale={[1, 0.8, 1]} castShadow>
-                  <sphereGeometry args={[0.03, 10, 8]} />
+                  <sphereGeometry args={[0.03, 20, 8]} />
                   <primitive object={M.bloom} attach="material" />
                 </mesh>
               </group>
@@ -1287,11 +1287,11 @@ function SeatingGroup() {
         {/* Brass tray with a candle on it. */}
         <group position={[-0.24, 0.425, -0.14]}>
           <mesh castShadow>
-            <cylinderGeometry args={[0.19, 0.19, 0.022, 28]} />
+            <cylinderGeometry args={[0.19, 0.19, 0.022, 32]} />
             <primitive object={M.brass} attach="material" />
           </mesh>
           <mesh position={[0.05, 0.07, 0.02]} castShadow>
-            <cylinderGeometry args={[0.045, 0.045, 0.11, 18]} />
+            <cylinderGeometry args={[0.045, 0.045, 0.11, 20]} />
             <primitive object={M.pot} attach="material" />
           </mesh>
         </group>
@@ -1317,16 +1317,16 @@ function SeatingGroup() {
        */}
       <group position={[1.45, 0, 0.1]}>
         <mesh position={[0, 0.21, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.42, 0.44, 0.42, 36]} />
+          <cylinderGeometry args={[0.42, 0.44, 0.42, 48]} />
           <primitive object={M.velvet} attach="material" />
         </mesh>
         {/* A seam round the crown, so it reads as upholstery not a drum. */}
         <mesh position={[0, 0.415, 0]} castShadow>
-          <cylinderGeometry args={[0.395, 0.42, 0.05, 36]} />
+          <cylinderGeometry args={[0.395, 0.42, 0.05, 48]} />
           <primitive object={M.velvet} attach="material" />
         </mesh>
         <mesh position={[0, 0.02, 0]}>
-          <cylinderGeometry args={[0.36, 0.36, 0.04, 24]} />
+          <cylinderGeometry args={[0.36, 0.36, 0.04, 48]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
       </group>
@@ -1368,7 +1368,7 @@ function SeatingGroup() {
           </RoundedBox>
         ))}
         <mesh position={[0, 0.17, 0]} castShadow>
-          <cylinderGeometry args={[0.19, 0.26, 0.32, 24]} />
+          <cylinderGeometry args={[0.19, 0.26, 0.32, 32]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
       </group>
@@ -1380,7 +1380,7 @@ function SeatingGroup() {
           stem, with a book and a candle, so the chair reads as occupied. */}
       <group position={[2.5, 0, 0.42]}>
         <mesh position={[0, 0.54, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.24, 0.24, 0.045, 28]} />
+          <cylinderGeometry args={[0.24, 0.24, 0.045, 48]} />
           <primitive object={M.marble} attach="material" />
         </mesh>
         <mesh position={[0, 0.28, 0]} castShadow>
@@ -1388,7 +1388,7 @@ function SeatingGroup() {
           <primitive object={M.brass} attach="material" />
         </mesh>
         <mesh position={[0, 0.02, 0]}>
-          <cylinderGeometry args={[0.17, 0.19, 0.03, 20]} />
+          <cylinderGeometry args={[0.17, 0.19, 0.03, 32]} />
           <primitive object={M.brass} attach="material" />
         </mesh>
         <mesh position={[-0.04, 0.578, 0.03]} rotation={[0, 0.5, 0]} castShadow>
@@ -1396,7 +1396,7 @@ function SeatingGroup() {
           <primitive object={M.slab} attach="material" />
         </mesh>
         <mesh position={[0.09, 0.625, -0.04]} castShadow>
-          <cylinderGeometry args={[0.038, 0.038, 0.11, 16]} />
+          <cylinderGeometry args={[0.038, 0.038, 0.11, 20]} />
           <primitive object={M.pot} attach="material" />
         </mesh>
       </group>
@@ -1415,15 +1415,15 @@ function RoomFurniture() {
           rectangular table with chairs down both sides. */}
       <group position={[LR_PLAN.dining.x, 0, LR_PLAN.dining.z]}>
         <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.62, 0.62, 0.06, 32]} />
+          <cylinderGeometry args={[0.62, 0.62, 0.06, 64]} />
           <primitive object={M.consoleWood} attach="material" />
         </mesh>
         <mesh position={[0, 0.36, 0]} castShadow>
-          <cylinderGeometry args={[0.09, 0.14, 0.72, 16]} />
+          <cylinderGeometry args={[0.09, 0.14, 0.72, 32]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
         <mesh position={[0, 0.02, 0]}>
-          <cylinderGeometry args={[0.36, 0.4, 0.04, 20]} />
+          <cylinderGeometry args={[0.36, 0.4, 0.04, 48]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
         {[0, 1, 2, 3].map((i) => {
@@ -1466,7 +1466,7 @@ function RoomFurniture() {
           );
         })}
         <mesh position={[0, 0.84, 0]} castShadow>
-          <cylinderGeometry args={[0.12, 0.09, 0.14, 16]} />
+          <cylinderGeometry args={[0.12, 0.09, 0.14, 32]} />
           <primitive object={M.pot} attach="material" />
         </mesh>
       </group>
@@ -1478,7 +1478,7 @@ function RoomFurniture() {
       ].map((p, i) => (
         <group key={`plant-${i}`} position={[p.x, 0, p.z]}>
           <mesh position={[0, 0.16, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.2, 0.15, 0.32, 18]} />
+            <cylinderGeometry args={[0.2, 0.15, 0.32, 48]} />
             <primitive object={M.pot} attach="material" />
           </mesh>
           <Foliage scale={1.2} />
@@ -1581,7 +1581,7 @@ function Passage({ level }: { level: number }) {
         color={new THREE.Color("#ffd9a8")}
       />
       <mesh position={[cx, ceil - 0.02, -o.depth + 1.1]} rotation={[Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.07, 16]} />
+        <circleGeometry args={[0.07, 20]} />
         <meshStandardMaterial
           color="#000000"
           emissive={new THREE.Color("#ffd9a8")}
@@ -1642,11 +1642,11 @@ function FeatureWallLeft() {
       */}
       <group position={[0.33, a.y + a.h / 2 + 0.2, a.z]}>
         <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-          <cylinderGeometry args={[0.035, 0.035, a.w * 0.52, 16, 1, false, 0, Math.PI]} />
+          <cylinderGeometry args={[0.035, 0.035, a.w * 0.52, 20, 1, false, 0, Math.PI]} />
           <primitive object={M.brass} attach="material" />
         </mesh>
         <mesh position={[-0.14, -0.1, 0]} rotation={[0, 0, 0.5]}>
-          <cylinderGeometry args={[0.012, 0.012, 0.3, 8]} />
+          <cylinderGeometry args={[0.012, 0.012, 0.3, 10]} />
           <primitive object={M.brass} attach="material" />
         </mesh>
       </group>
@@ -1664,7 +1664,7 @@ function FeatureWallLeft() {
       ))}
       {/* A vase and a stack of books, so the console is not a bare plinth. */}
       <mesh position={[0.28, 0.58, a.z - 0.75]} castShadow>
-        <cylinderGeometry args={[0.1, 0.13, 0.32, 18]} />
+        <cylinderGeometry args={[0.1, 0.13, 0.32, 32]} />
         <primitive object={M.pot} attach="material" />
       </mesh>
       <mesh position={[0.28, 0.46, a.z + 0.72]} castShadow>
@@ -1676,7 +1676,7 @@ function FeatureWallLeft() {
       {[a.z - 1.95, a.z + 2.05].map((z, i) => (
         <group key={`tall-${i}`} position={[0.45, 0, z]}>
           <mesh position={[0, 0.24, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[0.24, 0.19, 0.48, 18]} />
+            <cylinderGeometry args={[0.24, 0.19, 0.48, 48]} />
             <primitive object={M.pot} attach="material" />
           </mesh>
           <Foliage scale={i === 0 ? 1.45 : 1.25} />
@@ -1770,12 +1770,12 @@ function PendantRig() {
   return (
     <group>
       <mesh position={[x, ceiling - 0.015, z]}>
-        <cylinderGeometry args={[0.17, 0.17, 0.03, 24]} />
+        <cylinderGeometry args={[0.17, 0.17, 0.03, 32]} />
         <primitive object={M.metal} attach="material" />
       </mesh>
       {LR_PENDANT_GLOBES.map((g, i) => (
         <mesh key={`cord-${i}`} position={[x + g.dx, (ceiling + g.y + g.r) / 2, z + g.dz]}>
-          <cylinderGeometry args={[0.004, 0.004, ceiling - g.y - g.r, 6]} />
+          <cylinderGeometry args={[0.004, 0.004, ceiling - g.y - g.r, 10]} />
           <primitive object={M.metal} attach="material" />
         </mesh>
       ))}
@@ -1806,7 +1806,7 @@ function CeilingFan({ radiansPerSecond }: { radiansPerSecond: number }) {
         <primitive object={M.metal} attach="material" />
       </mesh>
       <mesh position={[0, LR.h - 0.025, 0]}>
-        <cylinderGeometry args={[0.085, 0.065, 0.05, 20]} />
+        <cylinderGeometry args={[0.085, 0.065, 0.05, 32]} />
         <primitive object={M.metal} attach="material" />
       </mesh>
       {/*
@@ -1825,7 +1825,7 @@ function CeilingFan({ radiansPerSecond }: { radiansPerSecond: number }) {
       */}
       <group ref={blades} name="lr-fan-blades" position={[0, y, 0]}>
         <mesh castShadow>
-          <cylinderGeometry args={[0.1, 0.075, 0.07, 28]} />
+          <cylinderGeometry args={[0.1, 0.075, 0.07, 32]} />
           <primitive object={M.slab} attach="material" />
         </mesh>
         <mesh position={[0, -0.045, 0]} castShadow>

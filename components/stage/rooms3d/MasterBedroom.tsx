@@ -723,7 +723,7 @@ function Furniture() {
         {[-0.3, 0.3].map((dx) =>
           [-0.3, 0.3].map((dz, j) => (
             <mesh key={`cleg-${dx}-${j}`} position={[dx, 0.14, dz]} castShadow>
-              <cylinderGeometry args={[0.022, 0.022, 0.28, 8]} />
+              <cylinderGeometry args={[0.022, 0.022, 0.28, 10]} />
               <primitive object={materials.brass} attach="material" />
             </mesh>
           )),
@@ -732,11 +732,11 @@ function Furniture() {
 
       {/* Side table. */}
       <mesh position={[chair.x - 0.78, 0.46, chair.z + 0.42]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.24, 0.24, 0.035, 24]} />
+        <cylinderGeometry args={[0.24, 0.24, 0.035, 48]} />
         <primitive object={materials.nightstandTop} attach="material" />
       </mesh>
       <mesh position={[chair.x - 0.78, 0.22, chair.z + 0.42]} castShadow>
-        <cylinderGeometry args={[0.03, 0.03, 0.44, 12]} />
+        <cylinderGeometry args={[0.03, 0.03, 0.44, 20]} />
         <primitive object={materials.brass} attach="material" />
       </mesh>
     </group>
@@ -783,7 +783,7 @@ function CeilingFan({ radiansPerSecond }: { radiansPerSecond: number }) {
         <primitive object={materials.metal} attach="material" />
       </mesh>
       <mesh position={[0, ROOM.h - 0.03, 0]}>
-        <cylinderGeometry args={[0.09, 0.07, 0.06, 20]} />
+        <cylinderGeometry args={[0.09, 0.07, 0.06, 32]} />
         <primitive object={materials.metal} attach="material" />
       </mesh>
 
@@ -791,7 +791,7 @@ function CeilingFan({ radiansPerSecond }: { radiansPerSecond: number }) {
           checking that speed actually reaches the blades. */}
       <group ref={blades} name="fan-blades" position={[0, y, 0]}>
         <mesh castShadow>
-          <cylinderGeometry args={[0.085, 0.1, 0.1, 24]} />
+          <cylinderGeometry args={[0.085, 0.1, 0.1, 32]} />
           <primitive object={materials.metal} attach="material" />
         </mesh>
         {/* 1.25 m sweep — a 48" fan, which is what actually hangs in a room
@@ -1031,7 +1031,7 @@ function FixtureBodies() {
               rotation={[1.05, 0, 0]}
               castShadow
             >
-              <cylinderGeometry args={[0.058, 0.04, 0.11, 18]} />
+              <cylinderGeometry args={[0.058, 0.04, 0.11, 20]} />
               <primitive object={materials.brass} attach="material" />
             </mesh>
           </group>

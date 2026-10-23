@@ -585,10 +585,10 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
   return (
     <group>
       <instancedMesh ref={ref} args={[undefined, globeMat, GLOBES.length]}>
-        <sphereGeometry args={[1, 32, 20]} />
+        <sphereGeometry args={[1, 64, 20]} />
       </instancedMesh>
       <instancedMesh ref={cores} args={[undefined, coreMat, GLOBES.length]}>
-        <sphereGeometry args={[0.3, 20, 14]} />
+        <sphereGeometry args={[0.3, 48, 14]} />
       </instancedMesh>
       {/* The drops.
 
@@ -597,7 +597,7 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
           from the inner coffer slab down to its own globe, so the staggering
           reads as hanging rather than as scatter. One instanced draw. */}
       <instancedMesh ref={cords} args={[undefined, undefined, GLOBES.length]}>
-        <cylinderGeometry args={[0.0045, 0.0045, 1, 5]} />
+        <cylinderGeometry args={[0.0045, 0.0045, 1, 10]} />
         <meshStandardMaterial color="#1c1a17" roughness={0.6} metalness={0.3} />
       </instancedMesh>
       {/*
@@ -630,7 +630,7 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
             <primitive object={shade} attach="material" />
           </mesh>
           <mesh position={[0, l.y - 0.13, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.2, 40]} />
+            <circleGeometry args={[0.2, 48]} />
             <primitive object={shade} attach="material" />
           </mesh>
           {/* Three of the seven carry a light, placed just under the shade
@@ -874,7 +874,7 @@ function Facade({ state, gain }: { state: LightState; gain: number }) {
       {heads.map((h, i) => (
         <group key={`fx-${i}`}>
           <mesh position={[h.x, 0.08, h.z]} rotation={[-Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.13, 28]} />
+            <circleGeometry args={[0.13, 32]} />
             <primitive object={mat} attach="material" />
           </mesh>
           {MOUNTED && i === 1 && (
