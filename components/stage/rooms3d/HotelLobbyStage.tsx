@@ -26,22 +26,6 @@ import { HotelLobby3D } from "./HotelLobby3D";
 import { HotelLobbyLightRig, type LobbyFixtures } from "./HotelLobbyLightRig";
 
 /**
- * The brief's viewpoint: standing in the open front of the lobby, on the
- * centre line, looking straight down the long axis.
- *
- * Brief (0, 1.6, 0) looking -Z with zero yaw and 3-4 degrees of downward
- * pitch; in this file's corner frame that is (10, 1.6, 27) aimed at
- * (10, 0.38, 7). Position and target share an x, so the yaw is exactly zero -
- * the previous camera ran six degrees off the axis from a position beside the
- * left wall, which is what put the reception wall edge-on.
- *
- * `fov` is the vertical field at 16:9 and `LockHorizontalFov` holds the
- * horizontal field across viewport shapes, so this is not the brief's number:
- * 78 degrees horizontal at 16:9 is 2*atan(tan(39)/1.778) = 49 vertical. At
- * the 1264x843 the landmarks are measured in, that same horizontal field
- * gives the ~57 vertical the brief quotes.
- */
-/**
  * Quantise the daylight level into eight sky textures, spaced by square root.
  *
  * Still eight, and for the original reason: each sky is a 2048x1024 canvas,
@@ -72,6 +56,22 @@ function skyBucket(daylight: number): number {
   return q * q;
 }
 
+/**
+ * The brief's viewpoint: standing in the open front of the lobby, on the
+ * centre line, looking straight down the long axis.
+ *
+ * Brief (0, 1.6, 0) looking -Z with zero yaw and 3-4 degrees of downward
+ * pitch; in this file's corner frame that is (10, 1.6, 27) aimed at
+ * (10, 0.38, 7). Position and target share an x, so the yaw is exactly zero -
+ * the previous camera ran six degrees off the axis from a position beside the
+ * left wall, which is what put the reception wall edge-on.
+ *
+ * `fov` is the vertical field at 16:9 and `LockHorizontalFov` holds the
+ * horizontal field across viewport shapes, so this is not the brief's number:
+ * 78 degrees horizontal at 16:9 is 2*atan(tan(39)/1.778) = 49 vertical. At
+ * the 1264x843 the landmarks are measured in, that same horizontal field
+ * gives the ~57 vertical the brief quotes.
+ */
 export const LOBBY_CAMERA: CameraSpec = {
   position: [10, 1.6, 27],
   target: [10, 0.38, 7],

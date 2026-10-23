@@ -58,6 +58,7 @@ import { BoardroomStage } from "./rooms3d/BoardroomStage";
 import { WorkspaceStage } from "./rooms3d/WorkspaceStage";
 import { CxoCabinStage } from "./rooms3d/CxoCabinStage";
 import { HotelLobbyStage } from "./rooms3d/HotelLobbyStage";
+import { RestaurantStage } from "./rooms3d/RestaurantStage";
 import { CarShowroomStage } from "./rooms3d/CarShowroomStage";
 
 /** Window luminance that counts as "fully bright" for compositing. */
@@ -160,6 +161,8 @@ export function SpaceCanvas() {
           <CxoCabinStage />
         ) : space.model === "hotel-lobby" ? (
           <HotelLobbyStage />
+        ) : space.model === "restaurant" ? (
+          <RestaurantStage />
         ) : space.model === "car-showroom" ? (
           <CarShowroomStage />
         ) : space.model === "kitchen" ? (

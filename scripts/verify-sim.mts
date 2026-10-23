@@ -896,7 +896,7 @@ check(
 );
 
 /* ------------------------------------------------------------------ */
-console.log("\n18. A scene that only moves light settles inside two seconds");
+console.log("\n18. Scenes settle inside the client's two to three seconds");
 /*
  * The client's requirement, made into a gate.
  *
@@ -936,22 +936,33 @@ console.log("\n18. A scene that only moves light settles inside two seconds");
   let worst = 0;
   let counted = 0;
   /**
-   * The lobby's own budget, which is tighter and is not hardware-bound.
+   * Every staged scene, against the client's three seconds.
    *
    * The gate above excuses any scene that so much as mentions a shade, and
    * the lobby's Evening mentions one: it sets `hl-blinds` fully open, which
    * moves nothing when they already are. That was enough to keep a five-beat
-   * storyboard out of the budget, and it sat at 3.4 s.
+   * storyboard out of the budget while it sat at 3.4 s.
    *
-   * Deliberately not global. Five scenes in other rooms run past three
-   * seconds - Den's Movie, the Boardroom's Presentation, Good Night, Living
-   * Room Movie, Focus Work - and in every one the long beat is a wait for a
-   * screen, a blind or a compressor, not a pause anyone chose. Compressing
-   * those would sell hardware that does not exist, which is the same
-   * principle `PACE` already follows in leaving `travelMs` alone. The lobby
-   * has no such wait, so there is nothing there to excuse.
+   * These five are named rather than inferred, because they are the ones
+   * whose beats are a wait FOR the hardware rather than a pause anyone chose.
+   * Den's Movie holds 8.4 s on "Screen descends" because a projector aimed at
+   * a half-descended screen is not a demo; Good Night waits on a compressor,
+   * Focus Work and Presentation on blinds. Compressing those would sell
+   * hardware that does not exist, which is the rule `PACE` already follows by
+   * leaving `travelMs` alone.
+   *
+   * Inferring it from "does a step touch a motor" does not work: it excuses
+   * the lobby, and it still misses Den, whose longest hold is on a beat that
+   * commands nothing and is purely waiting for the beat before it.
    */
-  const LOBBY_BUDGET_MS = 3000;
+  const STAGED_BUDGET_MS = 3000;
+  const HARDWARE_PACED = new Set([
+    "master-bedroom/goodnight",
+    "living-room/movie",
+    "den/movie",
+    "workspace/focus-work",
+    "boardroom/presentation",
+  ]);
   let choreoWorst = 0;
   let choreoName = "";
   for (const space of spaces) {
@@ -959,11 +970,20 @@ console.log("\n18. A scene that only moves light settles inside two seconds");
       const steps = (scene as unknown as { steps?: Step[] }).steps ?? [];
       const all = [scene.targets as Record<string, Record<string, unknown>>, ...steps.map((s) => s.targets)];
       const total = choreography(scene);
-      if (space.id === "hotel-lobby" && total > choreoWorst) {
+      if (
+        steps.length &&
+        !HARDWARE_PACED.has(`${space.id}/${scene.id}`) &&
+        total > choreoWorst
+      ) {
         choreoWorst = total;
         choreoName = `${space.name} / ${scene.name}`;
       }
       if (all.some((t) => movesAMotor(space, t))) continue;
+      // Staged scenes are held to three seconds below instead. A storyboard
+      // is several beats by definition and cannot land in the time a single
+      // cross-fade does; holding both to one number would either break the
+      // storyboards or make the gate meaningless for everything else.
+      if (steps.length) continue;
       counted++;
       if (total > worst) {
         worst = total;
@@ -977,8 +997,8 @@ console.log("\n18. A scene that only moves light settles inside two seconds");
     `slowest of ${counted} is ${worstName} at ${worst}ms`,
   );
   check(
-    "every hotel lobby scene lands inside three seconds",
-    choreoWorst < LOBBY_BUDGET_MS,
+    "every staged scene lands inside three seconds",
+    choreoWorst < STAGED_BUDGET_MS,
     `slowest is ${choreoName} at ${choreoWorst}ms`,
   );
   check(
