@@ -29,7 +29,20 @@ void main() {
    * middle.
    */
   vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
-  vUv = p;
+  /**
+   * The v flip lives here, not in UNPACK_FLIP_Y_WEBGL.
+   *
+   * A GL framebuffer's origin is bottom-left and a decoded image's first row
+   * is its top, so something has to turn one into the other. The pixel-store
+   * flag is the usual answer and it is not reliable for every source type —
+   * on the ImageBitmap path it silently did nothing here and the room came up
+   * with its floor on the ceiling. Doing it in the vertex shader cannot be
+   * ignored by an upload path, costs nothing, and is true for every source.
+   *
+   * p.y runs 0 at the bottom of the screen to 1 at the top, so 1 - p.y hands
+   * the top of the frame texture row 0, which is the top of the plate.
+   */
+  vUv = vec2(p.x, 1.0 - p.y);
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }
 `;
@@ -263,11 +276,8 @@ export class PlateRenderer {
     if (!tex) return;
     gl.activeTexture(gl.TEXTURE0 + index);
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    // The plate's first row is the top of the frame; a GL texture's first row
-    // is the bottom. Flip on upload so `vUv` can be the clip-space position.
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    // Uploaded in the image's own orientation; the shader does the v flip.
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, gl.RGB, gl.UNSIGNED_BYTE, source);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     /**
      * Mipmaps, which are not obviously worth 33% more memory and are.
      *
