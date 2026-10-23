@@ -1068,7 +1068,7 @@ export function makeFabricNormal(
  * standing proud of a dark panel actually does — a flat fill reads as a
  * printed sign, and a printed sign is not what a lobby has.
  */
-export function makeLogoTexture(name = "THE MERIDIAN"): THREE.CanvasTexture {
+export function makeLogoTexture(name = "THE MERIDIAN", sub = ""): THREE.CanvasTexture {
   const w = 2560;
   const h = 1280;
   const c = document.createElement("canvas");
@@ -1151,7 +1151,10 @@ export function makeLogoTexture(name = "THE MERIDIAN"): THREE.CanvasTexture {
    * which clipped the T and the N straight off the ends. 215 and 42 comes to
    * about 2,170 and leaves a margin either side.
    */
-  track(name, 800, 215, 42);
+  track(name, sub ? 740 : 800, 215, 42);
+  // The sub-line, when a lockup carries one. 110 px: half the mark, small
+  // enough to read as a descriptor, large enough to survive the lobby.
+  if (sub) track(sub, 985, 110, 30);
 
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;

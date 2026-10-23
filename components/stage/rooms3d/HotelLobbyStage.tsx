@@ -19,6 +19,8 @@ import {
   shadeTransmission,
   sunElevation01,
 } from "@/lib/sim/photometry";
+import { Environment, Lightformer } from "@react-three/drei";
+import { Suspense } from "react";
 import { Stage3D, type CameraSpec } from "../Stage3D";
 import { HotelLobby3D } from "./HotelLobby3D";
 import { HotelLobbyLightRig, type LobbyFixtures } from "./HotelLobbyLightRig";
@@ -143,6 +145,35 @@ export function HotelLobbyStage() {
       bloomIntensity={0.5}
       bloomThreshold={1.3}
     >
+      {/*
+        A lobby-local environment: warm formers where the coves run and a
+        cool one at the glazing, so marble, lacquer and glass return THIS
+        room. Baked once, costs nothing per frame. Own Suspense, because a
+        suspending sibling takes the Canvas subtree down with it.
+      */}
+      <Suspense fallback={null}>
+        <Environment resolution={256} frames={1}>
+          {[6, 12, 18].map((z, i) => (
+            <Lightformer
+              key={i}
+              form="rect"
+              intensity={3}
+              color="#ffd9a0"
+              scale={[14, 0.5, 1]}
+              position={[8.5, 7, z - 12]}
+              rotation={[Math.PI / 2, 0, 0]}
+            />
+          ))}
+          <Lightformer
+            form="rect"
+            intensity={1.6}
+            color="#35537d"
+            scale={[10, 6, 1]}
+            position={[10, 2.5, 0]}
+            rotation={[0, -Math.PI / 2, 0]}
+          />
+        </Environment>
+      </Suspense>
       <HotelLobby3D
         daylight={daylight}
         skyStep={skyStep}
@@ -152,6 +183,7 @@ export function HotelLobbyStage() {
         occupied={(occ?.value ?? 1) > 0.5}
       />
       <HotelLobbyLightRig
+        gain={0.82}
         fixtures={fixtures}
         daylight={daylight}
         transmission={shadeTransmission(blinds.sheer, blinds.blackout)}

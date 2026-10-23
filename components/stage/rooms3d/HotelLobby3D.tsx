@@ -26,7 +26,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import type { ShadeState } from "@/lib/sim/types";
-import { RoundedBox } from "@react-three/drei";
+import { MeshReflectorMaterial, RoundedBox } from "@react-three/drei";
 import {
   makeArtTexture,
   makeContactShadow,
@@ -116,7 +116,7 @@ export const HL_PLAN = {
    */
   art: { x: 3.9, z: 0.16, y: 2.4, w: 2.9, h: 2.1 },
   /** Cascading water wall at the far end. */
-  water: { x0: 7.2, x1: 11.9, y0: 0.35, y1: 5.3, z: 0.22 },
+  water: { x0: 7.2, x1: 11.9, y0: 0.35, y1: 6.15, z: 0.22 },
   /** Sculpture and plinth, standing in front of it. */
   sculpture: { x: 9.55, z: 2.3 },
   /** Chandelier cluster, hung from the inner coffer. */
@@ -190,7 +190,7 @@ const M = {
    * the walls, which is why they went flat with it.
    */
   floor: new THREE.MeshPhysicalMaterial({
-    color: "#a89d8c",
+    color: "#8a7f70",
     roughness: 0.24,
     metalness: 0.02,
     // Was 0.6. A clearcoat is a second specular lobe on top of the first,
@@ -213,7 +213,13 @@ const M = {
   // Painted plaster really is this pale, but it is also the largest bounce
   // surface above the largest bounce surface below — a few points off each
   // keeps the pair out of the shoulder of the curve together.
-  ceiling: new THREE.MeshStandardMaterial({ color: "#e3dccf", roughness: 0.95 }),
+  /**
+   * Dark bronze, not cream. The reference's ceiling hierarchy is inverted
+   * from ours: the fields are deep brown-bronze and the cove ribbons blaze
+   * out of them, where ours had pale fields that the coves could only
+   * politely brighten. The soffit faces the coves actually wash stay pale.
+   */
+  ceiling: new THREE.MeshStandardMaterial({ color: "#54402c", roughness: 0.9 }),
   soffit: new THREE.MeshStandardMaterial({ color: "#dbd3c4", roughness: 0.92 }),
   /** The reveal inside each coffer step, where the cove sits. */
   reveal: new THREE.MeshStandardMaterial({
@@ -221,7 +227,7 @@ const M = {
     roughness: 0.9,
     side: THREE.DoubleSide,
   }),
-  wall: new THREE.MeshStandardMaterial({ color: "#c2b8a8", roughness: 0.93 }),
+  wall: new THREE.MeshStandardMaterial({ color: "#b89d7a", roughness: 0.93 }),
   /** Dark fluted wood on the reception wall. */
   wood: new THREE.MeshStandardMaterial({ color: "#5a4026", roughness: 0.55 }),
   woodDark: new THREE.MeshStandardMaterial({ color: "#2e2117", roughness: 0.8 }),
@@ -314,7 +320,7 @@ const M = {
     sheenColor: new THREE.Color("#e0b07a"),
   }),
   /** Deep navy-teal rug under the main group. */
-  rug: new THREE.MeshStandardMaterial({ color: "#1d3240", roughness: 1 }),
+  rug: new THREE.MeshStandardMaterial({ color: "#2c3850", roughness: 1 }),
 
   planter: new THREE.MeshStandardMaterial({ color: "#3a3630", roughness: 0.68 }),
   planterPale: new THREE.MeshStandardMaterial({ color: "#c9c1b2", roughness: 0.72 }),
@@ -590,12 +596,36 @@ function Palm({ height = 3.4 }: { height?: number }) {
  * painted on a flat ceiling.
  */
 function Shell() {
+  const quality = useQuality();
   return (
     <group>
-      {/* Floor. */}
+      {/*
+        The floor, and on the high tier it is a reflector - the showroom
+        lesson applied on day one rather than after three rounds: the
+        reference's marble carries metre-long amber streaks of every cove and
+        lamp, and a diffuse material cannot say that at any albedo. The base
+        colour and roughness here ARE the floor's grade; `M.floor` below only
+        serves machines that cannot afford the mirror pass.
+      */}
       <mesh position={[HL.w / 2, 0, HL.d / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[HL.w, HL.d]} />
-        <primitive object={M.floor} attach="material" />
+        {quality === "high" ? (
+          <MeshReflectorMaterial
+            resolution={1024}
+            mixBlur={1}
+            mixStrength={3}
+            blur={[400, 120]}
+            mirror={0.5}
+            depthScale={1.2}
+            minDepthThreshold={0.4}
+            maxDepthThreshold={1.4}
+            color="#7d7366"
+            roughness={0.32}
+            metalness={0}
+          />
+        ) : (
+          <primitive object={M.floor} attach="material" />
+        )}
       </mesh>
       {/*
         Joint lines, as a grid of thin dark insets.
@@ -859,9 +889,10 @@ function Reception() {
   const mid = (d.z0 + d.z1) / 2;
 
   const logoMat = useMemo(() => {
-    const map = makeLogoTexture();
+    const map = makeLogoTexture("THE GRAND", "LUXURY HOTEL");
     return new THREE.MeshStandardMaterial({
       map,
+      color: "#e8c07a",
       roughness: 0.38,
       metalness: 0.35,
       // Lifted by its own map, so the letters hold up when the accent channel
@@ -904,6 +935,21 @@ function Reception() {
         <boxGeometry args={[d.d + 0.12, 0.05, len + 0.1]} />
         <primitive object={M.stone} attach="material" />
       </mesh>
+      {/*
+        Two lines of light: under the counter's overhang and at the toe-kick.
+        In the reference these are what pull the desk out of the panelling -
+        a marble front with no glow under its lip reads as a cabinet.
+      */}
+      {[d.h - 0.06, 0.1].map((y, gi) => (
+        <mesh
+          key={`dg-${gi}`}
+          position={[d.x + d.d / 2 + 0.01, y, mid]}
+          rotation={[0, Math.PI / 2, 0]}
+        >
+          <planeGeometry args={[len - 0.15, 0.045]} />
+          <meshBasicMaterial color="#ffc98a" toneMapped={false} />
+        </mesh>
+      ))}
       {/* Recessed plinth, so the desk floats over its own underglow. */}
       <mesh position={[d.x - 0.04, 0.035, mid]}>
         <boxGeometry args={[d.d - 0.18, 0.07, len - 0.1]} />
@@ -1268,7 +1314,7 @@ function Lounge() {
   return (
     <group position={[x, 0, z]} rotation={[0, 0.22, 0]}>
       <group position={[0, 0, 0.2]}>
-        <Rug width={8.6} depth={6.8} />
+        <Rug width={7.0} depth={5.0} />
       </group>
 
       {/*
@@ -1525,7 +1571,7 @@ export function WaterWall({
       new THREE.ShaderMaterial({
         uniforms: {
           uTime: { value: 0 },
-          uColor: { value: new THREE.Color("#2e8fd0") },
+          uColor: { value: new THREE.Color("#1d3f9e") },
           uLevel: { value: 1 },
         },
         vertexShader: WATER_VERT,
@@ -1682,7 +1728,7 @@ function Sculpture() {
   }, []);
 
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, 0, z]} scale={[1.45, 1.45, 1.45]}>
       <mesh position={[0, 0.46, 0]} castShadow receiveShadow>
         <boxGeometry args={[0.95, 0.92, 0.95]} />
         <primitive object={M.marble} attach="material" />

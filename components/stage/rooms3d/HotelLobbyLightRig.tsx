@@ -38,9 +38,9 @@ import type { Quality } from "@/lib/device";
 import { COFFER, HL, HL_PLAN, LAMPS, WaterWall } from "./HotelLobby3D";
 
 const GAIN = {
-  cove: 46,
+  cove: 27,
   coveEmissive: 4.4,
-  downlight: 46,
+  downlight: 28,
   downlightEmissive: 6,
   arch: 20,
   archEmissive: 3.6,
@@ -798,6 +798,21 @@ function Feature({ state, gain }: { state: LightState; gain: number }) {
       {/* The cascade itself. It lives with the lighting rather than with the
           joinery because it *is* the fitting — the water is the aperture. */}
       <WaterWall colour={colour} level={glow} />
+      {/*
+        The one new light the look pass was allowed, spent here: a blue point
+        a metre off the sheet, so the sculpture rims in silhouette against it
+        and the flanking stone and floor take a blue pool. Rides the feature
+        circuit, so Closing takes it down with the water.
+      */}
+      {MOUNTED && (
+        <pointLight
+          position={[(w.x0 + w.x1) / 2, 2.4, w.z + 1.0]}
+          color="#2b5bff"
+          intensity={2.2 * out * gain}
+          distance={6}
+          decay={2}
+        />
+      )}
       {/* Same axis, same mistake: unrotated, this emitted along -Z — into
           the back wall it is mounted on. The room is at +Z of it. */}
       {MOUNTED && (
