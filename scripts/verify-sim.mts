@@ -922,19 +922,48 @@ console.log("\n18. A scene that only moves light settles inside two seconds");
       return device.kind === "av" && typeof patch.screen === "number";
     });
 
+  const choreography = (scene: (typeof spaces)[number]["scenes"][number]) => {
+    const steps = (scene as unknown as { steps?: Step[] }).steps ?? [];
+    let total = paceFade(scene.fadeMs ?? 0);
+    for (const step of steps) {
+      const fades = Object.values(step.targets).map((t) => paceFade(Number(t.fadeMs ?? 0)));
+      total += Math.max(paceHold(step.holdMs ?? 0), fades.length ? Math.max(...fades) : 0);
+    }
+    return total;
+  };
+
   let worstName = "";
   let worst = 0;
   let counted = 0;
+  /**
+   * The lobby's own budget, which is tighter and is not hardware-bound.
+   *
+   * The gate above excuses any scene that so much as mentions a shade, and
+   * the lobby's Evening mentions one: it sets `hl-blinds` fully open, which
+   * moves nothing when they already are. That was enough to keep a five-beat
+   * storyboard out of the budget, and it sat at 3.4 s.
+   *
+   * Deliberately not global. Five scenes in other rooms run past three
+   * seconds - Den's Movie, the Boardroom's Presentation, Good Night, Living
+   * Room Movie, Focus Work - and in every one the long beat is a wait for a
+   * screen, a blind or a compressor, not a pause anyone chose. Compressing
+   * those would sell hardware that does not exist, which is the same
+   * principle `PACE` already follows in leaving `travelMs` alone. The lobby
+   * has no such wait, so there is nothing there to excuse.
+   */
+  const LOBBY_BUDGET_MS = 3000;
+  let choreoWorst = 0;
+  let choreoName = "";
   for (const space of spaces) {
     for (const scene of space.scenes) {
       const steps = (scene as unknown as { steps?: Step[] }).steps ?? [];
       const all = [scene.targets as Record<string, Record<string, unknown>>, ...steps.map((s) => s.targets)];
-      if (all.some((t) => movesAMotor(space, t))) continue;
-      let total = paceFade(scene.fadeMs ?? 0);
-      for (const step of steps) {
-        const fades = Object.values(step.targets).map((t) => paceFade(Number(t.fadeMs ?? 0)));
-        total += Math.max(paceHold(step.holdMs ?? 0), fades.length ? Math.max(...fades) : 0);
+      const total = choreography(scene);
+      if (space.id === "hotel-lobby" && total > choreoWorst) {
+        choreoWorst = total;
+        choreoName = `${space.name} / ${scene.name}`;
       }
+      if (all.some((t) => movesAMotor(space, t))) continue;
       counted++;
       if (total > worst) {
         worst = total;
@@ -946,6 +975,11 @@ console.log("\n18. A scene that only moves light settles inside two seconds");
     "every light-only scene lands under two seconds",
     worst < 2000,
     `slowest of ${counted} is ${worstName} at ${worst}ms`,
+  );
+  check(
+    "every hotel lobby scene lands inside three seconds",
+    choreoWorst < LOBBY_BUDGET_MS,
+    `slowest is ${choreoName} at ${choreoWorst}ms`,
   );
   check(
     "the pace actually compresses the authored timings",

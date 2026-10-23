@@ -362,7 +362,7 @@ export const hotelLobby: Space = {
       name: "Evening",
       icon: "◐",
       blurb:
-        "Five stages over eight seconds: daytime neutral white, then warmer colour temperature, then the water wall comes up, then the chandeliers, then the music. The sheet's own storyboard, run as one button.",
+        "Five stages in under three seconds: daytime neutral white, then warmer colour temperature, then the water wall comes up, then the chandeliers, then the music. The sheet's own storyboard, run as one button.",
       fadeMs: 1600,
       targets: {
         "hl-general": { on: true, level: 70, cct: 4400, sat: 0 },
@@ -377,35 +377,35 @@ export const hotelLobby: Space = {
       steps: [
         {
           label: "Warmer colour temperature",
-          holdMs: 2200,
+          holdMs: 1500,
           targets: {
-            "hl-general": { on: true, level: 46, cct: 2800, fadeMs: 2000, sat: 0 },
-            "hl-cove": { on: true, level: 78, cct: 2500, fadeMs: 2000, sat: 0 },
-            "hl-arch": { on: true, level: 70, cct: 2700, fadeMs: 2000, sat: 0 },
-            "hl-facade": { on: true, level: 80, cct: 2600, fadeMs: 2000, sat: 0 },
+            "hl-general": { on: true, level: 46, cct: 2800, fadeMs: 1500, sat: 0 },
+            "hl-cove": { on: true, level: 78, cct: 2500, fadeMs: 1500, sat: 0 },
+            "hl-arch": { on: true, level: 70, cct: 2700, fadeMs: 1500, sat: 0 },
+            "hl-facade": { on: true, level: 80, cct: 2600, fadeMs: 1500, sat: 0 },
           },
         },
         {
           label: "Feature lighting increases",
-          holdMs: 1900,
+          holdMs: 1400,
           targets: {
             // Warm-blue, as the sheet's Evening frame shows it: the cascade
             // stays cool against a room that has just gone warm, which is the
             // contrast that makes it the subject.
-            "hl-feature": { on: true, level: 88, cct: 4200, hue: 202, sat: 58, fadeMs: 1700 },
-            "hl-accent": { on: true, level: 82, cct: 3000, fadeMs: 1700, sat: 0 },
+            "hl-feature": { on: true, level: 88, cct: 4200, hue: 202, sat: 58, fadeMs: 1400 },
+            "hl-accent": { on: true, level: 82, cct: 3000, fadeMs: 1400, sat: 0 },
           },
         },
         {
           label: "Decorative lighting activates",
-          holdMs: 2100,
+          holdMs: 1500,
           targets: {
-            "hl-decor": { on: true, level: 92, cct: 2200, fadeMs: 1900, sat: 0 },
+            "hl-decor": { on: true, level: 92, cct: 2200, fadeMs: 1500, sat: 0 },
           },
         },
         {
           label: "Music starts",
-          holdMs: 1400,
+          holdMs: 1200,
           targets: {
             "hl-music": { on: true, source: "Jazz Trio", volume: 38 },
           },
