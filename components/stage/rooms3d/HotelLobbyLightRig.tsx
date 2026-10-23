@@ -209,7 +209,7 @@ function Downlights({ state, gain }: { state: LightState; gain: number }) {
   return (
     <group>
       <instancedMesh ref={ref} args={[undefined, undefined, LENSES.length]}>
-        <circleGeometry args={[0.06, 14]} />
+        <circleGeometry args={[0.06, 28]} />
         <primitive object={lens} attach="material" />
       </instancedMesh>
       {EMITTERS.map((p, i) => (
@@ -585,10 +585,10 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
   return (
     <group>
       <instancedMesh ref={ref} args={[undefined, globeMat, GLOBES.length]}>
-        <sphereGeometry args={[1, 16, 12]} />
+        <sphereGeometry args={[1, 32, 20]} />
       </instancedMesh>
       <instancedMesh ref={cores} args={[undefined, coreMat, GLOBES.length]}>
-        <sphereGeometry args={[0.3, 10, 8]} />
+        <sphereGeometry args={[0.3, 20, 14]} />
       </instancedMesh>
       {/* The drops.
 
@@ -626,11 +626,11 @@ function Decorative({ state, gain }: { state: LightState; gain: number }) {
       {LAMPS.map((l, i) => (
         <group key={`lamp-${i}`} position={[l.x, 0, l.z]}>
           <mesh position={[0, l.y, 0]}>
-            <cylinderGeometry args={[0.15, 0.21, 0.26, 16, 1, true]} />
+            <cylinderGeometry args={[0.15, 0.21, 0.26, 48, 1, true]} />
             <primitive object={shade} attach="material" />
           </mesh>
           <mesh position={[0, l.y - 0.13, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.2, 16]} />
+            <circleGeometry args={[0.2, 40]} />
             <primitive object={shade} attach="material" />
           </mesh>
           {/* Three of the seven carry a light, placed just under the shade
@@ -874,7 +874,7 @@ function Facade({ state, gain }: { state: LightState; gain: number }) {
       {heads.map((h, i) => (
         <group key={`fx-${i}`}>
           <mesh position={[h.x, 0.08, h.z]} rotation={[-Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.13, 14]} />
+            <circleGeometry args={[0.13, 28]} />
             <primitive object={mat} attach="material" />
           </mesh>
           {MOUNTED && i === 1 && (

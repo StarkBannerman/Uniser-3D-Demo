@@ -22,7 +22,7 @@
  * which is the only way a room this size runs at all. See `HotelLobbyLightRig`.
  */
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import type { ShadeState } from "@/lib/sim/types";
@@ -37,6 +37,7 @@ import {
   makeRugSlab,
   sweepProfile,
 } from "./geometry";
+import { useSim } from "@/lib/sim/store";
 import { useContinuousMotion, useQuality } from "../Stage3D";
 
 /* ------------------------------------------------------------------ */
@@ -974,7 +975,7 @@ function Reception() {
             <primitive object={M.woodDark} attach="material" />
           </mesh>
           <mesh position={[0, 1.63, 0]} castShadow>
-            <sphereGeometry args={[0.115, 14, 12]} />
+            <sphereGeometry args={[0.115, 24, 18]} />
             <primitive object={M.woodDark} attach="material" />
           </mesh>
         </group>
@@ -1166,7 +1167,7 @@ function CoffeeTable({
         <group position={[0, h + 0.04, 0]}>
           <group position={[r * 0.26, 0, -r * 0.1]}>
             <mesh castShadow>
-              <cylinderGeometry args={[0.06, 0.08, 0.22, 18]} />
+              <cylinderGeometry args={[0.06, 0.08, 0.22, 36]} />
               <primitive object={M.brass} attach="material" />
             </mesh>
             {[0, 1, 2, 3, 4, 5].map((j) => (
@@ -1209,11 +1210,11 @@ function SideTable({ h = 0.56 }: { h?: number }) {
         <primitive object={M.marble} attach="material" />
       </mesh>
       <mesh position={[0, h / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.025, 0.025, h, 12]} />
+        <cylinderGeometry args={[0.025, 0.025, h, 24]} />
         <primitive object={M.brass} attach="material" />
       </mesh>
       <mesh position={[0, 0.02, 0]}>
-        <cylinderGeometry args={[0.19, 0.21, 0.035, 22]} />
+        <cylinderGeometry args={[0.19, 0.21, 0.035, 48]} />
         <primitive object={M.brass} attach="material" />
       </mesh>
     </group>
@@ -1413,22 +1414,22 @@ function Lamps() {
           {l.kind === "floor" ? (
             <>
               <mesh position={[0, l.y / 2, 0]} castShadow>
-                <cylinderGeometry args={[0.019, 0.026, l.y - 0.16, 12]} />
+                <cylinderGeometry args={[0.019, 0.026, l.y - 0.16, 24]} />
                 <primitive object={M.brass} attach="material" />
               </mesh>
               <mesh position={[0, 0.02, 0]} castShadow>
-                <cylinderGeometry args={[0.15, 0.19, 0.035, 22]} />
+                <cylinderGeometry args={[0.15, 0.19, 0.035, 48]} />
                 <primitive object={M.brass} attach="material" />
               </mesh>
             </>
           ) : (
             <>
               <mesh position={[0, l.y - 0.26, 0]} castShadow>
-                <cylinderGeometry args={[0.019, 0.019, 0.3, 10]} />
+                <cylinderGeometry args={[0.019, 0.019, 0.3, 24]} />
                 <primitive object={M.brass} attach="material" />
               </mesh>
               <mesh position={[0, l.y - 0.42, 0]} castShadow>
-                <cylinderGeometry args={[0.08, 0.095, 0.04, 18]} />
+                <cylinderGeometry args={[0.08, 0.095, 0.04, 40]} />
                 <primitive object={M.brass} attach="material" />
               </mesh>
             </>
@@ -1592,10 +1593,36 @@ export function WaterWall({
    * the moment the page opens. On the low tier the water holds a still frame
    * and the room goes idle between presses like every other room.
    */
-  const animated = level > 0.02 && useQuality() === "high";
+  /**
+   * ...and only until the room has been left alone for a while.
+   *
+   * Continuous motion is what stops a room ever being "still", and still is
+   * the state the renderer saves its sharpest frame for. This cascade ran
+   * forever, so the lobby sat permanently one tier below its best resolution
+   * - measured, 1.5 where the showroom reaches 2.5.
+   *
+   * A frozen cascade and a flowing one are the same picture: the streaks are
+   * a static texture scrolled by a uniform, so a held frame is indis-
+   * tinguishable from a moving one in a screenshot. Nobody looking at a still
+   * image can tell, and anybody *watching* the room is interacting with it,
+   * which starts it again. So it flows for eight seconds after anything
+   * changes and then settles, and the room gets its sharp frame.
+   */
+  const [flowing, setFlowing] = useState(true);
+  const idle = useRef(0);
+  const states = useSim((st) => st.states);
+  useEffect(() => {
+    idle.current = 0;
+    setFlowing(true);
+  }, [states]);
+
+  const animated = level > 0.02 && useQuality() === "high" && flowing;
   useContinuousMotion("hl-water", animated);
   useFrame((_, dt) => {
-    if (animated) mat.uniforms.uTime.value += dt * 0.42;
+    if (!animated) return;
+    mat.uniforms.uTime.value += dt * 0.42;
+    idle.current += dt;
+    if (idle.current > 8) setFlowing(false);
   });
 
   return (
@@ -2111,7 +2138,7 @@ function Facade({
       </mesh>
       {[0.22, 0.56, 0.9].map((t, i) => (
         <mesh key={`cc-${i}`} position={[f.x + 6.6, 3.25, f.z0 + span * t]} castShadow>
-          <cylinderGeometry args={[0.24, 0.28, 6.5, 16]} />
+          <cylinderGeometry args={[0.24, 0.28, 6.5, 32]} />
           <primitive object={M.stone} attach="material" />
         </mesh>
       ))}
@@ -2208,7 +2235,7 @@ function Car() {
             rotation={[0, 0, Math.PI / 2]}
             castShadow
           >
-            <cylinderGeometry args={[0.33, 0.33, 0.24, 18]} />
+            <cylinderGeometry args={[0.33, 0.33, 0.24, 40]} />
             <meshStandardMaterial color="#0c0d0f" roughness={0.85} />
           </mesh>
         )),
@@ -2351,7 +2378,7 @@ function AutomationTells({
       {[HL_PLAN.lounge, HL_PLAN.lounge2].map((p, i) => (
         <group key={`occ-${i}`} position={[p.x, ceilingYAt(p.x, p.z) - 0.03, p.z]}>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.085, 0.085, 0.05, 20]} />
+            <cylinderGeometry args={[0.085, 0.085, 0.05, 36]} />
             <primitive object={M.soffit} attach="material" />
           </mesh>
           <mesh position={[0, -0.028, 0]} rotation={[Math.PI / 2, 0, 0]}>
@@ -2370,7 +2397,7 @@ function AutomationTells({
       ].map((p, i) => (
         <group key={`spk-${i}`} position={[p.x, ceilingYAt(p.x, p.z) - 0.03, p.z]}>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.11, 0.11, 0.04, 20]} />
+            <cylinderGeometry args={[0.11, 0.11, 0.04, 36]} />
             <primitive object={M.soffit} attach="material" />
           </mesh>
           <mesh position={[0, -0.024, 0]} rotation={[Math.PI / 2, 0, 0]}>

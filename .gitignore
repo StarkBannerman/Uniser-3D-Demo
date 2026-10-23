@@ -31,3 +31,7 @@ Thumbs.db
 # tracked, because the /lookdev comparison page loads them.
 *.mp4
 *.mov
+
+# Screen recordings dropped in for review — large, and not source.
+*.mov
+*.mp4
