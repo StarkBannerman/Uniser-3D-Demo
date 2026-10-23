@@ -231,36 +231,48 @@ function Hvac() {
   const states = useSim((s) => s.states);
   const patch = useSim((s) => s.patch);
   const climate = space?.devices.find((d) => d.kind === "climate");
-  const tempSensor = space?.devices.find(
-    (d) => d.kind === "sensor" && d.metric === "temperature",
-  );
-  if (!climate || !space) return null;
-  const st = states[climate.id] as ClimateState | undefined;
-  if (!st) return null;
+  const st = climate ? (states[climate.id] as ClimateState | undefined) : undefined;
+  const setpoint = st?.setpointC ?? 22;
+
   /**
-   * The measured temperature, from the simulation rather than from a second
-   * animation of our own.
+   * The measured temperature, animated here rather than read from the sim.
    *
-   * The engine already integrates room temperature toward setpoint on a
-   * thermal time constant, and the sensor strip reads the same number. A
-   * panel here running its own ramp would be a second opinion about one
-   * fact, which is exactly what this app's one-state rule exists to stop.
+   * The engine does model room temperature properly, on a thermal time
+   * constant — but it integrates against *simulated* minutes, and the clock
+   * sits paused unless a presenter scrubs it. So the honest number is frozen
+   * at whatever it started as, which is not a reading anybody can watch
+   * answer a setpoint. This is the brief's ask taken literally: a tenth of a
+   * degree a second toward the setpoint, in real time, for the panel only.
+   * Nothing downstream reads it and it does not touch the plates.
    */
-  const measured = tempSensor
-    ? (states[tempSensor.id] as { value?: number } | undefined)?.value
-    : undefined;
+  const [measured, setMeasured] = useState(() => setpoint + 2);
+  useEffect(() => {
+    const t = setInterval(() => {
+      setMeasured((now) => {
+        const gap = setpoint - now;
+        if (Math.abs(gap) < 0.05) return setpoint;
+        return now + Math.sign(gap) * 0.1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [setpoint]);
+
+  if (!climate || !space || !st) return null;
+  const settled = Math.abs(measured - setpoint) < 0.1;
 
   return (
     <Card title="HVAC" note={st.on ? st.mode : "off"}>
       <div className="mb-2 grid grid-cols-2 gap-2">
         <div className="rounded-lg bg-shell-850 px-2 py-1.5">
           <div className="text-[9px] uppercase tracking-wider text-shell-500">Setpoint</div>
-          <div className="text-sm tabular-nums text-shell-100">{st.setpointC}°C</div>
+          <div className="text-sm tabular-nums text-shell-100">{setpoint}°C</div>
         </div>
         <div className="rounded-lg bg-shell-850 px-2 py-1.5">
-          <div className="text-[9px] uppercase tracking-wider text-shell-500">Measured</div>
+          <div className="text-[9px] uppercase tracking-wider text-shell-500">
+            {settled ? "At setpoint" : st.mode === "fan" ? "Circulating" : "Reaching"}
+          </div>
           <div className="text-sm tabular-nums text-shell-100">
-            {measured === undefined ? "—" : `${measured.toFixed(1)}°C`}
+            {measured.toFixed(1)}°C
           </div>
         </div>
       </div>
