@@ -62,8 +62,18 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
   }, [spaceId, loadSpace]);
 
   const space = useSim((s) => s.space);
-  /** A 3D room carries its own scene control on the phone; a flat one does not. */
-  const roomIs3D = space?.renderer === "3d";
+  /**
+   * Rooms that draw themselves and hand their scene control to the phone.
+   *
+   * Both the live 3D stage and the plates compositor put a picture of the
+   * actual room in the panel, and the phone beside it is where their scenes
+   * live. The illustrated and photo paths do not, and still need the wide
+   * scene pad underneath. Testing `=== "3d"` here was right until the
+   * restaurant moved to plates, at which point the room grew a second copy
+   * of its own scene buttons.
+   */
+  const roomDrawsItself =
+    space?.renderer === "3d" || space?.renderer === "plates";
 
   // The store loads in an effect, so the first paint has no space yet.
   if (!space || loadedId !== spaceId) {
@@ -111,7 +121,7 @@ export function DemoStage({ spaceId }: { spaceId: string }) {
               there is nothing to sit beside it; a space without a 3D room still
               needs the wide scene pad underneath. */}
           <SpaceCanvas />
-          {!roomIs3D && (
+          {!roomDrawsItself && (
             <div className="shrink-0 space-y-2">
               <ScenePad />
               <SceneCue />
