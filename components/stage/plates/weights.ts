@@ -66,16 +66,27 @@ function srgbToLinear(c: number): number {
 }
 
 /**
- * Layers whose plate already carries its own colour.
+ * Layers whose plate is warm enough already to skip the runtime tint.
  *
- * The pendants are smoked amber glass around a filament, and the globes are
- * in shot. That colour is in the plate, because it is the colour of an
- * object rather than of a beam. Multiplying it by the circuit's 2000 K tint
- * as well applies the warmth twice and the cluster goes orange enough to
- * read as a fault. Every other circuit lights surfaces it does not appear
- * on, so for those the tint is the whole story.
+ * Empty, and the measurement is why. The brief says every circuit was
+ * rendered "at 100% in white"; four were not. Sampling the lit pixels of
+ * each plate gives rs_general, rs_feature and rs_arch at R/B about 1.08,
+ * which is neutral, against rs_pendant 1.68, rs_table 1.80, rs_tunable 2.14
+ * and rs_cove 2.86 — those four carry warm light of their own, so tinting
+ * them applies some of the warmth twice.
+ *
+ * The pendants were neutralised here for exactly that reason and it was
+ * wrong. R/B 1.68 is roughly a 4000 K source and the fixture is specified at
+ * 1900-2900 K, so the plate is not pre-warmed to anything like the colour
+ * the scene asks for: skipping the tint left white globes over a warm room
+ * and took the midtone warmth of Fine Dining from R-B +0.217 to +0.144. The
+ * tint is closer to right than no tint, even double-counted.
+ *
+ * The real repair is upstream — re-render those four neutral — and then this
+ * set stays empty because it is true rather than because it is the lesser
+ * error.
  */
-const NEUTRAL_LAYERS = new Set<string>(["rs_pendant"]);
+const NEUTRAL_LAYERS = new Set<string>();
 
 /** Rec. 709 luminance of a linear RGB triple. */
 function luminance([r, g, b]: [number, number, number]): number {

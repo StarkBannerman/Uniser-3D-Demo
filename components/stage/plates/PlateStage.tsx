@@ -44,26 +44,18 @@ import { computeWeights, emptyWeights } from "./weights";
 /**
  * Scene exposure, applied to the summed HDR before the tone curve.
  *
- * One number for the whole room, and the only grading knob the runtime has.
- * Each plate is normalised by its own peak, so this is what decides where the
- * composite as a whole sits on the curve.
+ * Re-settled at 1.4 when tints moved to luminance 1. That change roughly
+ * doubles a warm tint — a 2700 K triple carries about half the luminance of
+ * a neutral one, and dividing it out gives the light back — so the 2.5 that
+ * was right before became about 40% too hot, which lifts the blacks and
+ * squeezes Evening, Dinner, Fine Dining and Private Event into the same
+ * picture. 1.4 puts settled Dinner back at 0.138 mean, where it was when the
+ * grade was checked against the plate set's own still.
  *
- * 2.5 was measured rather than chosen. At 1.0 this shader reproduces the plate
- * set’s own `still_sd.jpg` almost exactly — mean luminance 0.091 against its
- * 0.103, same distribution, 2% of pixels differing by more than 0.1 — which is
- * the evidence that the decode, the weights and AgX are all correct, and also
- * the evidence that the plate author’s grade is darker than this demo wants:
- * settled Dinner lands at 0.073 and the far half of the floor goes to black.
- * The brief’s acceptance mean of 0.22 needs about 5.5, and at 5.5 the sky
- * blows out — 3.0% of pixels clipped against the acceptance’s own 1% ceiling,
- * and all of it the window rather than the room — while the ceiling flattens
- * and takes the contrast this room is sold on with it. 2.5 holds 0.137 mean at
- * 0.40% clipped and is the brightest grade that keeps the dark half dark.
- *
- * `?exposure=` overrides it, so this can be re-settled against the client’s
- * reference frame once that frame is in the repo. It is not today.
+ * `?exposure=` overrides it. It still wants re-settling against the client's
+ * reference frame, which is not in the repo.
  */
-const EXPOSURE = 2.5;
+const EXPOSURE = 1.4;
 
 function param(name: string): string | null {
   if (typeof window === "undefined") return null;
