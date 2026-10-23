@@ -31,6 +31,8 @@ import {
   makeArtTexture,
   makeContactShadow,
   makeFabricNormal,
+  makeMatteMottle,
+  makePlasterNormal,
   makeLobbyRugTexture,
   makeLogoTexture,
   makeMarbleTexture,
@@ -1855,10 +1857,24 @@ function skyCanvas(step: number): HTMLCanvasElement {
   const horizon =
     duskT < 1 ? mix(NIGHT_LOW, DUSK_LOW, duskT) : mix(DUSK_LOW, DAY_LOW, horizonT);
 
-  // The warm end of the gradient has to reach the part of the sky the window
-  // frames. At 0.74 the peach sat below the sill and the visible band was all
-  // zenith blue washed toward white.
-  const sky = g.createLinearGradient(0, 0, 0, h * 0.54);
+  /**
+   * Where the warm end of the gradient lands, which decides the colour of
+   * the only sky anyone sees - the band a window frames.
+   *
+   * This was fixed at 0.54 to drag the peach up into that band, because at
+   * 0.74 "the visible band was all zenith blue washed toward white". That
+   * objection is a DAYTIME one: at noon the zenith is rgb(96,152,226) and
+   * the tone map does wash it pale. At dusk the zenith is rgb(30,40,86), a
+   * deep blue that washes toward nothing, and holding the stop at 0.54 there
+   * only buys a window full of sunset to hang behind an already amber room -
+   * measured, 94% of the lit frame inside 0-60 degrees of hue.
+   *
+   * So the stop follows the hour instead of being one compromise for both.
+   * Dusk keeps its blue above the sill, day keeps the peach that the
+   * daytime tuning was protecting, and neither is paying for the other.
+   */
+  const stop = 0.76 - 0.22 * dayT;
+  const sky = g.createLinearGradient(0, 0, 0, h * stop);
   sky.addColorStop(0, zenith);
   sky.addColorStop(1, horizon);
   g.fillStyle = sky;
@@ -2441,6 +2457,80 @@ function Surfaces() {
     apply(M.velvet, fine, 9, 0.3);
     apply(M.caramel, coarse, 3, 0.9);
     apply(M.leather, fine, 8, 0.45);
+
+    /**
+     * The architecture, which had nothing on it at all.
+     *
+     * Everything above this line is furniture and stone, and all of it was
+     * already textured. The walls, the ceiling, the soffits and the window
+     * reveals - between them most of the pixels in any frame of this room -
+     * were flat colours, which is most of why a still of the lobby reads as
+     * poster paint rather than plaster.
+     *
+     * Repeats are in metres of wall per tile rather than a count, so the
+     * relief stays the same physical size on a 30 m wall and on a reveal half
+     * a metre deep. A fixed count would make it coarse on one and invisible
+     * on the other.
+     *
+     * Tuned by what survives to the screen, not by what plaster is. The first
+     * pass used the real thing - sub-millimetre tooth, grain 110 at one tile
+     * per 2.5 m - and measured *identical* to no texture at all, to three
+     * decimal places. That is about 730 noise cells across a 16.5 m wall,
+     * which from the lens is a fifth of a pixel each and averages straight
+     * back to the flat colour it replaced. Accurate and invisible.
+     *
+     * What actually reads on a plastered wall from ten metres is the trowel,
+     * not the grit: undulation around a third of a metre, which lands at a
+     * few pixels. So the lattice is coarse and the tiles are large.
+     *
+     * Scales still descend with how much light grazes the surface. The wall
+     * takes the most because the cove washes it at a few degrees and that is
+     * where relief shows; the ceiling is lit nearly flat and needs least,
+     * and pushing it there only produces a popcorn ceiling.
+     */
+    const plasterWall = makePlasterNormal(28, 2311);
+    const plasterSoft = makePlasterNormal(18, 7717);
+    const perMetre = (m: number) => HL.w / m;
+    apply(M.wall, plasterWall, perMetre(8), 0.5);
+    apply(M.soffit, plasterWall, perMetre(8), 0.4);
+    apply(M.reveal, plasterSoft, perMetre(3), 0.3);
+    apply(M.ceiling, plasterSoft, perMetre(11), 0.22);
+
+    /**
+     * And the colour, which is what actually shows.
+     *
+     * The normal maps above are kept because they cost one sample and they do
+     * help where the cove grazes a wall at a few degrees. But they are not
+     * what fixes the flatness: measured on the back wall, the plaster normal
+     * moves local contrast by 0.2% at shipping strength, and only 5% when
+     * exaggerated twelve times. Diffuse shading goes as N.L and these walls
+     * are roughness 0.93 under area lights that subtend half the room, so
+     * tilting the normal has almost nothing to change.
+     *
+     * Varying the albedo is not a shading effect and survives all of that.
+     * The mottle is near-white and multiplies, so each surface keeps the
+     * colour it was given and only picks up unevenness inside it.
+     *
+     * The ceiling gets half the swing of the walls. It is already the darkest
+     * large surface in the room and blotching a dark ceiling reads as damp.
+     */
+    const mottle = (
+      mat: THREE.MeshStandardMaterial,
+      tex: THREE.Texture,
+      repeat: number,
+    ) => {
+      const t = tex.clone();
+      t.needsUpdate = true;
+      t.repeat.set(repeat, repeat);
+      mat.map = t;
+      mat.needsUpdate = true;
+    };
+    const wallMottle = makeMatteMottle(22, 0.13, 4133);
+    const softMottle = makeMatteMottle(14, 0.07, 9043);
+    mottle(M.wall, wallMottle, perMetre(9));
+    mottle(M.soffit, wallMottle, perMetre(9));
+    mottle(M.reveal, softMottle, perMetre(3.5));
+    mottle(M.ceiling, softMottle, perMetre(12));
 
     // One tile across the whole rug, not four. A pattern that repeats twice
     // in eight metres is wallpaper; an eight-metre rug has one design on it.

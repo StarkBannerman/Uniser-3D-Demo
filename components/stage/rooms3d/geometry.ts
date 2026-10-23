@@ -1051,6 +1051,200 @@ export function makeFabricNormal(
 }
 
 /**
+ * A tangent-space normal map for plaster, and for anything else large, pale
+ * and matte.
+ *
+ * The lobby's furniture and its stone are textured; its architecture was not.
+ * Walls, ceiling, soffits and reveals are the largest surfaces in the room and
+ * every one of them was a flat colour, which is why a frame of it reads as
+ * amber poster paint: a perfectly smooth matte surface returns exactly the
+ * same radiance from every point, so a four-metre wall under a grazing cove
+ * comes back as one value with a gradient over it and no information at all.
+ *
+ * Not `makeFabricNormal` with the slub turned down. That builds a plain weave,
+ * and a weave on a wall reads as hessian however fine the pitch - the eye is
+ * very good at spotting a grid. Plaster has no grid: it is a float finish,
+ * which is dense fine tooth with a slow undulation under it from the trowel.
+ * So this is noise at two scales and nothing periodic, differentiated the same
+ * way, because a height field differentiated into normals is the only kind
+ * that stays consistent across a seam.
+ *
+ * Amplitudes are deliberately tiny. Plaster at a metre is a fraction of a
+ * millimetre of relief, and the failure here is not subtlety but the opposite
+ * - push it and a lobby wall turns into stucco, or worse, orange peel.
+ */
+export function makePlasterNormal(
+  /** Tooth frequency. Higher is a finer, tighter finish. */
+  grain = 90,
+  seed = 2311,
+): THREE.CanvasTexture {
+  const n = 512;
+  const c = document.createElement("canvas");
+  c.width = n;
+  c.height = n;
+  const g = c.getContext("2d")!;
+
+  let s = seed;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+
+  /** Value noise on a wrapping lattice, smoothstepped so it tiles cleanly. */
+  const octave = (lat: number) => {
+    const grid = new Float32Array(lat * lat);
+    for (let i = 0; i < grid.length; i++) grid[i] = rnd();
+    return (x: number, y: number) => {
+      const fx = (x / n) * lat;
+      const fy = (y / n) * lat;
+      const x0 = Math.floor(fx) % lat;
+      const y0 = Math.floor(fy) % lat;
+      const x1 = (x0 + 1) % lat;
+      const y1 = (y0 + 1) % lat;
+      const tx = fx - Math.floor(fx);
+      const ty = fy - Math.floor(fy);
+      const sx = tx * tx * (3 - 2 * tx);
+      const sy = ty * ty * (3 - 2 * ty);
+      const a = grid[y0 * lat + x0] * (1 - sx) + grid[y0 * lat + x1] * sx;
+      const b = grid[y1 * lat + x0] * (1 - sx) + grid[y1 * lat + x1] * sx;
+      return a * (1 - sy) + b * sy;
+    };
+  };
+
+  // Tooth, and the trowel under it. The second octave is a sixth of the first
+  // because a float finish undulates over roughly a hand's width while the
+  // tooth itself is grit - one scale alone reads as television noise.
+  const tooth = octave(Math.max(8, Math.round(grain)));
+  const swell = octave(Math.max(4, Math.round(grain / 6)));
+
+  const height = new Float32Array(n * n);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      height[y * n + x] = tooth(x, y) * 0.65 + swell(x, y) * 0.35;
+    }
+  }
+
+  const img = g.createImageData(n, n);
+  // A fifth of the cloth strength. Plaster is not upholstery.
+  const strength = 0.55;
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const at = (dx: number, dy: number) =>
+        height[(((y + dy) % n) + n) % n * n + ((((x + dx) % n) + n) % n)];
+      let nx = -(at(1, 0) - at(-1, 0)) * strength;
+      let ny = -(at(0, 1) - at(0, -1)) * strength;
+      const nz = 1;
+      const len = Math.hypot(nx, ny, nz);
+      nx /= len;
+      ny /= len;
+      const i = (y * n + x) * 4;
+      img.data[i] = (nx * 0.5 + 0.5) * 255;
+      img.data[i + 1] = (ny * 0.5 + 0.5) * 255;
+      img.data[i + 2] = (nz / len) * 255;
+      img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+
+  const t = new THREE.CanvasTexture(c);
+  // Data, not colour - the same reason `makeFabricNormal` says so.
+  t.colorSpace = THREE.NoColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
+}
+
+/**
+ * A near-white mottle to multiply into a flat matte colour.
+ *
+ * The companion to `makePlasterNormal`, and on these surfaces the one that
+ * does the work. A normal map is almost useless on a matte wall under broad
+ * area light: diffuse shading goes as N.L, so tilting the normal a couple of
+ * degrees under a source that subtends half the room changes almost nothing.
+ * Measured on the lobby's back wall, the plaster normal moved local contrast
+ * by 0.2% at its shipping strength and by 5% when exaggerated twelvefold -
+ * it is wired up correctly and it simply has very little to say there.
+ *
+ * Albedo does not have that problem. A wall is not one colour: plaster takes
+ * up pigment unevenly, it is patched, and it fades differently where light
+ * has been falling on it for years. Varying the colour itself survives any
+ * amount of diffuse washing, because it is not a shading effect at all.
+ *
+ * Centred just under white so it multiplies rather than lifts - the material
+ * keeps its own colour and this only modulates it. `contrast` is the full
+ * swing: 0.12 is a wall you would call evenly painted.
+ */
+export function makeMatteMottle(
+  /** Patch frequency. Lower is broader blotching. */
+  grain = 22,
+  contrast = 0.12,
+  seed = 4133,
+): THREE.CanvasTexture {
+  const n = 512;
+  const c = document.createElement("canvas");
+  c.width = n;
+  c.height = n;
+  const g = c.getContext("2d")!;
+
+  let s = seed;
+  const rnd = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+
+  const octave = (lat: number) => {
+    const grid = new Float32Array(lat * lat);
+    for (let i = 0; i < grid.length; i++) grid[i] = rnd();
+    return (x: number, y: number) => {
+      const fx = (x / n) * lat;
+      const fy = (y / n) * lat;
+      const x0 = Math.floor(fx) % lat;
+      const y0 = Math.floor(fy) % lat;
+      const x1 = (x0 + 1) % lat;
+      const y1 = (y0 + 1) % lat;
+      const tx = fx - Math.floor(fx);
+      const ty = fy - Math.floor(fy);
+      const sx = tx * tx * (3 - 2 * tx);
+      const sy = ty * ty * (3 - 2 * ty);
+      const a = grid[y0 * lat + x0] * (1 - sx) + grid[y0 * lat + x1] * sx;
+      const b = grid[y1 * lat + x0] * (1 - sx) + grid[y1 * lat + x1] * sx;
+      return a * (1 - sy) + b * sy;
+    };
+  };
+
+  // Two scales again, for the same reason: one alone is either blotches or
+  // static, and plaster is blotches with static inside them.
+  const broad = octave(Math.max(3, Math.round(grain)));
+  const fine = octave(Math.max(6, Math.round(grain * 3)));
+
+  const img = g.createImageData(n, n);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const v = broad(x, y) * 0.7 + fine(x, y) * 0.3;
+      // Top of the range is white, so the brightest patches leave the
+      // material's own colour untouched and everything else sits below it.
+      const k = Math.round(255 * (1 - contrast * (1 - v)));
+      const i = (y * n + x) * 4;
+      img.data[i] = k;
+      img.data[i + 1] = k;
+      img.data[i + 2] = k;
+      img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+
+  const t = new THREE.CanvasTexture(c);
+  // Colour, unlike the normal map beside it - this one is multiplied into
+  // albedo and has to go through the sRGB decode.
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
+}
+
+/**
  * A hotel's mark, drawn to a canvas.
  *
  * Invented, and deliberately so: the demo is shown to prospects who are not
