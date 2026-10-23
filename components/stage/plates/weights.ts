@@ -276,8 +276,14 @@ export function computeWeights(
         // An RGBW circuit under a live colour bus takes the bus's hue at full
         // saturation: a cove doing a pastel version of the wash reads as a
         // mistake rather than as a choice.
-        const lit =
-          bus && rgbw.has(layer) ? { ...state, hue: bus.hue, sat: 100 } : state;
+        // A fixed-CCT circuit ignores whatever colour its state carries,
+        // because it has no colour control to have set one.
+        const fixed = profile.fixedTint?.[layer];
+        const lit = bus && rgbw.has(layer)
+          ? { ...state, hue: bus.hue, sat: 100 }
+          : fixed !== undefined
+            ? { ...state, cct: fixed, hue: 0, sat: 0 }
+            : state;
         const [r, g, b] = neutral.has(layer)
           ? [1, 1, 1]
           : tintLinear(lit, profile.tintSaturation);

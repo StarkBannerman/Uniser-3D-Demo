@@ -639,6 +639,16 @@ export interface Space {
     dir: string;
     /** Names the calibration in `components/stage/plates/profiles`. */
     profile: string;
+    /**
+     * Hotspots that are not named after a device, and what they mean.
+     *
+     * The offline renderer projects points of interest as well as circuits,
+     * so a plate set can carry a marker like `reception` that no device
+     * answers to. Rather than edit `hotspots.json` — which is generated and
+     * is overwritten by every re-render — the space says what the point is
+     * for, and gets to name it in the room's own words.
+     */
+    hotspotAliases?: Record<string, { deviceId: string; label: string }>;
   };
   /**
    * Keep this space out of the space picker.

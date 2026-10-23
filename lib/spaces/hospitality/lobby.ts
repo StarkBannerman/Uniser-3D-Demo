@@ -23,12 +23,20 @@ const AREA = 620;
 export const lobby: Space = {
   id: "lobby",
   name: "Hotel Lobby",
-  segment: "hospitality",
-  category: "Hospitality",
+  segment: "commercial",
+  category: "Commercial",
   blurb:
     "A 620 m² hotel common area — lobby, reception and lounge — path-traced offline and relit live. Seven lighting layers across a glazed façade, a double-height soffit, a crystal chandelier and a water wall, with the time-of-day automation a building like this actually runs on.",
   renderer: "plates",
-  plates: { dir: "/plates/lobby", profile: "lobby" },
+  plates: {
+    dir: "/plates/lobby",
+    profile: "lobby",
+    // The desk glow and the logo wall behind it are one circuit, so the
+    // marker over reception opens the Feature control and says why.
+    hotspotAliases: {
+      reception: { deviceId: "ca-feature", label: "Reception & logo wall" },
+    },
+  },
 
   keypad: {
     layout: "grid",
@@ -261,12 +269,12 @@ export const lobby: Space = {
       fadeMs: 2000,
       daylight: { day_sky: 100, day_morning: 100, day_midday: 0, day_evening: 0, sky: 0 },
       targets: {
-        "ca-tunable": { on: true, level: 60, cct: 5000, sat: 0 },
-        "ca-arch": { on: true, level: 40 },
-        "ca-cove": { on: true, level: 50 },
-        "ca-deco": { on: true, level: 20 },
-        "ca-feature": { on: true, level: 40 },
-        "ca-accent": { on: true, level: 30 },
+        "ca-tunable": { on: true, level: 85, cct: 5000, sat: 0 },
+        "ca-arch": { on: true, level: 50 },
+        "ca-cove": { on: true, level: 70 },
+        "ca-deco": { on: true, level: 30 },
+        "ca-feature": { on: true, level: 50 },
+        "ca-accent": { on: true, level: 40 },
         "ca-facade": { on: false },
         "ca-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
         "ca-music": { on: true, source: "Morning", volume: 18 },
@@ -277,18 +285,18 @@ export const lobby: Space = {
       id: "day",
       clockMin: 13 * 60,
       name: "Day",
-      icon: "◑",
+      icon: "◐",
       blurb:
         "The middle of the day, with the glass carrying the room. The leanest scene in the building: the decoratives are off entirely and the downlights are at half, because anything more is light nobody asked for against a wall of daylight.",
       fadeMs: 2000,
       daylight: { day_sky: 100, day_morning: 0, day_midday: 100, day_evening: 0, sky: 0 },
       targets: {
-        "ca-tunable": { on: true, level: 50, cct: 5500, sat: 0 },
-        "ca-arch": { on: true, level: 30 },
-        "ca-cove": { on: true, level: 40 },
-        "ca-deco": { on: false },
-        "ca-feature": { on: true, level: 40 },
-        "ca-accent": { on: true, level: 30 },
+        "ca-tunable": { on: true, level: 80, cct: 5000, sat: 0 },
+        "ca-arch": { on: true, level: 50 },
+        "ca-cove": { on: true, level: 60 },
+        "ca-deco": { on: true, level: 20 },
+        "ca-feature": { on: true, level: 50 },
+        "ca-accent": { on: true, level: 40 },
         "ca-facade": { on: false },
         "ca-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
         "ca-music": { on: true, source: "Lobby Ambient", volume: 16 },
@@ -299,7 +307,7 @@ export const lobby: Space = {
       id: "evening",
       clockMin: 18 * 60 + 30,
       name: "Evening",
-      icon: "◐",
+      icon: "◑",
       blurb:
         "The turn, run as one button: the daylight goes, the downlights warm, the feature and cove layers come up, the chandelier and lamps arrive and the music starts. Six stages, about six seconds — the scene that makes the glazing read as a view instead of a dark wall.",
       fadeMs: 1000,
@@ -398,18 +406,18 @@ export const lobby: Space = {
       id: "welcome",
       clockMin: 16 * 60,
       name: "Welcome",
-      icon: "✦",
+      icon: "◈",
       blurb:
         "A party is arriving and the lobby is the first thing they see. Everything up, the logo wall at full and the façade lit whatever the hour — the one scene that ignores the clock because a coach at four in the afternoon deserves the same entrance as one at nine.",
       fadeMs: 1800,
       targets: {
-        "ca-tunable": { on: true, level: 70, cct: 3500, sat: 0 },
-        "ca-arch": { on: true, level: 80 },
-        "ca-cove": { on: true, level: 80 },
+        "ca-tunable": { on: true, level: 80, cct: 3500, sat: 0 },
+        "ca-arch": { on: true, level: 90 },
+        "ca-cove": { on: true, level: 90 },
         "ca-deco": { on: true, level: 80 },
         "ca-feature": { on: true, level: 100 },
         "ca-accent": { on: true, level: 80 },
-        "ca-facade": { on: true, level: 80 },
+        "ca-facade": { on: true, level: 100 },
         "ca-ac": { on: true, setpointC: 22, mode: "cool", fan: 3 },
         "ca-music": { on: true, source: "Lounge Jazz", volume: 26 },
       },
@@ -419,17 +427,26 @@ export const lobby: Space = {
       id: "event",
       clockMin: 20 * 60,
       name: "Event",
-      icon: "◈",
+      icon: "✦",
       blurb:
         "A function in the lounge, with the lobby as its approach. The decoratives and coves run at full and the air conditioning pre-cools to twenty-one — a room fills with people faster than a fan-coil can answer, so it goes early.",
       fadeMs: 2000,
       targets: {
-        "ca-tunable": { on: true, level: 60, cct: 3000, sat: 0 },
-        "ca-arch": { on: true, level: 80 },
+        /**
+         * The downlights come down, not up.
+         *
+         * An event is the one scene where the working light is the enemy:
+         * drop it to a quarter and the chandelier, the coves and the accents
+         * are suddenly the only things in the room, which is the contrast
+         * that makes a lobby look like a venue rather than a bright lobby
+         * with people in it.
+         */
+        "ca-tunable": { on: true, level: 25, cct: 2700, sat: 0 },
+        "ca-arch": { on: true, level: 90 },
         "ca-cove": { on: true, level: 100 },
         "ca-deco": { on: true, level: 100 },
         "ca-feature": { on: true, level: 100 },
-        "ca-accent": { on: true, level: 90 },
+        "ca-accent": { on: true, level: 100 },
         "ca-facade": { on: true, level: 100 },
         "ca-ac": { on: true, setpointC: 21, mode: "cool", fan: 4 },
         "ca-music": { on: true, source: "Event Set", volume: 40 },
@@ -445,7 +462,21 @@ export const lobby: Space = {
         "Two in the morning and the floor is being turned around. Full cool white on the downlights, the architecture holding the edges, and everything decorative off — nobody is being sold anything at this hour.",
       fadeMs: 900,
       targets: {
-        "ca-tunable": { on: true, level: 100, cct: 5000, sat: 0 },
+        /**
+         * The downlights go to the top of their range, not to 5500 K.
+         *
+         * Cleaning is meant to read as flat cool white and it cannot quite,
+         * because the architectural circuit is fixed 2700 K on the sheet and
+         * its plate is thirteen times brighter than the downlights' — at
+         * level 100 it supplies about 44% of the light in the room. Measured
+         * on the interior alone, excluding the glazing, Cleaning sits at
+         * R-B +0.015 at 6500 K against +0.032 at 5000 K, so the coolest the
+         * fixture goes is worth taking. It is still warm-dominant, and the
+         * only ways past that are dropping the architecture below 100 or
+         * treating it as a neutral plate — both of which contradict the
+         * sheet rather than this scene.
+         */
+        "ca-tunable": { on: true, level: 100, cct: 6500, sat: 0 },
         "ca-arch": { on: true, level: 100 },
         "ca-cove": { on: true, level: 40 },
         "ca-deco": { on: false },

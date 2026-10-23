@@ -415,10 +415,15 @@ export function PlateStage({
 
       {ready && !failed && hotspots && space && (
         <div className="pointer-events-none absolute inset-0">
-          {Object.entries(hotspots.points).map(([deviceId, point]) => {
+          {Object.entries(hotspots.points).map(([pointId, point]) => {
             if (!point.visible) return null;
+            // A point of interest resolves to the circuit that lights it,
+            // and keeps its own name for the tooltip.
+            const alias = space.plates?.hotspotAliases?.[pointId];
+            const deviceId = alias?.deviceId ?? pointId;
             const device = space.devices.find((d) => d.id === deviceId);
             if (!device) return null;
+            const caption = alias?.label ?? device.name;
             const option = space.selection?.options.find(
               (o) => o.deviceId === deviceId,
             );
@@ -441,7 +446,7 @@ export function PlateStage({
             const shown = showHotspots || hoveredDeviceId === deviceId || vehicle;
             return (
               <button
-                key={deviceId}
+                key={pointId}
                 type="button"
                 tabIndex={shown ? 0 : -1}
                 onClick={() => {
@@ -450,7 +455,7 @@ export function PlateStage({
                 }}
                 aria-pressed={option ? chosen : undefined}
                 aria-label={
-                  option ? `Select ${option.name}` : `Show ${device.name} controls`
+                  option ? `Select ${option.name}` : `Show ${caption} controls`
                 }
                 className="group absolute -translate-x-1/2 -translate-y-1/2 p-2.5 transition-opacity duration-200"
                 style={{
@@ -478,7 +483,7 @@ export function PlateStage({
                       : "text-shell-100 opacity-0"
                   }`}
                 >
-                  {option ? option.name : device.name}
+                  {option ? option.name : caption}
                 </span>
               </button>
             );

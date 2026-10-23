@@ -69,6 +69,7 @@ GAIN = {
     "sr_zone_4": 5628, "sr_zone_5": 2648, "sr_zone_6": 25301,
     "ca_tunable": 32, "ca_arch": 1.9, "ca_deco": 1.4, "ca_feature": 4.9,
     "ca_accent": 1192, "ca_cove": 11.3, "ca_facade": 5.8,
+    "day_sky": 6.25, "sky": 1.7, "day_midday": 15.2,
 }
 EXPOSURE = 0.25  # restaurant; the showroom profile uses 0.20
 TINT_SATURATION = 0.55

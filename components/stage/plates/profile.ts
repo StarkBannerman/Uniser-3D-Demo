@@ -38,6 +38,19 @@ export interface PlateProfile {
   /** Layers whose plate already carries the colour of its own fixtures. */
   neutralLayers: string[];
   /**
+   * Circuits wired at a fixed colour temperature, in kelvin.
+   *
+   * A dimmer-only fixture has no colour control, but the store still gives
+   * its state a `cct` — 3000 K, because every state needs a number. Tinting
+   * the plate by that is tinting it by an implementation detail: the sheet
+   * says these circuits are 2700 K warm white and they should look it
+   * whatever the engine happened to seed.
+   *
+   * Only for layers that are *not* in `neutralLayers`. A plate that already
+   * carries its fixture colour wants no tint at all, not a different one.
+   */
+  fixedTint?: Record<string, number>;
+  /**
    * Layers whose fixtures are RGBW rather than tunable white.
    *
    * While `colourBus` is running saturated these take its hue at full

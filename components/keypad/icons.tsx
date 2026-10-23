@@ -22,6 +22,10 @@ export type IconName =
   | "snow"
   | "fan"
   | "thermo"
+  | "sparkle"
+  | "broom"
+  | "key"
+  | "glass"
   | "up"
   | "down";
 
@@ -43,6 +47,35 @@ function Svg({ children }: { children: ReactNode }) {
 }
 
 const PATHS: Record<IconName, ReactNode> = {
+  /** A celebration, for an event or a launch. */
+  sparkle: (
+    <>
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+      <path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" />
+    </>
+  ),
+  /** A key, for a handover. */
+  key: (
+    <>
+      <circle cx="8" cy="8" r="3.5" />
+      <path d="M10.5 10.5L20 20M17 17l-2 2M20 20l-1.5 1.5" />
+    </>
+  ),
+  /** A raised glass, for a party or a launch night. */
+  glass: (
+    <>
+      <path d="M6 4h12l-5 7v6h3M13 17h-3" />
+      <path d="M7.5 8.5h9" />
+    </>
+  ),
+  /** A broom, for the hours when the room is being turned around. */
+  broom: (
+    <>
+      <path d="M15.5 4.5l-7 7" />
+      <path d="M12.5 10.5l3 3" />
+      <path d="M13.5 12.5L8 18a3 3 0 0 1-3 1l-1-1a3 3 0 0 0 1-3l5.5-5.5z" />
+    </>
+  ),
   sun: (
     <>
       <circle cx="12" cy="12" r="4" />
@@ -132,6 +165,18 @@ export function sceneIcon(scene: { id: string; icon: string }): IconName {
     "☾": "moon",
     "⏻": "power",
     "▶": "dusk",
+    // Glyphs the hospitality and commercial rooms use. Without these they
+    // all fell through to the default and four scenes in a row showed the
+    // same half-moon, which makes a scene pad that cannot be read at a
+    // glance — the one thing a scene pad is for.
+    "◈": "bulb",
+    "✦": "sparkle",
+    "✸": "glass",
+    "✚": "broom",
+    "◎": "dim",
+    "🔑": "key",
+    "☕": "book",
+    "🍴": "book",
   };
   if (byChar[scene.icon]) return byChar[scene.icon];
 

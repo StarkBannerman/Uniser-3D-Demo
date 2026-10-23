@@ -35,10 +35,29 @@ export const LOBBY_PROFILE: PlateProfile = {
      * is lit by its own fixtures even at noon.
      */
     sky: 1.7,
-    day_sky: 2.5,
-    day_morning: 3,
-    day_midday: 4,
-    day_evening: 3,
+    /**
+     * The daytime layers run well above what the glazing-mask solve asked
+     * for, and deliberately.
+     *
+     * That solve matches the *view* — how bright the sky looks through the
+     * glass — and it got that right while leaving the room behind it dark:
+     * at 1 PM the ceiling was black and the lobby read dimmer than it did
+     * at midnight, which is the one thing a glazed double-height space
+     * cannot do. These layers carry the daylight bouncing in as well as the
+     * view, so they are worth more than the view alone says. 6.25 and 1.5x
+     * on the sun passes is what puts Day above Night.
+     */
+    day_sky: 6.25,
+    day_morning: 4.5,
+    /**
+     * The midday sun runs well above its siblings, which looks wrong and
+     * is not. Its plate decodes to the *weakest* mean of the three — 0.032
+     * against the morning's 0.040 — so at a shared gain noon came out
+     * dimmer than dawn. 15.2 is what puts Day above Morning and clears the
+     * brief's 0.32.
+     */
+    day_midday: 15.2,
+    day_evening: 4.5,
   },
   /**
    * 0.10, which is the lowest of the three rooms and for a plain reason:
@@ -65,6 +84,16 @@ export const LOBBY_PROFILE: PlateProfile = {
    * circuit whose colour the client can actually change.
    */
   neutralLayers: ["ca_cove", "ca_deco", "ca_accent", "ca_feature"],
+  /**
+   * The two circuits that are fixed warm white and whose plates are not.
+   *
+   * `ca_cove`, `ca_deco`, `ca_accent` and `ca_feature` were rendered with
+   * their colour in them and are left alone above. These two came out
+   * neutral, so they need the 2700 K the sheet specifies — and they need it
+   * stated, because a dimmer-only fixture's state carries the engine's
+   * default 3000 K and tinting by that is tinting by an accident.
+   */
+  fixedTint: { ca_arch: 2700, ca_facade: 2700 },
   rgbwLayers: [],
   colourBus: null,
 };

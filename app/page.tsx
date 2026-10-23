@@ -20,27 +20,21 @@ import type { Segment } from "@/lib/sim/types";
  * by being finished rather than by being wired in.
  */
 
+/**
+ * One door, because there is one segment on offer.
+ *
+ * `spacesBySegment` reads the registry, so a door with no rooms behind it
+ * would render an empty card rather than fail — which is why this list is
+ * trimmed alongside `lib/spaces/index.ts` rather than left to sort itself
+ * out.
+ */
 const DOORS: { segment: Segment; title: string; lead: string; blurb: string }[] = [
   {
-    segment: "residential",
-    title: "Residential",
-    lead: "Homes and apartments",
-    blurb:
-      "Scenes a family actually presses — waking, watching, winding down — with curtains, climate and media on the same button as the light.",
-  },
-  {
-    segment: "hospitality",
+    segment: "commercial",
     title: "Commercial",
     lead: "Hospitality, retail and public spaces",
     blurb:
-      "Hotel lobbies and car showrooms — the rooms a business is judged on in the first ten seconds, with the lighting layers that do the judging on separate circuits.",
-  },
-  {
-    segment: "commercial",
-    title: "Office",
-    lead: "Workplaces",
-    blurb:
-      "Zoned floors, meeting spaces and executive rooms, with occupancy, daylight response and the tunable white a working day is specified to.",
+      "A hotel restaurant, a hotel lobby and a luxury car showroom — the rooms a business is judged on in the first ten seconds, with the lighting layers that do the judging on separate circuits.",
   },
 ];
 
