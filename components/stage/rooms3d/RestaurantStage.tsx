@@ -8,14 +8,17 @@
  * room's own bounce should be, and hands both to the rig.
  */
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useLayoutEffect, useMemo } from "react";
 import type { AvState, LightState } from "@/lib/sim/types";
 import { useSim } from "@/lib/sim/store";
 import { roomAmbience } from "@/lib/sim/ambience";
 import { clamp01, daylightLux, sunElevation01 } from "@/lib/sim/photometry";
+import * as THREE from "three";
+import { useThree } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
 import { Stage3D, type CameraSpec } from "../Stage3D";
-import { Restaurant3D, RS, RS_PLAN } from "./Restaurant3D";
+import { Restaurant3D, RS } from "./Restaurant3D";
+import { SOFFIT_Y } from "./RestaurantPlan";
 import { RestaurantLightRig, type RestaurantFixtures } from "./RestaurantLightRig";
 
 /**
@@ -45,10 +48,53 @@ function skyBucket(daylight: number): number {
  * viewport gains ceiling rather than losing the bar.
  */
 export const RESTAURANT_CAMERA: CameraSpec = {
-  position: [4.4, 1.5, 20.4],
-  target: [8.8, 1.0, 7.4],
-  fov: 50,
+  position: [0, 1.5, 0],
+  // Zero yaw and zero pitch: a person standing on the centre line looking
+  // straight at the back wall. The downward framing comes from a lens shift
+  // instead - see `LensShift`.
+  target: [0, 1.5, RS.zBack],
+  // `Stage3D` reads this as the vertical field AT 16:9 and re-solves it for
+  // the real aspect, so 49 here is the brief's 78 degrees horizontal: at 3:2
+  // it solves to about 57 vertical, which is what the brief asks for.
+  fov: 49,
 };
+
+/**
+ * Frame the room low without tilting the camera.
+ *
+ * The brief wants the horizon at 0.41 from the top - above centre, which
+ * means looking down - and it also wants columns and mullions dead upright.
+ * Those two things fight: pitching down by the five and a half degrees this
+ * needs converges every vertical in the room, and in a frame whose whole
+ * right half is glazing mullions and a stone column, that reads as a mistake.
+ *
+ * A lens shift does the same framing with a parallel projection axis.
+ * `setViewOffset` renders a window of a larger virtual frame, so offsetting
+ * that window vertically slides the frustum without rotating it, and
+ * verticals stay vertical.
+ */
+function LensShift({ fraction }: { fraction: number }) {
+  const camera = useThree((st) => st.camera);
+  const size = useThree((st) => st.size);
+  useLayoutEffect(() => {
+    if (!(camera instanceof THREE.PerspectiveCamera)) return;
+    camera.setViewOffset(
+      size.width,
+      size.height,
+      0,
+      fraction * size.height,
+      size.width,
+      size.height,
+    );
+    camera.updateProjectionMatrix();
+    return () => {
+      camera.clearViewOffset();
+      camera.updateProjectionMatrix();
+    };
+  }, [camera, size, fraction]);
+  return null;
+}
+
 
 /**
  * The scene, with no props.
@@ -124,7 +170,7 @@ export function RestaurantStage() {
    * bounces whatever the pendants and the table lamps are still doing.
    */
   const ambient = useMemo(
-    () => ({ ...base, level: Math.max(base.level, 0.05) }),
+    () => ({ ...base, level: Math.max(base.level, 0.14) }),
     [base],
   );
 
@@ -156,36 +202,40 @@ export function RestaurantStage() {
       */}
       <Suspense fallback={null}>
         <Environment resolution={256} frames={1}>
-          {[6, 11, 16].map((z, i) => (
+          {[-6, 0, 6].map((x, i) => (
             <Lightformer
               key={`warm-${i}`}
               form="rect"
-              intensity={1.5}
+              intensity={2.0}
               color="#ffd49a"
-              scale={[9, 0.5, 1]}
-              position={[RS.w / 2, RS_PLAN.raft.y + 0.4, z]}
+              scale={[7, 0.5, 1]}
+              position={[x, SOFFIT_Y + 0.35, -6]}
               rotation={[Math.PI / 2, 0, 0]}
             />
           ))}
+          {/* One cool former outside the glazing, so stone, brass and
+              glassware return a room with a city in it. */}
           <Lightformer
             form="rect"
-            intensity={1.5}
+            intensity={1.6}
             color="#9fc2e8"
-            scale={[1, 4, 14]}
-            position={[RS.w + 1.5, 2.2, 11]}
-            rotation={[0, -Math.PI / 2, 0]}
+            scale={[7, 4, 1]}
+            position={[7.2, 2.4, RS.zBack - 1.5]}
           />
+          {/* And a warm one down the bar, which is the other thing every
+              reflective surface on that side of the room can see. */}
           <Lightformer
             form="rect"
             intensity={1.8}
             color="#ffc98a"
-            scale={[1, 1.6, 8]}
-            position={[0.6, 2.0, 14]}
-            rotation={[0, Math.PI / 2, 0]}
+            scale={[5, 1.6, 1]}
+            position={[-5.8, 2.0, RS.zBack + 1.2]}
           />
         </Environment>
       </Suspense>
 
+      {/* 0.09 of frame height puts the horizon at the brief's 0.41. */}
+      <LensShift fraction={0.09} />
       <RestaurantScene />
     </Stage3D>
   );
