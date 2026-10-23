@@ -63,6 +63,9 @@ export const RS_PLAN = {
  * on every table looks like a conference centre. `r` is the top's radius, and
  * the two larger rounds are the ones a party of six gets.
  */
+/** Dining height. The covers rest on this and the chairs are built to it. */
+const TOP_Y = 0.755;
+
 export const TABLES: { x: number; z: number; r: number; seats: number; rot: number }[] = [
   { x: 3.6, z: 16.6, r: 0.62, seats: 4, rot: 0.3 },
   { x: 6.9, z: 17.4, r: 0.55, seats: 3, rot: 1.1 },
@@ -682,52 +685,91 @@ function WineWall() {
  * also where they belong: forty-eight of them is one draw call that way and
  * would be forty-eight if each came from a model.
  */
+/**
+ * Twelve covers: our table, the client's settings on top of it.
+ *
+ * `elegant_dining_table_set` has no legs and, despite the name, no chairs.
+ * It is a laid surface - cloth, china, cutlery, glassware, a rose in a vase -
+ * and its own origin is not something to build on: the asset is Z-up with a
+ * node transform rotating it, so "the bottom of its bounding box" is not the
+ * underside of a table and sitting it on the floor put the plates on the
+ * floor, which is exactly what it looked like.
+ *
+ * So nothing here trusts the model's vertical placement. A pedestal table is
+ * built at dining height and the covers are rested ON it - `FittedModel`
+ * already lands a model's lowest point on whatever y it is given, so passing
+ * the tabletop's height is all it takes and it stays correct if the asset is
+ * ever re-exported with a different origin.
+ *
+ * Scaled by footprint rather than height for the same reason: with no legs in
+ * it, the model's vertical extent is the flowers, and fitting THAT to 0.76 m
+ * gives a table dressed with roses the size of a small tree.
+ */
 function DiningFloor() {
+  const tops = useRef<THREE.InstancedMesh>(null);
+  const bases = useRef<THREE.InstancedMesh>(null);
   const chairs = useRef<THREE.InstancedMesh>(null);
   const seatTotal = useMemo(() => TABLES.reduce((n, t) => n + t.seats, 0), []);
 
   useLayoutEffect(() => {
-    const mesh = chairs.current;
-    if (!mesh) return;
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const e = new THREE.Euler();
     const pos = new THREE.Vector3();
+    const scl = new THREE.Vector3();
     const one = new THREE.Vector3(1, 1, 1);
-    let c = 0;
-    TABLES.forEach((t) => {
-      for (let s = 0; s < t.seats; s++) {
-        const a = t.rot + (s / t.seats) * Math.PI * 2;
-        const rad = 1.02 + t.r * 0.25;
-        e.set(0, a + Math.PI, 0);
-        q.setFromEuler(e);
-        pos.set(t.x + Math.sin(a) * rad, 0, t.z + Math.cos(a) * rad);
-        m.compose(pos, q, one);
-        mesh.setMatrixAt(c++, m);
-      }
-    });
-    mesh.instanceMatrix.needsUpdate = true;
+
+    const topM = tops.current;
+    const baseM = bases.current;
+    if (topM && baseM) {
+      TABLES.forEach((t, i) => {
+        scl.set(t.r * 2, 0.04, t.r * 2);
+        pos.set(t.x, TOP_Y - 0.02, t.z);
+        m.compose(pos, new THREE.Quaternion(), scl);
+        topM.setMatrixAt(i, m);
+        // A pedestal, not four legs: it is one instanced cylinder and it is
+        // what a round restaurant table actually stands on.
+        scl.set(0.19, TOP_Y - 0.04, 0.19);
+        pos.set(t.x, (TOP_Y - 0.04) / 2, t.z);
+        m.compose(pos, new THREE.Quaternion(), scl);
+        baseM.setMatrixAt(i, m);
+      });
+      topM.instanceMatrix.needsUpdate = true;
+      baseM.instanceMatrix.needsUpdate = true;
+    }
+
+    const chairM = chairs.current;
+    if (chairM) {
+      let c = 0;
+      TABLES.forEach((t) => {
+        for (let s = 0; s < t.seats; s++) {
+          const a = t.rot + (s / t.seats) * Math.PI * 2;
+          const rad = t.r + 0.46;
+          e.set(0, a + Math.PI, 0);
+          q.setFromEuler(e);
+          pos.set(t.x + Math.sin(a) * rad, 0, t.z + Math.cos(a) * rad);
+          m.compose(pos, q, one);
+          chairM.setMatrixAt(c++, m);
+        }
+      });
+      chairM.instanceMatrix.needsUpdate = true;
+    }
   }, [seatTotal]);
 
   return (
     <group>
+      <instancedMesh ref={tops} args={[GEOM.cyl, M.tableTop, TABLES.length]} castShadow receiveShadow>
+        <primitive object={GEOM.cyl} attach="geometry" />
+      </instancedMesh>
+      <instancedMesh ref={bases} args={[GEOM.cyl, M.metal, TABLES.length]} castShadow>
+        <primitive object={GEOM.cyl} attach="geometry" />
+      </instancedMesh>
       {TABLES.map((t, i) => (
         <FittedModel
           key={i}
           url={MODELS.dining}
-          position={[t.x, 0, t.z]}
-          /*
-           * Fitted by height, not footprint.
-           *
-           * Scaling this set to a table's diameter put its top at 0.59 m -
-           * below the seat of the chairs around it, so the covers read as
-           * laid out on a coffee table. Dining height is 0.75 and it is one
-           * of the few dimensions a viewer checks without knowing they are
-           * checking it, so height is the axis that has to be right and the
-           * footprint follows from it.
-           */
-          fitMetres={0.76}
-          axis="y"
+          position={[t.x, TOP_Y, t.z]}
+          fitMetres={t.r * 1.75}
           rotY={t.rot}
         />
       ))}
