@@ -34,30 +34,35 @@ import { CIRCUIT_LAYERS, DAY_LAYERS, LAYERS, deviceIdOf } from "./manifest";
 const DAYLIGHT_REFERENCE_LUX = 45000;
 
 /**
- * The window view, faded out across dawn and back in across dusk.
+ * The window's weight, which is 1 and does not move.
  *
- * There is one sky plate and it is a night city, so holding it at full
- * strength put a lit skyline behind a room being served breakfast. It cannot
- * be crossfaded with a daytime view because no daytime view was rendered, so
- * the next best thing is to let it go: through the two hours either side of
- * sunrise it falls to nothing, the day layers carry the glazing through the
- * middle of the day, and it comes back over the two hours around dusk.
+ * Held deliberately plain until the plate set is reissued. Measured inside
+ * the glazing, the three daylight passes carry almost nothing — 0.0055,
+ * 0.0021 and 0.0475 mean linear against this plate's 0.0317 — because they
+ * are sunlight landing *inside* the room and their own windows render black.
+ * So every pixel of view out of this room comes from one plate, and that
+ * plate is a dusk city, which is why the morning scenes look like evening.
  *
- * The windows are therefore plain and bright at noon rather than showing a
- * view. That is a missing plate, not a weighting choice, and the fix is a
- * `sky_day` pass rather than anything in this function.
+ * Two runtime answers were tried and both were worse than leaving it alone.
+ * Fading it out through the day took the only exterior away and the glazing
+ * went black at nine in the morning. Driving it above unity and cooling it
+ * reads as a bright hazy morning, but it is a number picked for how it looks
+ * and it would have to be unpicked the moment a real daytime sky exists.
+ *
+ * The fix is a `sky_day` pass. With one, this becomes a crossfade between
+ * two plates on `dayness` and stops being a constant.
  */
-const DAWN_START = 6 * 60;
-const DAWN_END = 8 * 60;
-const DUSK_START = 18 * 60;
-const DUSK_END = 20 * 60;
+const SKY_WEIGHT = 1;
 
-export function skyWeight(clockMin: number): number {
-  if (clockMin <= DAWN_START) return 1;
-  if (clockMin < DAWN_END) return 1 - (clockMin - DAWN_START) / (DAWN_END - DAWN_START);
-  if (clockMin <= DUSK_START) return 0;
-  if (clockMin < DUSK_END) return (clockMin - DUSK_START) / (DUSK_END - DUSK_START);
-  return 1;
+/** 0 at night, 1 through the middle of the day, ramped across dawn and dusk. */
+export function dayness(clockMin: number): number {
+  const DAWN_START = 6 * 60, DAWN_END = 8 * 60;
+  const DUSK_START = 18 * 60, DUSK_END = 20 * 60;
+  if (clockMin <= DAWN_START) return 0;
+  if (clockMin < DAWN_END) return (clockMin - DAWN_START) / (DAWN_END - DAWN_START);
+  if (clockMin <= DUSK_START) return 1;
+  if (clockMin < DUSK_END) return 1 - (clockMin - DUSK_START) / (DUSK_END - DUSK_START);
+  return 0;
 }
 
 /** sRGB 0..1 to linear. The exact piecewise curve, not the 2.2 shortcut. */
@@ -251,8 +256,7 @@ export function computeWeights(
     put(CIRCUIT_LAYERS.length + i, w, w, w);
   });
 
-  const sky = skyWeight(clockMin);
-  put(LAYERS.length - 1, sky, sky, sky);
+  put(LAYERS.length - 1, SKY_WEIGHT, SKY_WEIGHT, SKY_WEIGHT);
 
   return changed;
 }
