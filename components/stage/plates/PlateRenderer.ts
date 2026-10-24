@@ -164,7 +164,8 @@ uniform float uHasWindow;
 uniform float uDrop;     // 1 for a blind down the glass, 0 for panels along the track
 uniform vec4 uOverlayRect;   // u0, v0, u1, v1 — where an overlay set may show
 uniform vec2 uOverlaySoft;   // feathered edge, in uv
-uniform float uOverlayMix;   // 0 when there is no overlay, or it is off
+uniform float uOverlayMix;   // how far the overlay is on, 0..1
+uniform float uOverlayDrop;  // 1 when the overlay rolls down its rect, 0 when it fades in
 uniform int uSet;        // 0 open, 1 sheer, 2 closed
 
 /** 1 well inside [0,1] expanded by pad, 0 well outside, soft across. */
@@ -232,7 +233,20 @@ float overlayShare() {
   if (uOverlayMix <= 0.0) return 0.0;
   vec2 lo = smoothstep(uOverlayRect.xy - uOverlaySoft, uOverlayRect.xy + uOverlaySoft, vUv);
   vec2 hi = smoothstep(uOverlayRect.zw + uOverlaySoft, uOverlayRect.zw - uOverlaySoft, vUv);
-  return uOverlayMix * lo.x * lo.y * hi.x * hi.y;
+  float inRect = lo.x * lo.y * hi.x * hi.y;
+  if (uOverlayDrop > 0.5) {
+    /**
+     * A projection screen rolling out of its ceiling slot.
+     *
+     * Not an opacity: the fabric is either there or it is not, and what
+     * moves is the bottom edge. vUv.y runs downward, so the screen owns
+     * every row above the line and the base owns the rest — which is
+     * what makes the room behind it appear as the screen rolls back up.
+     */
+    float line = mix(uOverlayRect.y, uOverlayRect.w, uOverlayMix);
+    return inRect * smoothstep(line + uOverlaySoft.y, line - uOverlaySoft.y, vUv.y);
+  }
+  return inRect * uOverlayMix;
 }
 
 float curtainCoef() {
@@ -446,6 +460,11 @@ export class PlateRenderer {
      * than summed into it. `[u0, v0, u1, v1]`, v down.
      */
     private overlay: [number, number, number, number] | null = null,
+    /**
+     * How the overlay arrives: `fade` is an opacity over its whole
+     * rectangle, `drop` is an edge rolling down it.
+     */
+    private overlayTravel: "fade" | "drop" = "fade",
   ) {
     const gl = canvas.getContext("webgl2", {
       alpha: false,
@@ -562,6 +581,10 @@ export class PlateRenderer {
           gl.getUniformLocation(program, "uOverlaySoft"),
           px / Math.max(1, canvas.width || 1920),
           px / Math.max(1, canvas.height || 1080),
+        );
+        gl.uniform1f(
+          gl.getUniformLocation(program, "uOverlayDrop"),
+          overlayTravel === "drop" ? 1 : 0,
         );
       }
       gl.uniform1f(gl.getUniformLocation(program, "uHasWindow"), window ? 1 : 0);
@@ -752,18 +775,26 @@ export class PlateRenderer {
     const sheer = this.sets === 3 ? Math.min(Math.max(curtain[0], 0), 1) : 0;
     const blackout = Math.min(Math.max(curtain[1], 0), 1);
     /**
-     * Which sets contribute anything at all, by role.
-     *
      * Read straight off the algebra in `WIPE`: the open set is gone the
      * moment either track is fully across, the middle set needs the first
      * track across and the second not, and the shut set needs the second
-     * to have started. Every rest position leaves exactly one.
+     * to have started.
      */
     const fan = this.overlay ? Math.min(Math.max(overlayMix, 0), 1) : 0;
+    /**
+     * Which sets contribute anything at all, by role.
+     *
+     * The covering sets are never skipped on the overlay's account. An
+     * overlay is confined to its own rectangle by construction, so even
+     * at full strength it leaves the rest of the frame to them — and
+     * dropping them because `fan` reached 1 took the boardroom to a
+     * frame mean of 0.016 the moment the screen landed, a black room
+     * with a lit screen in the middle of it.
+     */
     const byRole = [
-      sheer < 1 && blackout < 1 && fan < 1,
-      sheer > 0 && blackout < 1 && fan < 1,
-      blackout > 0 && fan < 1,
+      sheer < 1 && blackout < 1,
+      sheer > 0 && blackout < 1,
+      blackout > 0,
       fan > 0,
     ];
 

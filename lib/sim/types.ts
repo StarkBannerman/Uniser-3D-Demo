@@ -736,7 +736,33 @@ export interface Space {
      * the hotspot when either is missing, so the real blur appears the
      * moment the render does.
      */
-    overlay?: { dir: string; deviceId: string; rect: string };
+    overlay?: {
+      dir: string;
+      deviceId: string;
+      rect: string;
+      /**
+       * How the overlay arrives.
+       *
+       * `fade` is an opacity across the whole rectangle, driven by a fan's
+       * speed. `drop` is an edge rolling down it, driven by an av device's
+       * `screen` position — a projection screen is either there or it is
+       * not, and what moves is its bottom edge.
+       */
+      travel?: "fade" | "drop";
+      /**
+       * Layers that always come from the overlay set, whichever pass is
+       * drawing.
+       *
+       * The boardroom's `bd_projection` is the case: it is a projected
+       * image and its spill, and it only exists in the set rendered with
+       * the screen down — it measures exactly 0.00000 in the other two.
+       * Pinning it means every pass samples the one plate that has it,
+       * and because the passes' shares sum to one it lands across the
+       * whole frame at its own weight rather than only inside the
+       * screen's rectangle. The spill is most of the effect.
+       */
+      pinLayers?: string[];
+    };
     /**
      * Hotspots that are not named after a device, and what they mean.
      *
@@ -787,6 +813,27 @@ export interface Space {
   schedule?: { atMin: number; sceneId: string }[];
   /** Fall-back dimming when the room is empty. See `SpaceAutoDim`. */
   autoDim?: SpaceAutoDim;
+  /**
+   * One card for a room's audio-visual system.
+   *
+   * Declared rather than inferred because the pieces are separate devices
+   * that only make sense together: a motorised screen, a projector that
+   * cannot show anything until the screen is down, speakers, and a
+   * conference camera. The panel reads the relationships from here —
+   * which device is which — instead of guessing from device kinds, which
+   * would break the moment a room had two `av` devices. The boardroom has
+   * three.
+   */
+  avPanel?: {
+    /** The av device carrying the screen position and the speakers. */
+    deviceId: string;
+    /** The light circuit that is the projected image, if there is one. */
+    projectorId?: string;
+    /** An av device standing in for the conference camera and its mic. */
+    cameraId?: string;
+    /** The circuit the camera brings up when it starts, and to what. */
+    cameraLight?: { deviceId: string; level: number };
+  };
   /**
    * Proportional trim against the daylight the glazing is supplying.
    *

@@ -1,0 +1,82 @@
+{
+  "camera": "hero",
+  "points": {
+    "bd-general": {
+      "u": 0.2436,
+      "v": 0.3418,
+      "visible": true
+    },
+    "bd-table": {
+      "u": 0.5,
+      "v": 0.4452,
+      "visible": true
+    },
+    "bd-feature": {
+      "u": 0.8376,
+      "v": 0.4652,
+      "visible": true
+    },
+    "bd-front": {
+      "u": 0.5,
+      "v": 0.4302,
+      "visible": true
+    },
+    "bd-vc": {
+      "u": 0.5976,
+      "v": 0.4208,
+      "visible": true
+    },
+    "bd-accent": {
+      "u": 0.1187,
+      "v": 0.6678,
+      "visible": true
+    },
+    "bd-projection": {
+      "u": 0.5,
+      "v": 0.527,
+      "visible": true
+    },
+    "screen": {
+      "u": 0.5,
+      "v": 0.4414,
+      "visible": true
+    },
+    "projector": {
+      "u": 0.5,
+      "v": 0.4092,
+      "visible": true
+    },
+    "vc": {
+      "u": 0.5,
+      "v": 0.6176,
+      "visible": true
+    },
+    "speakers": {
+      "u": 0.5986,
+      "v": 0.5994,
+      "visible": true
+    },
+    "blinds": {
+      "u": 0.1051,
+      "v": 0.3901,
+      "visible": true
+    },
+    "hvac": {
+      "u": 0.5,
+      "v": -0.4448,
+      "visible": false
+    },
+    "keypad": {
+      "u": 0.5,
+      "v": 0.6601,
+      "visible": true
+    }
+  },
+  "screen_rect": [
+    0.4099,
+    0.438,
+    0.5901,
+    0.5947
+  ],
+  "screen_rect_order": "u0, v0, u1, v1 (v down); screen drops from v0 to v1"
+}

@@ -1009,6 +1009,10 @@ console.log("\n18. Scenes settle inside the client's two to three seconds");
     // `PACE` deliberately does not compress; the brief asks for eleven
     // seconds end to end.
     office: 12000,
+    // Six beats with a four-second blind and a six-second screen inside
+    // them, neither of which `PACE` compresses; the brief asks for about
+    // fifteen seconds end to end.
+    boardroom: 17000,
   };
   const budgetFor = (spaceId: string) => SPACE_BUDGET_MS[spaceId] ?? STAGED_BUDGET_MS;
   const HARDWARE_PACED = new Set([

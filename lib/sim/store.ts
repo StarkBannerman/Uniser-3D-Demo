@@ -575,6 +575,15 @@ export interface SimStore {
     label: string;
     step: number;
     total: number;
+    /**
+     * The devices this stage is talking about.
+     *
+     * The room points at what it is narrating: the stage marks these
+     * hotspots while the beat runs, so "table lighting stays on for
+     * notes" is accompanied by the table's own marker rather than
+     * leaving the client to find it. Empty before the first stage.
+     */
+    deviceIds: string[];
   } | null;
 
   loadSpace: (space: Space) => void;
@@ -816,6 +825,7 @@ export const useSim = create<SimStore>((set, get) => ({
         label: scene.name,
         step: 0,
         total: scene.steps.length,
+        deviceIds: [],
       };
     }
 
@@ -1065,6 +1075,7 @@ export const useSim = create<SimStore>((set, get) => ({
         label: step.label,
         step: index + 1,
         total: steps.length,
+        deviceIds: Object.keys(step.targets),
       };
 
       pendingSequence = {

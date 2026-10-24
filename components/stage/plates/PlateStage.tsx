@@ -28,7 +28,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSim } from "@/lib/sim/store";
-import type { FanState, LightState, ShadeState } from "@/lib/sim/types";
+import type { AvState, FanState, LightState, ShadeState } from "@/lib/sim/types";
 import { curtainWindow } from "./window";
 import { classifyRenderer, detectRenderPath, rendererString } from "@/lib/device";
 import {
@@ -186,7 +186,13 @@ export function PlateStage({
     window?: { quad: [number, number][]; pad?: number; travel?: string };
   };
   /** A set composited over the room inside a named rect. See `Space.plates.overlay`. */
-  overlay?: { dir: string; deviceId: string; rect: string };
+  overlay?: {
+    dir: string;
+    deviceId: string;
+    rect: string;
+    travel?: "fade" | "drop";
+    pinLayers?: string[];
+  };
   /** Controls tab is showing, so the room should say where each circuit is. */
   controlsOpen?: boolean;
 }) {
@@ -211,6 +217,8 @@ export function PlateStage({
   const overlayDir = overlay?.dir;
   const overlayRect = overlay?.rect;
   const overlayId = overlay?.deviceId;
+  const overlayTravel = overlay?.travel ?? "fade";
+  const overlayPinned = overlay?.pinLayers?.join(",") ?? "";
   const closedDir = curtain?.closedDir;
   const curtainId = curtain?.deviceId;
 
@@ -316,6 +324,18 @@ export function PlateStage({
        * makes `mix(a, a, t)` return `a` whatever the position, which is
        * exactly the statement "this circuit does not change".
        */
+      /**
+       * Layers the overlay set owns outright, in every pass.
+       *
+       * The passes' shares sum to one at every pixel, so a layer sampled
+       * from the same plate in all of them lands at exactly its own
+       * weight across the whole frame — which is how the boardroom's
+       * projection spills into the room rather than being trapped inside
+       * the screen's rectangle.
+       */
+      const pinnedDir = overlayLoaded ? setDirs[setDirs.length - 1] : null;
+      const pinned = new Set(pinnedDir ? (overlayPinned ? overlayPinned.split(",") : []) : []);
+
       const fallback = extra.map((e) => layers.filter((l) => e.layers[l] === undefined));
       const absent = [...new Set(fallback.flat())];
       if (absent.length) {
@@ -350,13 +370,19 @@ export function PlateStage({
         renderer = new PlateRenderer(
           canvas,
           manifest.gamma,
-          // A set without a layer borrows the base set's scale with its plate.
+          // A set without a layer borrows the base set's scale with its
+          // plate; a pinned layer takes the overlay set's in every pass.
           [manifest, ...extra].map((m) =>
-            layers.map((l) => (m.layers[l] ?? manifest.layers[l]).scale),
+            layers.map((l) =>
+              pinned.has(l)
+                ? (extra[extra.length - 1].layers[l] ?? manifest.layers[l]).scale
+                : (m.layers[l] ?? manifest.layers[l]).scale,
+            ),
           ),
           toneCurve(),
           glass,
           overlayBox,
+          overlayTravel,
         );
       } catch (e) {
         if (!cancelled) {
@@ -472,9 +498,15 @@ export function PlateStage({
       const OVERLAY_BY_SPEED = [0, 0.6, 0.85, 1];
       const overlayStrength = (): number => {
         if (!overlayLoaded || !overlayId) return 0;
-        const st = useSim.getState().states[overlayId] as FanState | undefined;
-        if (!st?.on) return 0;
-        return OVERLAY_BY_SPEED[Math.min(Math.max(st.speed, 0), 3)] ?? 1;
+        const st = useSim.getState().states[overlayId];
+        if (!st) return 0;
+        if (overlayTravel === "drop") {
+          // A screen's position is how far it has rolled out, 0 to 100.
+          return Math.min(Math.max(((st as AvState).screen ?? 0) / 100, 0), 1);
+        }
+        const fan = st as FanState;
+        if (!fan.on) return 0;
+        return OVERLAY_BY_SPEED[Math.min(Math.max(fan.speed, 0), 3)] ?? 1;
       };
       let overlayMix = overlayStrength();
 
@@ -582,9 +614,13 @@ export function PlateStage({
 
       const fetchLayer = async (layer: string, set: number) => {
         try {
-          // Set 0 is the base; any later set missing this layer borrows it.
-          const from =
-            set > 0 && fallback[set - 1]?.includes(layer) ? setDirs[0] : setDirs[set];
+          // A pinned layer always comes from the overlay set; otherwise
+          // set 0 is the base, and any later set missing a layer borrows it.
+          const from = pinned.has(layer)
+            ? pinnedDir!
+            : set > 0 && fallback[set - 1]?.includes(layer)
+              ? setDirs[0]
+              : setDirs[set];
           const image = await loadImage(plateUrl(from, chosen, layer));
           if (cancelled || !renderer) return;
           renderer.setLayer(layers.indexOf(layer), image, set);
@@ -646,7 +682,7 @@ export function PlateStage({
       renderer?.dispose();
       useSim.getState().setStageStatic(false);
     };
-  }, [dir, profileName, sheerDir, closedDir, curtainId, declaredWindow, overlayDir, overlayRect, overlayId]);
+  }, [dir, profileName, sheerDir, closedDir, curtainId, declaredWindow, overlayDir, overlayRect, overlayId, overlayTravel, overlayPinned]);
 
   const space = useSim((s) => s.space);
   const select = useSim((s) => s.select);
@@ -669,6 +705,8 @@ export function PlateStage({
   const showHotspots = controlsOpen;
   const states = useSim((s) => s.states);
   const overlaySpinnerId = overlay?.deviceId;
+  const sequence = useSim((s) => s.sequence);
+  const cameraId = space?.avPanel?.cameraId;
 
   return (
     <div ref={containerRef} className="absolute inset-0">
@@ -734,8 +772,20 @@ export function PlateStage({
               !overlayLive &&
               deviceId === overlaySpinnerId &&
               Boolean((states[deviceId] as FanState | undefined)?.on);
+            /** A conference camera that is running says so on the wall. */
+            const live =
+              Boolean(cameraId) &&
+              deviceId === cameraId &&
+              Boolean((states[deviceId] as AvState | undefined)?.on);
+            /** The circuit the running demonstration is narrating. */
+            const pulsing = Boolean(sequence?.deviceIds?.includes(deviceId));
             const shown =
-              showHotspots || hoveredDeviceId === deviceId || vehicle || spinning;
+              showHotspots ||
+              hoveredDeviceId === deviceId ||
+              vehicle ||
+              spinning ||
+              live ||
+              pulsing;
             return (
               <button
                 key={pointId}
@@ -764,12 +814,26 @@ export function PlateStage({
                     style={{ animationDuration: "0.6s" }}
                   />
                 )}
+                {pulsing && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 animate-ping rounded-full bg-brass-300/40"
+                  />
+                )}
+                {live && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full bg-red-500/50"
+                  />
+                )}
                 <span
                   className={`block rounded-full ring-1 ring-black/50 transition group-hover:scale-125 group-hover:bg-brass-300 ${
                     chosen
                       ? "h-2.5 w-2.5 bg-brass-300 ring-2 ring-brass-300/40"
                       : hoveredDeviceId === deviceId
                         ? "h-2 w-2 scale-150 bg-brass-300"
+                        : live
+                        ? "h-2.5 w-2.5 bg-red-500 ring-2 ring-red-500/40"
                         : vehicle
                           ? "h-2 w-2 bg-white/45"
                           : "h-2 w-2 bg-brass-400/80"

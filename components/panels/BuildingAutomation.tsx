@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSim } from "@/lib/sim/store";
 import type {
+  AvDevice,
   AvState,
   ClimateMode,
   ClimateState,
@@ -665,6 +666,194 @@ function DaylightResponse() {
 }
 
 /* ------------------------------------------------------------------ */
+/* AV system                                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One card for a room whose AV pieces only make sense together.
+ *
+ * The client lists Display, Projector, Screen, Speakers and Video
+ * conferencing as five items, and four of them are one decision: there is
+ * no separate display, the projector *is* the display, and it cannot show
+ * anything until the screen is down. So the card enforces that rather than
+ * describing it — Projector is disabled with the screen up, and pressing
+ * it anyway sends the screen down first and waits.
+ *
+ * What is wired to what comes from `Space.avPanel`, not from device kinds.
+ * This room has three `av` devices and guessing between them by kind would
+ * pick whichever happened to be declared first.
+ */
+function AvSystem() {
+  const space = useSim((s) => s.space);
+  const states = useSim((s) => s.states);
+  const patch = useSim((s) => s.patch);
+  const busyDevices = useSim((s) => s.busyDevices);
+  const cfg = space?.avPanel;
+
+  const av = space?.devices.find((d): d is AvDevice => d.id === cfg?.deviceId);
+  const avSt = av ? (states[av.id] as AvState | undefined) : undefined;
+  const projector = cfg?.projectorId
+    ? (states[cfg.projectorId] as LightState | undefined)
+    : undefined;
+  const camera = cfg?.cameraId ? (states[cfg.cameraId] as AvState | undefined) : undefined;
+
+  if (!cfg || !space || !av || !avSt) return null;
+
+  const screen = Math.round(avSt.screen);
+  const down = screen >= 98;
+  const moving = busyDevices.includes(av.id);
+  const travel = Math.round((av.screenTravelMs ?? 6000) / 1000);
+
+  const setScreen = (to: number) => {
+    // The image goes before the screen does. A projector throwing three
+    // and a half thousand lumens at a screen on its way up paints the
+    // slide across the ceiling slot as it passes.
+    if (to < screen && cfg.projectorId) patch(cfg.projectorId, { on: false }, 600);
+    patch(av.id, { screen: to });
+  };
+
+  const setProjector = (on: boolean) => {
+    if (!cfg.projectorId) return;
+    if (on && !down) {
+      // Asked for with the screen up: send the screen down and let the
+      // presenter press it again when it arrives, rather than queueing
+      // something they cannot see.
+      setScreen(100);
+      return;
+    }
+    patch(cfg.projectorId, on ? { on: true, level: 100 } : { on: false }, 1500);
+  };
+
+  const setCamera = (on: boolean) => {
+    if (!cfg.cameraId) return;
+    patch(cfg.cameraId, { on });
+    const lift = cfg.cameraLight;
+    if (!on || !lift) return;
+    // A board member lit from the ceiling alone looks like a hostage
+    // video, so the face panels come up with the camera — but only if
+    // they are lower than the call needs. Turning the camera on should
+    // never take light away.
+    const st = states[lift.deviceId] as LightState | undefined;
+    if (!st || !st.on || st.level < lift.level) {
+      patch(lift.deviceId, { on: true, level: lift.level }, 1200);
+    }
+  };
+
+  const avOn = () => {
+    patch(av.id, { on: true, source: av.sources[0] });
+    if (down) setProjector(true);
+  };
+
+  const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="flex items-center justify-between gap-2 py-1">
+      <span className="text-[11px] text-shell-400">{label}</span>
+      {children}
+    </div>
+  );
+
+  return (
+    <Card
+      title="AV system"
+      note={moving ? "screen moving…" : down ? "screen down" : "screen up"}
+    >
+      <div className="mb-2 flex gap-1">
+        {[
+          { label: "Screen up", to: 0 },
+          { label: "Screen down", to: 100 },
+        ].map((b) => (
+          <button
+            key={b.label}
+            type="button"
+            disabled={moving}
+            onClick={() => setScreen(b.to)}
+            aria-pressed={b.to === 100 ? down : screen <= 2}
+            className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] transition-colors disabled:opacity-40 ${
+              (b.to === 100 ? down : screen <= 2)
+                ? "border-brass-700 bg-shell-800 text-brass-300"
+                : "border-shell-800 text-shell-300 hover:text-shell-100"
+            }`}
+          >
+            {b.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={avOn}
+          className="rounded-lg border border-shell-800 px-2.5 py-1.5 text-[11px] text-shell-300 transition-colors hover:text-shell-100"
+        >
+          AV on
+        </button>
+      </div>
+
+      {cfg.projectorId && (
+        <Row label={`Projector${down ? "" : " — screen up"}`}>
+          <Toggle
+            on={Boolean(projector?.on)}
+            onChange={setProjector}
+            label="Projector"
+            disabled={moving}
+          />
+        </Row>
+      )}
+      {cfg.projectorId && (
+        <div className="mb-1">
+          <Segmented
+            value={avSt.source}
+            options={av.sources.map((src) => ({ value: src, label: src }))}
+            onChange={(source) => patch(av.id, { source })}
+            label="Projector source"
+            disabled={!projector?.on}
+          />
+        </div>
+      )}
+
+      <Row label="Speakers">
+        <Toggle on={avSt.on} onChange={(on) => patch(av.id, { on })} label="Speakers" />
+      </Row>
+      <Slider
+        value={avSt.volume}
+        min={0}
+        max={100}
+        label="Speaker volume"
+        disabled={!avSt.on}
+        onChange={(volume) => patch(av.id, { volume })}
+      />
+
+      {cfg.cameraId && camera && (
+        <div className="mt-1.5 border-t border-shell-800 pt-1">
+          <Row label="Camera">
+            <span className="flex items-center gap-2">
+              {camera.on && (
+                <span className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-red-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)]" />
+                  Live
+                </span>
+              )}
+              <Toggle on={camera.on} onChange={setCamera} label="Conference camera" />
+            </span>
+          </Row>
+          <Row label="Microphone">
+            <Toggle
+              on={camera.volume > 0}
+              onChange={(live) => patch(cfg.cameraId!, { volume: live ? 60 : 0 })}
+              label="Microphone"
+            />
+          </Row>
+        </div>
+      )}
+
+      <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
+        {moving
+          ? `The screen takes ${travel} s and the control is held until it arrives.`
+          : down
+            ? "Screen down. The projector is the display — there is no second screen in this room."
+            : "The projector cannot show an image on a stowed screen; pressing it sends the screen down first."}
+      </p>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Zoned occupancy                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -866,6 +1055,9 @@ function useAmbientPad() {
 
 function Music() {
   const space = useSim((s) => s.space);
+  // A room with its own AV card owns its speakers; this one would
+  // otherwise pick whichever `av` device happened to be declared first.
+  const hasAvCard = Boolean(space?.avPanel);
   const states = useSim((s) => s.states);
   const patch = useSim((s) => s.patch);
   const av = space?.devices.find((d) => d.kind === "av");
@@ -879,7 +1071,7 @@ function Music() {
     if (playing && st) pad.setVolume(st.volume);
   }, [playing, st, pad]);
 
-  if (!av || !st) return null;
+  if (!av || !st || hasAvCard) return null;
 
   const toggle = async () => {
     if (playing) {
@@ -931,6 +1123,7 @@ export function BuildingAutomation() {
     Boolean(space.schedule?.length) ||
     Boolean(space.autoDim) ||
     Boolean(space.occupancyZones) ||
+    Boolean(space.avPanel) ||
     Boolean(space.daylightResponse) ||
     Boolean(space.exclusive?.length) ||
     space.devices.some(
@@ -949,6 +1142,7 @@ export function BuildingAutomation() {
       <SectionLabel>Building automation</SectionLabel>
       <Schedule />
       <Curtains />
+      <AvSystem />
       <DaylightResponse />
       <Occupancy />
       <OccupancyZones />

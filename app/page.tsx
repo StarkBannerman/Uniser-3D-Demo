@@ -49,7 +49,6 @@ const DOORS: {
     lead: "Workplace and executive spaces",
     blurb:
       "The rooms a company works in and is seen working in. An executive cabin lit like hospitality rather than like an office, with the workspace and the boardroom alongside it.",
-    soon: ["Office Boardroom"],
   },
 ];
 

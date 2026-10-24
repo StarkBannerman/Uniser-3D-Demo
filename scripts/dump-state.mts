@@ -24,7 +24,7 @@ globalThis.performance = { now: () => virtualNow };
 
 import { useSim } from "../lib/sim/store";
 import { getSpace, spaces } from "../lib/spaces";
-import type { LightState, ShadeState } from "../lib/sim/types";
+import type { AvState, LightState, ShadeState } from "../lib/sim/types";
 
 const FRAME = 16.7;
 
@@ -84,6 +84,16 @@ function dump(spaceId: string, sceneId: string) {
     daylightMix: daylightMix ?? null,
     daylightTint: daylightTint ?? null,
     curtain: shade ? [track(shade.sheer), track(shade.blackout)] : [0, 0],
+    /**
+     * How far the overlay set is showing: a screen's drop, or a fan's
+     * blur. Zero for a space with no overlay.
+     */
+    overlay: (() => {
+      const id = space.plates?.overlay?.deviceId;
+      if (!id) return 0;
+      const st = states[id] as AvState | undefined;
+      return st?.screen === undefined ? 0 : track(st.screen);
+    })(),
     states: out,
   };
 }

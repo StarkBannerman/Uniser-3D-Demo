@@ -147,7 +147,7 @@ WINDOW_X = 0.62
 # `room_sheer` and `room_closed` are the same room behind a drawn curtain:
 # same circuits, same calibration, further renders. They take the profile
 # their open twin names.
-SET = load_profile(re.sub(r"_(sheer|closed)$", "", PLATES.name))
+SET = load_profile(re.sub(r"_(sheer|closed|screen|fan)$", "", PLATES.name))
 GAIN = SET["gain"]
 EXPOSURE = SET["exposure"]
 TINT_SATURATION = SET["tint"]
@@ -338,7 +338,7 @@ def _declared_window(name: str):
 _HOTSPOTS = PLATES / "hotspots.json"
 _PROJECTED = json.loads(_HOTSPOTS.read_text()).get("curtain") if _HOTSPOTS.exists() else None
 # The space's own measurement wins, exactly as `PlateStage` resolves it.
-CURTAIN = _declared_window(re.sub(r"_(sheer|closed)$", "", PLATES.name)) or _PROJECTED
+CURTAIN = _declared_window(re.sub(r"_(sheer|closed|screen|fan)$", "", PLATES.name)) or _PROJECTED
 # A plate set with a `_closed` sibling has a covering that moves; one with
 # a `_sheer` sibling as well has two of them. In shader order, and matching
 # `PlateStage`: open, then the middle state if there is one, then shut.
@@ -351,6 +351,60 @@ if (PLATES.parent / f"{PLATES.name}_closed").is_dir():
 # second set is the *shut* one, not the middle one.
 CURTAIN_ROLES = ([0, 1, 2] if len(CURTAIN_SETS) == 3
                  else [0, 2] if len(CURTAIN_SETS) == 2 else [0])
+
+
+def _declared_overlay(name: str):
+    """A space's `plates.overlay`, parsed out of the TypeScript."""
+    for path in sorted((ROOT / "lib/spaces").rglob("*.ts")):
+        src = _strip_comments(path.read_text())
+        if f'dir: "/plates/{name}"' not in src:
+            continue
+        block = _block(src, "overlay")
+        if not block:
+            return None
+        d = re.search(r'dir:\s*"/plates/([^"]+)"', block)
+        rect = re.search(r'rect:\s*"([^"]+)"', block)
+        travel = re.search(r'travel:\s*"([^"]+)"', block)
+        pins = re.findall(r'"([a-z_]+)"', _block(block, "pinLayers"))
+        if not d or not rect:
+            return None
+        return {"dir": PLATES.parent / d.group(1), "rect": rect.group(1),
+                "travel": travel.group(1) if travel else "fade", "pins": pins}
+    return None
+
+
+_BASE_NAME = re.sub(r"_(sheer|closed|screen|fan)$", "", PLATES.name)
+OVERLAY = _declared_overlay(_BASE_NAME)
+if OVERLAY and not (OVERLAY["dir"] / "manifest.json").exists():
+    OVERLAY = None          # probed, exactly as the stage probes it
+_RAW_RECT = (json.loads(_HOTSPOTS.read_text()).get(OVERLAY["rect"])
+             if OVERLAY and _HOTSPOTS.exists() else None)
+if OVERLAY:
+    r = _RAW_RECT
+    ok = (isinstance(r, list) and len(r) == 4
+          and all(isinstance(x, (int, float)) for x in r))
+    if ok:
+        u0, u1 = max(0.0, min(r[0], r[2])), min(1.0, max(r[0], r[2]))
+        v0, v1 = max(0.0, min(r[1], r[3])), min(1.0, max(r[1], r[3]))
+        ok = (u1 - u0) > 1e-3 and (v1 - v0) > 1e-3
+    OVERLAY = {**OVERLAY, "box": (u0, v0, u1, v1)} if ok else None
+OVERLAY_PINS = set(OVERLAY["pins"]) if OVERLAY else set()
+
+
+def overlay_share(amount, shape):
+    """How much of each pixel the overlay set owns. Mirrors `overlayShare`."""
+    if OVERLAY is None or amount <= 0:
+        return 0.0
+    u0, v0, u1, v1 = OVERLAY["box"]
+    h, w = shape
+    uu, vv = np.meshgrid((np.arange(w) + 0.5) / w, (np.arange(h) + 0.5) / h)
+    su, sv = 6.0 / w, 6.0 / h
+    box = (smoothstep(u0 - su, u0 + su, uu) * smoothstep(u1 + su, u1 - su, uu)
+           * smoothstep(v0 - sv, v0 + sv, vv) * smoothstep(v1 + sv, v1 - sv, vv))
+    if OVERLAY["travel"] == "drop":
+        line = v0 + amount * (v1 - v0)
+        return box * smoothstep(line + sv, line - sv, vv)
+    return box * amount
 
 
 def smoothstep(a, b, x):
@@ -493,7 +547,7 @@ def layer_weight(layer, targets, clock, g, mix=None, tint_rgb=None):
 
 
 def render(targets, clock, gain=None, exposure=EXPOSURE, mix=None, tier="sd",
-           plates=None, curtain=(0.0, 0.0), tint=None):
+           plates=None, curtain=(0.0, 0.0), tint=None, overlay=0.0):
     """The composite, as the browser draws it.
 
     `curtain` is the two tracks, each 0 drawn back to 1 drawn across. The
@@ -509,6 +563,15 @@ def render(targets, clock, gain=None, exposure=EXPOSURE, mix=None, tier="sd",
     sets = CURTAIN_SETS if (base == PLATES and len(CURTAIN_SETS) > 1) else [base]
     shape = linear(LAYERS[0], tier, base).shape[:2]
     shares = curtain_shares(curtain, shape) if len(sets) > 1 else [1.0]
+    # The overlay replaces; the covering sets share what is left of each
+    # pixel. Pinned layers come from the overlay set in every pass, so
+    # their total lands at their own weight across the whole frame.
+    ov = overlay_share(overlay, shape) if OVERLAY else 0.0
+    if OVERLAY is not None:
+        rest = 1.0 - ov
+        shares = [sh * rest if np.isscalar(sh) else sh * rest for sh in shares]
+        sets = list(sets) + [OVERLAY["dir"]]
+        shares = list(shares) + [ov]
 
     hdr = None
     for k, folder in enumerate(sets):
@@ -523,7 +586,8 @@ def render(targets, clock, gain=None, exposure=EXPOSURE, mix=None, tier="sd",
             w = layer_weight(l, targets, clock, g, mix, hex_to_linear(tint))
             if w is None:
                 continue
-            contrib = linear(l, tier, folder) * np.asarray(w, np.float32)
+            src = OVERLAY["dir"] if (OVERLAY and l in OVERLAY_PINS) else folder
+            contrib = linear(l, tier, src) * np.asarray(w, np.float32)
             acc = contrib if acc is None else acc + contrib
         if acc is None:
             continue
@@ -578,7 +642,7 @@ def declared_circuits():
     nothing to the picture. Worth one line in the report rather than a
     client finding it.
     """
-    name = re.sub(r"_(sheer|closed|fan)$", "", PLATES.name)
+    name = re.sub(r"_(sheer|closed|screen|fan)$", "", PLATES.name)
     for path in sorted((ROOT / "lib/spaces").rglob("*.ts")):
         src = _strip_comments(path.read_text())
         if f'dir: "/plates/{name}"' not in src:
@@ -663,6 +727,15 @@ def derive(lumens: dict, ref: str, target: float = 0.25):
     base = math.sqrt(lo * hi)
     print(f"  exposure {EXPOSURE}, reference {ref} -> {base:.3f}  (alone at full reads {target})\n")
     for l in lumens:
+        if mean[l] < 1e-7:
+            # Dividing by an empty plate gives a gain in the millions and a
+            # room that blows out the moment the circuit is switched on.
+            # The boardroom's projection is the case: it is rendered only
+            # in the set with the screen down, so it has to be derived
+            # against that set. Say so rather than print the nonsense.
+            print(f"  {l:14s} {'—':>12s}   lumens {lumens[l]:7d}   plate is empty in"
+                  f" {PLATES.name}; derive it against the set that has it")
+            continue
         g = base * (mean[ref] * lumens[l] / lumens[ref]) / max(mean[l], 1e-12)
         print(f"  {l:14s} {g:12.3f}   lumens {lumens[l]:7d}   plate mean {mean[l]:.5f}")
 
@@ -682,8 +755,10 @@ def still(state_path: str, out_dir: str):
     mix = st.get("daylightMix")
     curtain = st.get("curtain", [0.0, 0.0])
     tint = st.get("daylightTint")
+    overlay = st.get("overlay", 0.0)
     for tier, w, h in (("hd", MAN["width"], MAN["height"]), ("sd", *MAN["sd"])):
-        img = render(targets, clock, mix=mix, tier=tier, curtain=curtain, tint=tint)
+        img = render(targets, clock, mix=mix, tier=tier, curtain=curtain, tint=tint,
+                     overlay=overlay)
         L = lum(img)
         arr = np.clip(img * 255.0 + 0.5, 0, 255).astype(np.uint8)
         pic = Image.fromarray(arr)

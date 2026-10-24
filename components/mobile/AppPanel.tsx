@@ -653,8 +653,8 @@ export function AppPanel({ view }: { view: AppView }) {
                 and the thing actually being sold is the plate on the wall. */}
             {space.keypad && (
               <p className="px-1 text-[10px] leading-snug text-shell-600">
-                Recall any of these from the {space.keypad.finish} wall keypad, this
-                app, or voice.
+                Recall any of these from the {space.keypad.finish} keypad, this app,
+                or voice.
               </p>
             )}
           </div>
