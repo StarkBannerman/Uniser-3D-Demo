@@ -43,6 +43,24 @@ export const retired: Space[] = [
   cxoCabin,
 ];
 
+/**
+ * What each segment is called in front of a client.
+ *
+ * The ids and the titles are crossed and have been since before the plates
+ * work: `hospitality` is the door a client sees as "Commercial" — the rooms
+ * a business is judged on by the people who walk into them — and
+ * `commercial` is the Office door. Renaming the segments would touch every
+ * space file, so the mapping lives here, once, and both the front door and
+ * the in-demo switcher read it. They disagreed for exactly as long as there
+ * were two of them: the switcher knew about one door, so the cabin could be
+ * reached from the home page and never left.
+ */
+export const SEGMENT_TITLE: Record<Segment, string> = {
+  hospitality: "Commercial",
+  commercial: "Office",
+  residential: "Residential",
+};
+
 export function getSpace(id: string): Space | undefined {
   return spaces.find((s) => s.id === id);
 }

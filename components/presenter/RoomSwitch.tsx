@@ -19,12 +19,15 @@
  */
 
 import Link from "next/link";
-import { spacesBySegment } from "@/lib/spaces";
+import { SEGMENT_TITLE, spacesBySegment } from "@/lib/spaces";
 import type { Segment } from "@/lib/sim/types";
 
-const SEGMENTS: { id: Segment; label: string }[] = [
-  { id: "hospitality", label: "Commercial" },
-];
+/**
+ * Every door, in the order the front page lists them, named from the one
+ * place those names live. A segment with nothing finished behind it is
+ * filtered out below rather than listed here.
+ */
+const SEGMENTS: Segment[] = ["hospitality", "commercial", "residential"];
 
 export function RoomSwitch({
   currentId,
@@ -34,22 +37,22 @@ export function RoomSwitch({
   segment: Segment;
 }) {
   const rooms = spacesBySegment(segment);
-  const others = SEGMENTS.filter((s) => s.id !== segment).filter(
-    (s) => spacesBySegment(s.id).length > 0,
+  const others = SEGMENTS.filter(
+    (s) => s !== segment && spacesBySegment(s).length > 0,
   );
 
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-1.5">
       {others.map((other) => {
-        const first = spacesBySegment(other.id)[0];
+        const first = spacesBySegment(other)[0];
         return (
           <Link
-            key={other.id}
+            key={other}
             href={`/demo/${first.id}`}
-            title={`Switch to ${other.label}`}
+            title={`Switch to ${SEGMENT_TITLE[other]}`}
             className="rounded-md border border-shell-800 bg-shell-900 px-2.5 py-1.5 text-[11px] font-medium text-shell-400 transition-colors hover:border-brass-700 hover:text-shell-200"
           >
-            {other.label}
+            {SEGMENT_TITLE[other]}
             <span aria-hidden className="ml-1 text-shell-600">
               ↗
             </span>

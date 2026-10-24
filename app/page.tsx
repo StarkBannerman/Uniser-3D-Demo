@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { spacesBySegment } from "@/lib/spaces";
+import { SEGMENT_TITLE, spacesBySegment } from "@/lib/spaces";
 import type { Segment, Space } from "@/lib/sim/types";
 
 /**
@@ -23,11 +23,9 @@ import type { Segment, Space } from "@/lib/sim/types";
 /**
  * The doors, and the segment ids behind them are not the titles.
  *
- * `hospitality` is the door a client sees as "Commercial" — the rooms a
- * business is judged on by the people who walk into them. `commercial` is
- * the Office door. The names have been crossed since before the plates
- * work and renaming the segment would touch every space file, so the
- * mapping lives here and nowhere else.
+ * The titles come from `SEGMENT_TITLE`, which the in-demo switcher reads
+ * too — the ids and the names are crossed, and a second copy of that
+ * mapping is how the cabin ended up reachable from here and nowhere else.
  *
  * `soon` is rooms that are specified and not yet built. They are shown
  * rather than hidden because the question a client asks in the first
@@ -36,21 +34,18 @@ import type { Segment, Space } from "@/lib/sim/types";
  */
 const DOORS: {
   segment: Segment;
-  title: string;
   lead: string;
   blurb: string;
   soon?: string[];
 }[] = [
   {
     segment: "hospitality",
-    title: "Commercial",
     lead: "Hospitality, retail and public spaces",
     blurb:
       "A hotel restaurant, a hotel lobby, a guest room and a luxury car showroom — the rooms a business is judged on in the first ten seconds, with the lighting layers that do the judging on separate circuits.",
   },
   {
     segment: "commercial",
-    title: "Office",
     lead: "Workplace and executive spaces",
     blurb:
       "The rooms a company works in and is seen working in. An executive cabin lit like hospitality rather than like an office, with the workspace and the boardroom alongside it.",
@@ -141,7 +136,7 @@ export default function Home() {
                   {door.lead}
                 </div>
                 <h2 className="mt-1.5 text-lg font-medium text-shell-100">
-                  {door.title}
+                  {SEGMENT_TITLE[door.segment]}
                 </h2>
                 <p className="mt-2 text-[13px] leading-relaxed text-shell-400">
                   {door.blurb}
