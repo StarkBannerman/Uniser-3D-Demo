@@ -31,19 +31,40 @@ export const office: Space = {
     dir: "/plates/office",
     profile: "office",
     /**
-     * One covering and two plate sets.
+     * One covering, two plate sets, and an opening measured by hand.
      *
-     * No window quad, and here that is the right answer rather than a gap.
-     * The cabin's blind fills one clean trapezoid and travels down it; this
-     * glazing is a curtain wall wrapping two sides, and the pixels the
-     * blinds actually change come out as thirteen narrow bands between
-     * mullions, monitors and the meeting-room box, filling 3% of the frame.
-     * A wipe needs an aperture to cross. This one is slivers behind a
-     * foreground, so the sets crossfade — which is also what the brief
-     * asks for, and what micro-blinds tilting across a whole elevation
-     * looks like.
+     * The brief asks for a crossfade and a crossfade is invisible here,
+     * which is worth writing down because the measurement is
+     * counter-intuitive. Lowering these blinds barely changes the
+     * brightness of the glass at all: the exterior layers darken it from
+     * 0.420 to 0.380, and the *circuits* brighten it from 0.147 to 0.313,
+     * because a pale slatted blind lit by an office is brighter than
+     * tinted glass onto a hazy skyline. Net, the window gets slightly
+     * lighter as the blinds come down. The render is honest — what
+     * changes is the content, a skyline becoming slats — and a mean
+     * cannot see content, so a crossfade reads as nothing happening.
+     *
+     * A travelling edge reads anyway, because the eye tracks the edge
+     * rather than the level. So the blinds drop, like the cabin's. The
+     * quad is the main elevation — everything left of the meeting-room
+     * box, which is five sixths of the glazing — fitted to the head and
+     * sill of the region the sky plate actually lights, and re-checked
+     * against it by `scripts/measure-plates.py`.
      */
-    curtain: { closedDir: "/plates/office_closed", deviceId: "ow-blinds" },
+    curtain: {
+      closedDir: "/plates/office_closed",
+      deviceId: "ow-blinds",
+      window: {
+        quad: [
+          [0.0, 0.5355],
+          [0.5352, 0.5995],
+          [0.5352, 0.4286],
+          [0.0, 0.3379],
+        ],
+        pad: 0.02,
+        travel: "drop",
+      },
+    },
     /**
      * The fan, composited over the room rather than summed into it.
      *
