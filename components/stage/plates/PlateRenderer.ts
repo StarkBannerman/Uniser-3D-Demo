@@ -177,15 +177,25 @@ float edgeAxis(float x, float pad, float soft) {
  * than a ruler, and it is damped by sin(pi*p) because at full travel an
  * undamped ripple pulls the two panels apart and leaves a seam of daylight
  * down the centre of a closed blackout.
+ *
+ * The two edges are deliberately *complementary* — one falls where the
+ * other rises — and that is the whole of the fix for a seam that was
+ * visible on a fully closed blackout. Written the obvious way, as two
+ * ramps that each rise away from the panel's own edge, both terms are zero
+ * exactly where the panels meet: the feathers fade out into each other
+ * instead of adding up, so the sum dips to zero across six per cent of the
+ * window right down the middle. Measured, a closed curtain had a bright
+ * bar of night sky through it at every \`p\` below 1, and only the early
+ * return below hid it at \`p\` of exactly 1.
  */
 float coverAt(float p, float t, float s) {
   if (p <= 0.0) return 0.0;
   if (p >= 1.0) return 1.0;
   // Not \`half\`, which GLSL ES reserves.
   float reach = p * 0.5 + 0.01 * sin(3.14159265 * p) * sin(s * 12.0);
-  const float e = 0.03;
-  return clamp(smoothstep(0.0, e, reach - t) + smoothstep(0.0, e, t - (1.0 - reach)),
-               0.0, 1.0);
+  const float h = 0.015;
+  return clamp((1.0 - smoothstep(reach - h, reach + h, t))
+             + smoothstep(1.0 - reach - h, 1.0 - reach + h, t), 0.0, 1.0);
 }
 
 float curtainCoef() {

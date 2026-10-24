@@ -380,13 +380,24 @@ export function PlateStage({
           const shade = states[curtainId] as ShadeState | undefined;
           const clamp = (v: number) => Math.min(Math.max(v / 100, 0), 1);
           const next: [number, number] = [clamp(shade?.sheer ?? 0), clamp(shade?.blackout ?? 0)];
-          // The same deadband `computeWeights` uses, and for the same
-          // reason: the travel tween lands a hair off its target and the
-          // room must not redraw for ever chasing the last thousandth.
-          if (
-            Math.abs(next[0] - curtainPos[0]) > 1e-4 ||
-            Math.abs(next[1] - curtainPos[1]) > 1e-4
-          ) {
+          /**
+           * Exactly, with no deadband — unlike the layer weights.
+           *
+           * The weights need one because the simulation never quite sits
+           * still: the lux sensor resamples at 10 Hz and the rules nudge
+           * levels by fractions, so an exact test redrew a room nobody was
+           * touching. A shade position does not do that. It is a tween
+           * that stops, and between tweens it is a constant, so an exact
+           * test costs nothing and never fires at rest.
+           *
+           * It also has to be exact. `inOutCubic` decelerates hard, so the
+           * frame before a curtain lands is four parts in a million from
+           * its target — under any sensible deadband. The last frame, the
+           * one that carries the exact 1.0, was therefore being dropped,
+           * the shader never saw a fully drawn track, and a closed
+           * blackout kept a seam of night sky down the middle of it.
+           */
+          if (next[0] !== curtainPos[0] || next[1] !== curtainPos[1]) {
             curtainPos = next;
             curtainMoved = true;
           }

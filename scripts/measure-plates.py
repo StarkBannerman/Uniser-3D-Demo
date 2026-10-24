@@ -359,14 +359,21 @@ def window_coords(shape):
 
 
 def cover_at(p, t, s):
-    """How much of the glass a track has covered, along the window."""
+    """How much of the glass a track has covered, along the window.
+
+    The two edges are complementary — one falls where the other rises — so
+    that the feathers add up to one where the panels meet rather than
+    fading out into each other and leaving a seam. See `coverAt` in
+    `PlateRenderer.ts`, which this mirrors.
+    """
     if p <= 0:
         return 0.0
     if p >= 1:
         return 1.0
-    half = p * 0.5 + 0.01 * math.sin(math.pi * p) * np.sin(s * 12.0)
-    e = 0.03
-    return np.clip(smoothstep(0.0, e, half - t) + smoothstep(0.0, e, t - (1.0 - half)), 0, 1)
+    reach = p * 0.5 + 0.01 * math.sin(math.pi * p) * np.sin(s * 12.0)
+    h = 0.015
+    return np.clip((1.0 - smoothstep(reach - h, reach + h, t))
+                   + smoothstep(1.0 - reach - h, 1.0 - reach + h, t), 0, 1)
 
 
 def curtain_shares(curtain, shape):
