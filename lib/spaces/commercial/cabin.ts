@@ -34,15 +34,37 @@ export const cabin: Space = {
     dir: "/plates/cabin",
     profile: "cabin",
     /**
-     * One covering, so two plate sets and no window quad.
+     * One covering, two plate sets, and an opening measured by hand.
      *
-     * The hotel room's curtains travel along a track and are masked to the
-     * glass; these are venetian blinds that lower and tilt, which is the
-     * whole aperture closing at once rather than an edge crossing it. The
-     * same two-state blend with no mask is exactly right for that, and it
-     * is why `hotspots.json` carries no curtain quad here.
+     * These are venetian blinds and they come *down*: the closed render
+     * shows slats filling the window from the head to the sill, so the
+     * covering has to travel down the glass. It shipped first as a plain
+     * crossfade on the reasoning that a blind closes all at once, and
+     * that was wrong — the blind faded in over the window instead of
+     * coming down it, which reads as a dissolve rather than as hardware.
+     *
+     * The quad is in the space rather than in `hotspots.json` because
+     * this plate set was not asked for one, and editing a generated file
+     * is how a measurement gets lost at the next re-render. It is
+     * derived, not eyeballed: the corners are a straight-line fit to the
+     * region where lowering the blind actually changes the picture, and
+     * `scripts/measure-plates.py --dir public/plates/cabin` re-checks it
+     * against that same region.
      */
-    curtain: { closedDir: "/plates/cabin_closed", deviceId: "cx-blinds" },
+    curtain: {
+      closedDir: "/plates/cabin_closed",
+      deviceId: "cx-blinds",
+      window: {
+        quad: [
+          [0.0, 0.6542],
+          [0.3, 0.5791],
+          [0.3, 0.3512],
+          [0.0, 0.2655],
+        ],
+        pad: 0.02,
+        travel: "drop",
+      },
+    },
     hotspotAliases: {
       blinds: { deviceId: "cx-blinds", label: "Motorised blinds" },
       hvac: { deviceId: "cx-ac", label: "Air conditioning" },

@@ -681,7 +681,30 @@ export interface Space {
      * actually looks like: the whole aperture closes at once rather than
      * an edge travelling along a track.
      */
-    curtain?: { sheerDir?: string; closedDir: string; deviceId: string };
+    curtain?: {
+      sheerDir?: string;
+      closedDir: string;
+      deviceId: string;
+      /**
+       * The opening the covering crosses, when the plate set does not
+       * carry one.
+       *
+       * The offline renderer projects a `curtain` quad into
+       * `hotspots.json` for the sets that have been asked for one, and
+       * that is the better home: it is re-measured every time the camera
+       * moves. A set without one needs the quad measuring by hand, and
+       * then it belongs here rather than edited into a generated file —
+       * `scripts/measure-plates.py --dir <set>` checks the declaration
+       * against where lowering the covering actually changes the picture,
+       * so a re-render that moves the window fails loudly instead of
+       * quietly wiping the wrong rectangle.
+       */
+      window?: {
+        quad: [number, number][];
+        pad?: number;
+        travel?: "split" | "drop";
+      };
+    };
     /**
      * Hotspots that are not named after a device, and what they mean.
      *

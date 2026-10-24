@@ -298,8 +298,36 @@ ENV = {"sunriseMin": 380, "sunsetMin": 1135, "outdoorPeakLux": 95000}
 # The curtain, mirroring plates/window.ts and the WIPE shader.         #
 # ------------------------------------------------------------------ #
 
+def _declared_window(name: str):
+    """A `plates.curtain.window` a space measured by hand, if it has one.
+
+    Read out of the TypeScript for the same reason the profiles are: a
+    second copy of a measurement is a measurement that will go stale.
+    """
+    for path in sorted((ROOT / "lib/spaces").rglob("*.ts")):
+        src = _strip_comments(path.read_text())
+        if f'dir: "/plates/{name}"' not in src:
+            continue
+        block = _block(src, "window")
+        if not block:
+            continue
+        quad = re.findall(r"\[\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*\]", _block(block, "quad"))
+        if len(quad) != 4:
+            continue
+        travel = re.search(r'travel:\s*"([^"]+)"', block)
+        pad = re.search(r"pad:\s*([0-9.]+)", block)
+        return {
+            "quad": [[float(a), float(b)] for a, b in quad],
+            "pad": float(pad.group(1)) if pad else 0.02,
+            "travel": travel.group(1) if travel else "split",
+        }
+    return None
+
+
 _HOTSPOTS = PLATES / "hotspots.json"
-CURTAIN = json.loads(_HOTSPOTS.read_text()).get("curtain") if _HOTSPOTS.exists() else None
+_PROJECTED = json.loads(_HOTSPOTS.read_text()).get("curtain") if _HOTSPOTS.exists() else None
+# The space's own measurement wins, exactly as `PlateStage` resolves it.
+CURTAIN = _declared_window(re.sub(r"_(sheer|closed)$", "", PLATES.name)) or _PROJECTED
 # A plate set with a `_closed` sibling has a covering that moves; one with
 # a `_sheer` sibling as well has two of them. In shader order, and matching
 # `PlateStage`: open, then the middle state if there is one, then shut.
@@ -366,17 +394,20 @@ def window_coords(shape):
 
 
 def cover_at(p, t, s):
-    """How much of the glass a track has covered, along the window.
+    """How much of the opening a covering has taken. Mirrors `coverAt`.
 
-    The two edges are complementary — one falls where the other rises — so
-    that the feathers add up to one where the panels meet rather than
-    fading out into each other and leaving a seam. See `coverAt` in
-    `PlateRenderer.ts`, which this mirrors.
+    A blind comes down `s` on one hard edge; curtains come along `t` on a
+    pair of complementary ones — complementary so the feathers add up to
+    one where the panels meet rather than fading into each other and
+    leaving a seam down the middle of a closed blackout.
     """
     if p <= 0:
         return 0.0
     if p >= 1:
         return 1.0
+    if (CURTAIN or {}).get("travel") == "drop":
+        hd = 0.008
+        return smoothstep(1.0 - p - hd, 1.0 - p + hd, s)
     reach = p * 0.5 + 0.01 * math.sin(math.pi * p) * np.sin(s * 12.0)
     h = 0.015
     return np.clip((1.0 - smoothstep(reach - h, reach + h, t))
@@ -480,11 +511,38 @@ def render(targets, clock, gain=None, exposure=EXPOSURE, mix=None, tier="sd",
 OFF = {c.replace("_", "-"): {"on": False} for c in CIRCUITS}
 
 
+def check_window():
+    """Does the declared opening still cover where the blind actually is?
+
+    A hand-measured quad is a snapshot of a camera. Re-render the set with
+    the camera a few degrees over and the quad still parses, still
+    produces a mask, and wipes the wrong rectangle — silently. So it is
+    checked against the thing it was derived from: the region where
+    lowering the covering changes the view.
+    """
+    if CURTAIN is None or len(CURTAIN_SETS) < 2:
+        return True
+    shut = CURTAIN_SETS[-1]
+    view = "day_sky" if "day_sky" in LAYERS else "sky_day" if "sky_day" in LAYERS else "sky"
+    delta = lum(linear(view, "sd", PLATES)) - lum(linear(view, "sd", shut))
+    moved = delta > delta.max() * 0.18
+    ts = window_coords(delta.shape)
+    inside = ts[2] > 0.5
+    caught = float((moved & inside).sum() / max(moved.sum(), 1))
+    stray = float((inside & ~moved).sum() / max(inside.sum(), 1))
+    ok = caught >= 0.9
+    print(f"  {'ok ' if ok else 'NO '}window  travel {CURTAIN.get('travel', 'split'):5s}"
+          f"  covers {caught:.1%} of where the covering actually changes the view"
+          f"  (target >=90%), and {stray:.1%} of the quad is elsewhere")
+    return ok
+
+
 def report(gain=None):
+    window_ok = check_window()
     if GLASS is None:
         print("  this plate set has no sky layers, so there is nothing to check here.")
         print("  use --gains to derive the circuit table instead.")
-        return True
+        return window_ok
     night = lum(render(OFF, 60, gain))[GLASS]            # 01:00
     dayimg = render(OFF, 13 * 60, gain)                  # 13:00
     day = lum(dayimg)[GLASS]
@@ -500,7 +558,7 @@ def report(gain=None):
           f"   skyline p98 {np98:.3f} (target >=0.45)")
     print(f"  {ok(day_ok)}{dayname} gain {g.get(dayname, 1):>6}   13:00 glass mean   {dmean:.3f} (target 0.65-0.80)"
           f"   frame clipped {clip:.2f}%")
-    return sky_ok and day_ok
+    return sky_ok and day_ok and window_ok
 
 
 def solve():

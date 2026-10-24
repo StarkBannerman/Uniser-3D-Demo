@@ -18,12 +18,32 @@
  * is the part that can be checked without a GPU. `pnpm verify` §20 does.
  */
 
-/** The window opening, as `hotspots.json` records it. */
+/**
+ * How a covering crosses its opening.
+ *
+ * `split` is a pair of curtain panels leaving the two jambs and meeting in
+ * the middle — a wipe along the track. `drop` is a blind coming down from
+ * the head on a rigid bottom rail — a wipe down the glass. They are
+ * different axes and different edges, and getting the wrong one is
+ * immediately obvious: a venetian that parts in the middle is not a
+ * venetian.
+ */
+export type CurtainTravel = "split" | "drop";
+
+/** The window opening, as `hotspots.json` or a space records it. */
 export interface CurtainQuad {
   /** Four `[u, v]` corners: near-bottom, far-bottom, far-top, near-top. */
   quad: [number, number][];
   /** How far past the opening the mask reaches, in quad-relative units. */
   pad?: number;
+  /**
+   * Which way the covering crosses. Defaults to `split`.
+   *
+   * Loosely typed because the generated `hotspots.json` writes prose here
+   * — "both ends to centre" — and narrowing it is this module's job, not
+   * the caller's.
+   */
+  travel?: string;
 }
 
 export interface CurtainWindow {
@@ -41,6 +61,8 @@ export interface CurtainWindow {
   pad: number;
   /** Edge softness in `(t, s)` units, one per axis — about four pixels. */
   soft: [number, number];
+  /** Which way the covering crosses its opening. */
+  travel: CurtainTravel;
 }
 
 /** Multiply out a 3x3, row-major. */
@@ -138,5 +160,9 @@ export function curtainWindow(
     matrix: inverse,
     pad: spec.pad ?? 0.02,
     soft: [SOFT_PX / spanT, SOFT_PX / spanS],
+    // The generated files say "both ends to centre" in prose; anything
+    // that is not explicitly a drop is the curtain behaviour the room
+    // already had.
+    travel: spec.travel === "drop" ? "drop" : "split",
   };
 }

@@ -177,7 +177,12 @@ export function PlateStage({
    * See `Space.plates.curtain`. Absent for the three rooms with no curtain,
    * which take the single-pass path unchanged.
    */
-  curtain?: { sheerDir?: string; closedDir: string; deviceId: string };
+  curtain?: {
+    sheerDir?: string;
+    closedDir: string;
+    deviceId: string;
+    window?: { quad: [number, number][]; pad?: number; travel?: string };
+  };
   /** Controls tab is showing, so the room should say where each circuit is. */
   controlsOpen?: boolean;
 }) {
@@ -190,6 +195,7 @@ export function PlateStage({
   // Destructured so the effect depends on two strings rather than on an
   // object literal the space file rebuilds on every render.
   const sheerDir = curtain?.sheerDir;
+  const declaredWindow = curtain?.window;
   const closedDir = curtain?.closedDir;
   const curtainId = curtain?.deviceId;
 
@@ -261,12 +267,15 @@ export function PlateStage({
        * purpose. Only a quad that is *present and unusable* is worth
        * saying anything about.
        */
+      // The space's own measurement wins where it has one; otherwise the
+      // quad the offline renderer projected into the plate set.
+      const spec = declaredWindow ?? hotspotFile.curtain;
       const glass = extra.length
-        ? curtainWindow(hotspotFile.curtain, { width: plateW, height: plateH })
+        ? curtainWindow(spec, { width: plateW, height: plateH })
         : null;
-      if (extra.length && hotspotFile.curtain && !glass) {
+      if (extra.length && spec && !glass) {
         console.warn(
-          `plates: ${dir}/hotspots.json has a curtain quad that will not resolve — the covering will crossfade rather than travel`,
+          `plates: ${dir} has a curtain quad that will not resolve — the covering will crossfade rather than travel`,
         );
       }
 
@@ -531,7 +540,7 @@ export function PlateStage({
       renderer?.dispose();
       useSim.getState().setStageStatic(false);
     };
-  }, [dir, profileName, sheerDir, closedDir, curtainId]);
+  }, [dir, profileName, sheerDir, closedDir, curtainId, declaredWindow]);
 
   const space = useSim((s) => s.space);
   const select = useSim((s) => s.select);

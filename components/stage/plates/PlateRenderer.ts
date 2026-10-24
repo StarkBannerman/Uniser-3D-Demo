@@ -161,6 +161,7 @@ uniform vec2 uCurtain;   // sheer, blackout, each 0 open to 1 drawn
 uniform vec2 uSoft;      // edge softness in (t, s), about four pixels
 uniform float uPad;
 uniform float uHasWindow;
+uniform float uDrop;     // 1 for a blind down the glass, 0 for panels along the track
 uniform int uSet;        // 0 open, 1 sheer, 2 closed
 
 /** 1 well inside [0,1] expanded by pad, 0 well outside, soft across. */
@@ -170,7 +171,18 @@ float edgeAxis(float x, float pad, float soft) {
 }
 
 /**
- * How much of the glass a track has covered at \`p\`, along the window.
+ * How much of the glass a covering has taken at \`p\`.
+ *
+ * Two shapes, because two kinds of hardware. A blind comes down from the
+ * head on a rigid bottom rail: one straight edge travelling down \`s\`, no
+ * ripple, because the bottom rail of a venetian is an aluminium extrusion
+ * and does not billow. Curtains leave the two jambs and meet in the
+ * middle: a pair of edges travelling along \`t\`, with a ripple.
+ *
+ * Getting this wrong is not subtle. The cabin's blind shipped as a plain
+ * crossfade, which made it fade in over the window instead of coming down
+ * it — the covering appeared rather than moved, which is the one thing a
+ * client who owns motorised shading is watching for.
  *
  * Two panels leaving the two ends and meeting in the middle. The ripple is
  * a little lead and lag down the drop so the leading edge is cloth rather
@@ -191,6 +203,13 @@ float edgeAxis(float x, float pad, float soft) {
 float coverAt(float p, float t, float s) {
   if (p <= 0.0) return 0.0;
   if (p >= 1.0) return 1.0;
+  if (uDrop > 0.5) {
+    // \`s\` is 0 at the sill and 1 at the head, so a blind at \`p\` has
+    // taken everything above 1 - p. A tighter edge than a curtain's,
+    // because a bottom rail is a hard line and a leading hem is not.
+    const float hd = 0.008;
+    return smoothstep(1.0 - p - hd, 1.0 - p + hd, s);
+  }
   // Not \`half\`, which GLSL ES reserves.
   float reach = p * 0.5 + 0.01 * sin(3.14159265 * p) * sin(s * 12.0);
   const float h = 0.015;
@@ -504,6 +523,10 @@ export class PlateRenderer {
         );
         gl.uniform1f(gl.getUniformLocation(program, "uPad"), window.pad);
         gl.uniform2fv(gl.getUniformLocation(program, "uSoft"), window.soft);
+        gl.uniform1f(
+          gl.getUniformLocation(program, "uDrop"),
+          window.travel === "drop" ? 1 : 0,
+        );
       }
 
       const rvs = compile(gl, gl.VERTEX_SHADER, VERT_BLIT);
