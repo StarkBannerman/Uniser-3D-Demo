@@ -42,6 +42,20 @@ export interface PlateLayerSpec {
 export interface HotspotFile {
   camera: string;
   points: Record<string, Hotspot>;
+  /**
+   * The window opening, for rooms whose curtains travel.
+   *
+   * Projected by the offline renderer alongside the points of interest,
+   * because it is the same job — a thing in the room located on screen —
+   * and because it has to be re-measured every time the camera moves.
+   */
+  curtain?: {
+    /** Four `[u, v]` corners: near-bottom, far-bottom, far-top, near-top. */
+    quad: [number, number][];
+    order?: string;
+    travel?: string;
+    pad?: number;
+  };
 }
 
 export interface Hotspot {

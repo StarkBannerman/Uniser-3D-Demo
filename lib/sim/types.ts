@@ -646,22 +646,23 @@ export interface Space {
     /** Names the calibration in `components/stage/plates/profiles`. */
     profile: string;
     /**
-     * A second plate set the first crossfades to, and the motor that drives
-     * the crossfade.
+     * Two further plate sets for the window's two tracks, and the shade
+     * that drives them.
      *
      * A curtain is the one thing in a room that light cannot be summed
      * around. Every other control changes how much a fixture contributes;
      * a curtain changes what the room *is*, because it occludes the window
      * and so alters every other circuit's plate as well as the view. The
-     * honest answer is two complete renders of the same camera — drawn back
-     * and shut — composited `mix(open, closed, position)` with one set of
-     * weights.
+     * honest answer is three complete renders of the same camera — drawn
+     * back, sheer across, blackout shut — and a mask that says which pixels
+     * each one owns as the panels travel. See `plates/window.ts`.
      *
-     * `deviceId` names a shade whose `blackout` position, 0 to 100, is that
-     * mix. The second set must have the same layer names as the first; its
-     * own `manifest.json` supplies its own per-layer scales.
+     * `deviceId` names a shade whose `sheer` and `blackout` positions, 0 to
+     * 100 each, drive the two wipes. All three sets must have the same
+     * layer names; each one's `manifest.json` supplies its own per-layer
+     * scales, because they are separate renders.
      */
-    curtain?: { dir: string; deviceId: string };
+    curtain?: { sheerDir: string; closedDir: string; deviceId: string };
     /**
      * Hotspots that are not named after a device, and what they mean.
      *

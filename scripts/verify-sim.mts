@@ -39,6 +39,8 @@ import { bladeRadPerSec, MAX_BLADE_STEP_RAD } from "../lib/sim/fan";
 import { paceFade, paceHold } from "../lib/sim/pace";
 import { classifyRenderer, isSoftware } from "../lib/device";
 import { sceneIcon } from "../components/keypad/sceneIcon";
+import { curtainWindow, project } from "../components/stage/plates/window";
+import { readFileSync } from "node:fs";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail: string) {
@@ -1102,6 +1104,78 @@ console.log("\n19. The quality tier is chosen from the GPU, not the CPU");
     "an unknown renderer defers to the fallback",
     classifyRenderer("Some Unreleased Thing 9000") === null && classifyRenderer("") === null,
     "returns null rather than guessing",
+  );
+}
+
+
+/* ================================================================== */
+console.log("\n20. The curtain window — the homography the wipe runs on\n");
+/*
+ * A projective fit is easy to get subtly wrong and impossible to eyeball:
+ * a curtain that is a few per cent off along the track still looks like a
+ * curtain. So the one thing that can be checked exactly is checked — the
+ * four corners of the quad must land on the four corners of the unit
+ * square, because every other pixel's position follows from that.
+ */
+{
+  const spec = JSON.parse(
+    readFileSync("public/plates/room/hotspots.json", "utf8"),
+  ).curtain as { quad: [number, number][]; pad?: number } | undefined;
+
+  check("the room's plate set ships a window quad", Boolean(spec?.quad), spec ? `${spec.quad.length} corners, pad ${spec.pad}` : "missing");
+
+  const w = curtainWindow(spec, { width: 1920, height: 1080 });
+  check("it yields a transform", w !== null, w ? `pad ${w.pad}, soft ${w.soft.map((x) => x.toFixed(4)).join(" / ")}` : "null");
+
+  if (w && spec) {
+    const want: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    let worst = 0;
+    spec.quad.forEach((corner, i) => {
+      const [t, sAxis] = project(w.matrix, corner[0], corner[1]);
+      worst = Math.max(worst, Math.abs(t - want[i][0]), Math.abs(sAxis - want[i][1]));
+    });
+    check(
+      "every corner lands on its corner of the unit square",
+      worst < 1e-9,
+      `worst corner is off by ${worst.toExponential(1)}`,
+    );
+
+    /**
+     * And the fit is actually projective.
+     *
+     * The opening is a trapezoid on screen — the far jamb is shorter than
+     * the near one — so the midpoint of the diagonal must *not* come back
+     * at 0.5. An affine fit would put it there, look perfectly reasonable,
+     * and make the near panel sprint while the far one crawled.
+     */
+    const mid = project(
+      w.matrix,
+      (spec.quad[0][0] + spec.quad[2][0]) / 2,
+      (spec.quad[0][1] + spec.quad[2][1]) / 2,
+    );
+    check(
+      "perspective is carried, not flattened",
+      Math.abs(mid[0] - 0.5) > 0.02,
+      `the diagonal midpoint sits at t ${mid[0].toFixed(3)}, not 0.5`,
+    );
+
+    // Soft edges are a few pixels, not a few per cent of the window.
+    check(
+      "the edge softness is about four pixels",
+      w.soft.every((x) => x > 0 && x < 0.02),
+      w.soft.map((x) => `${(x * 100).toFixed(2)}%`).join(" / "),
+    );
+  }
+
+  check(
+    "a space with no quad degrades rather than throws",
+    curtainWindow(undefined, { width: 1920, height: 1080 }) === null,
+    "undefined -> null, so the stage crossfades instead",
+  );
+  check(
+    "a collapsed quad is rejected",
+    curtainWindow({ quad: [[0, 0], [0, 0], [0, 0], [0, 0]] }, { width: 1920, height: 1080 }) === null,
+    "four coincident corners -> null",
   );
 }
 

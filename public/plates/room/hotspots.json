@@ -61,5 +61,28 @@
       "v": 0.5852,
       "visible": true
     }
+  },
+  "curtain": {
+    "quad": [
+      [
+        0.9585,
+        0.7522
+      ],
+      [
+        0.5996,
+        0.6491
+      ],
+      [
+        0.5996,
+        0.3451
+      ],
+      [
+        0.9585,
+        0.2379
+      ]
+    ],
+    "order": "near-bottom, far-bottom, far-top, near-top",
+    "travel": "both ends to centre",
+    "pad": 0.02
   }
 }

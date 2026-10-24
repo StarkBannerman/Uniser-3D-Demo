@@ -14,6 +14,8 @@
  * the plates equivalent of `NoColorSpace`.
  */
 
+import type { CurtainWindow } from "./window";
+
 export type ToneCurve = "agx" | "aces";
 
 const VERT = `#version 300 es
@@ -135,6 +137,80 @@ vec3 toneMap(vec3 color) {
 `;
 
 /**
+ * The curtain, as a per-pixel share of each plate set.
+ *
+ * Three sets — open, sheer drawn, blackout shut — and the picture is
+ *
+ *     sheerImg = mix(open,     sheerPlate,  m1)
+ *     final    = mix(sheerImg, closedPlate, m2)
+ *
+ * Expand that and it is `A·open + B·sheer + C·closed` with `A + B + C = 1`,
+ * which is a weighted sum like everything else here. Each accumulate pass
+ * therefore scales its own contribution by its own coefficient and adds it
+ * to the buffer, and the three coefficients happen to be functions of the
+ * pixel rather than constants. Nothing else about the pipeline changes.
+ *
+ * `m1` and `m2` are the wipe. Inside the window they are a pair of panels
+ * closing from both ends toward the middle; outside it they are the plain
+ * crossfade, which is right — light spilling onto the far wall fades as the
+ * fabric crosses the glass, it does not wipe.
+ */
+const WIPE = `
+uniform mat3 uWindow;
+uniform vec2 uCurtain;   // sheer, blackout, each 0 open to 1 drawn
+uniform vec2 uSoft;      // edge softness in (t, s), about four pixels
+uniform float uPad;
+uniform float uHasWindow;
+uniform int uSet;        // 0 open, 1 sheer, 2 closed
+
+/** 1 well inside [0,1] expanded by pad, 0 well outside, soft across. */
+float edgeAxis(float x, float pad, float soft) {
+  return smoothstep(-pad - soft, -pad + soft, x)
+       * smoothstep(-pad - soft, -pad + soft, 1.0 - x);
+}
+
+/**
+ * How much of the glass a track has covered at \`p\`, along the window.
+ *
+ * Two panels leaving the two ends and meeting in the middle. The ripple is
+ * a little lead and lag down the drop so the leading edge is cloth rather
+ * than a ruler, and it is damped by sin(pi*p) because at full travel an
+ * undamped ripple pulls the two panels apart and leaves a seam of daylight
+ * down the centre of a closed blackout.
+ */
+float coverAt(float p, float t, float s) {
+  if (p <= 0.0) return 0.0;
+  if (p >= 1.0) return 1.0;
+  // Not \`half\`, which GLSL ES reserves.
+  float reach = p * 0.5 + 0.01 * sin(3.14159265 * p) * sin(s * 12.0);
+  const float e = 0.03;
+  return clamp(smoothstep(0.0, e, reach - t) + smoothstep(0.0, e, t - (1.0 - reach)),
+               0.0, 1.0);
+}
+
+float curtainCoef() {
+  float t = 0.0;
+  float s = 0.0;
+  float inside = 0.0;
+  if (uHasWindow > 0.5) {
+    vec3 w = uWindow * vec3(vUv, 1.0);
+    // Behind the camera plane the homography is meaningless, not merely
+    // out of range, so those pixels are simply outside the window.
+    if (w.z > 1e-6) {
+      t = w.x / w.z;
+      s = w.y / w.z;
+      inside = edgeAxis(t, uPad, uSoft.x) * edgeAxis(s, uPad, uSoft.y);
+    }
+  }
+  float m1 = mix(uCurtain.x, coverAt(uCurtain.x, t, s), inside);
+  float m2 = mix(uCurtain.y, coverAt(uCurtain.y, t, s), inside);
+  if (uSet == 0) return (1.0 - m1) * (1.0 - m2);
+  if (uSet == 1) return m1 * (1.0 - m2);
+  return m2;
+}
+`;
+
+/**
  * The accumulate loop, unrolled into named samplers.
  *
  * GLSL ES 3.00 permits indexing a sampler array by a dynamically uniform
@@ -143,7 +219,12 @@ vec3 toneMap(vec3 color) {
  * vendor's phone rather than anything visible here. Twelve generated lines
  * cost nothing and compile everywhere.
  */
-function fragmentSource(n: number, tone: ToneCurve, target: "display" | "hdr"): string {
+function fragmentSource(
+  n: number,
+  tone: ToneCurve,
+  target: "display" | "hdr",
+  wipe: boolean,
+): string {
   const samplers = Array.from({ length: n }, (_, i) => `uniform sampler2D uPass${i};`).join("\n");
   const accum = Array.from(
     { length: n },
@@ -161,7 +242,9 @@ function fragmentSource(n: number, tone: ToneCurve, target: "display" | "hdr"): 
   const write =
     target === "display"
       ? "  fragColor = vec4(toSRGB(toneMap(hdr * uExposure)), 1.0);"
-      : "  fragColor = vec4(hdr, 1.0);";
+      : wipe
+        ? "  fragColor = vec4(hdr * curtainCoef(), 1.0);"
+        : "  fragColor = vec4(hdr, 1.0);";
 
   return `#version 300 es
 precision highp float;
@@ -175,6 +258,7 @@ uniform float uExposure;
 ${samplers}
 
 ${target === "display" ? (tone === "agx" ? AGX : ACES) : ""}
+${wipe ? WIPE : ""}
 
 vec3 toSRGB(vec3 c) {
   c = clamp(c, 0.0, 1.0);
@@ -236,11 +320,12 @@ export class PlateRenderer {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram;
   /**
-   * One slot per layer, or two when a second plate set is blended in: the
-   * open set occupies 0..n-1 and the closed set n..2n-1. Only ever n of them
-   * are bound at once, which is the whole reason the blend is two passes —
-   * `MAX_TEXTURE_IMAGE_UNITS` is 16 on Apple silicon, so thirty-two samplers
-   * in one shader would not link on the machine this demo is given on.
+   * One slot per layer per plate set: set `k` occupies `k*n .. k*n+n-1`.
+   *
+   * Only ever `n` of them are bound at once, which is the whole reason the
+   * blend is one pass per set — `MAX_TEXTURE_IMAGE_UNITS` is 16 on Apple
+   * silicon, so even thirty-two samplers in one shader would not link, let
+   * alone the forty-eight a three-set room would want.
    */
   private textures: (WebGLTexture | null)[];
   private blank: WebGLTexture;
@@ -248,31 +333,42 @@ export class PlateRenderer {
   private uScale: WebGLUniformLocation | null;
   private uExposure: WebGLUniformLocation | null;
   private n: number;
+  private sets: number;
   private lost = false;
 
-  /* The blend path. All null when there is only one plate set. */
+  /* The multi-set path. All null when there is only one plate set. */
   private resolve: WebGLProgram | null = null;
   private uResolveExposure: WebGLUniformLocation | null = null;
   private fbo: WebGLFramebuffer | null = null;
   private hdr: WebGLTexture | null = null;
   private hdrType = 0;
-  private scales: Float32Array;
-  private scalesClosed: Float32Array | null = null;
+  private scales: Float32Array[];
   private fboSize = { width: 0, height: 0 };
 
+  /* Curtain uniforms, looked up once. */
+  private uSet: WebGLUniformLocation | null = null;
+  private uCurtain: WebGLUniformLocation | null = null;
+  private scratch: Float32Array | null = null;
+
   /**
-   * `scales` is one entry per layer, in the order the manifest lists them.
+   * `scales` is one array per plate set, each one entry per layer in the
+   * order the manifest lists them.
    *
-   * `closedScales`, when given, turns on the curtain blend: a second set of
-   * the same layers, with its own per-layer scales out of its own manifest,
-   * that `draw` crossfades to.
+   * One set is the plain path: accumulate straight to the canvas, tone map
+   * in the same shader, no framebuffer. Three sets is the curtain: open,
+   * sheer and closed, composited by `WIPE`. Two is not a case anything
+   * needs and is rejected rather than half-supported.
+   *
+   * `window` places the glass so the curtain can wipe across it. Without it
+   * the three sets still crossfade globally, which is the same picture at
+   * either end of the travel and only loses the movement in between.
    */
   constructor(
     private canvas: HTMLCanvasElement,
     gamma: number,
-    scales: number[],
+    scales: number[][],
     tone: ToneCurve,
-    closedScales?: number[],
+    private window: CurtainWindow | null = null,
   ) {
     const gl = canvas.getContext("webgl2", {
       alpha: false,
@@ -286,8 +382,15 @@ export class PlateRenderer {
     });
     if (!gl) throw new Error("plates: no WebGL2 context");
     this.gl = gl;
-    this.n = scales.length;
-    this.scales = new Float32Array(scales);
+    this.sets = scales.length;
+    if (this.sets !== 1 && this.sets !== 3) {
+      throw new Error(`plates: expected one or three plate sets, got ${this.sets}`);
+    }
+    this.n = scales[0].length;
+    if (scales.some((set) => set.length !== this.n)) {
+      throw new Error("plates: the plate sets do not have the same layers");
+    }
+    this.scales = scales.map((set) => new Float32Array(set));
 
     const units = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) as number;
     if (units < this.n) {
@@ -298,34 +401,28 @@ export class PlateRenderer {
     }
 
     /**
-     * Can this context render to a float buffer, and should we?
+     * Can this context render to a float buffer?
      *
-     * Only the blend path needs one. Half float is plenty: the summed room
-     * peaks in the low thousands, where a half's eleven-bit mantissa is
-     * good to about a twentieth of a per cent, and it is half the bandwidth
-     * of a full float at every read and write.
+     * Only the multi-set path needs one. Half float is plenty: the summed
+     * room peaks in the low thousands, where a half's eleven-bit mantissa
+     * is good to about a twentieth of a per cent, and it is half the
+     * bandwidth of a full float at every read and write.
      */
-    const blending = closedScales !== undefined;
+    const blending = this.sets > 1;
     if (blending) {
-      if (closedScales.length !== this.n) {
-        throw new Error(
-          `plates: the second set has ${closedScales.length} layers, the first has ${this.n}`,
-        );
-      }
       const float = gl.getExtension("EXT_color_buffer_float");
       const half = float ? null : gl.getExtension("EXT_color_buffer_half_float");
       if (!float && !half) {
         throw new Error("plates: no renderable float format for the curtain blend");
       }
       this.hdrType = gl.HALF_FLOAT;
-      this.scalesClosed = new Float32Array(closedScales);
     }
 
     const vs = compile(gl, gl.VERTEX_SHADER, VERT);
     const fs = compile(
       gl,
       gl.FRAGMENT_SHADER,
-      fragmentSource(this.n, tone, blending ? "hdr" : "display"),
+      fragmentSource(this.n, tone, blending ? "hdr" : "display", blending),
     );
     const program = gl.createProgram();
     if (!program) throw new Error("plates: could not create program");
@@ -356,18 +453,36 @@ export class PlateRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     this.blank = blank;
-    this.textures = Array.from({ length: blending ? this.n * 2 : this.n }, () => null);
+    this.textures = Array.from({ length: this.n * this.sets }, () => null);
 
     for (let i = 0; i < this.n; i++) {
       gl.uniform1i(gl.getUniformLocation(program, `uPass${i}`), i);
     }
     gl.uniform1f(gl.getUniformLocation(program, "uGamma"), gamma);
     this.uScale = gl.getUniformLocation(program, "uScale");
-    gl.uniform1fv(this.uScale, this.scales);
+    gl.uniform1fv(this.uScale, this.scales[0]);
     this.uWeight = gl.getUniformLocation(program, "uWeight");
     this.uExposure = gl.getUniformLocation(program, "uExposure");
 
     if (blending) {
+      this.uSet = gl.getUniformLocation(program, "uSet");
+      this.uCurtain = gl.getUniformLocation(program, "uCurtain");
+      gl.uniform1f(gl.getUniformLocation(program, "uHasWindow"), window ? 1 : 0);
+      if (window) {
+        // Column-major for GLSL, transposed here rather than by the driver:
+        // `transpose = true` is legal in WebGL2 and was not in WebGL1, and
+        // transposing nine floats once is cheaper than finding out which
+        // drivers took the memo.
+        const m = window.matrix;
+        gl.uniformMatrix3fv(
+          gl.getUniformLocation(program, "uWindow"),
+          false,
+          new Float32Array([m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]]),
+        );
+        gl.uniform1f(gl.getUniformLocation(program, "uPad"), window.pad);
+        gl.uniform2fv(gl.getUniformLocation(program, "uSoft"), window.soft);
+      }
+
       const rvs = compile(gl, gl.VERTEX_SHADER, VERT_BLIT);
       const rfs = compile(gl, gl.FRAGMENT_SHADER, resolveSource(tone));
       const rp = gl.createProgram();
@@ -404,26 +519,26 @@ export class PlateRenderer {
     return this.lost;
   }
 
-  /** Does this renderer have a second plate set to crossfade to? */
-  get blends(): boolean {
-    return this.scalesClosed !== null;
+  /** How many plate sets this renderer was built for. */
+  get plateSets(): number {
+    return this.sets;
   }
 
   /**
    * Upload one decoded plate.
    *
-   * `index` is the layer's position in the manifest order; `closed` picks the
-   * second plate set, which only exists on a renderer built with one.
+   * `index` is the layer's position in the manifest order; `set` picks the
+   * plate set, 0 being the one the space names as its own.
    */
-  setLayer(index: number, source: TexImageSource, closed = false): void {
+  setLayer(index: number, source: TexImageSource, set = 0): void {
     const gl = this.gl;
     if (this.lost) return;
-    const slot = closed ? index + this.n : index;
+    const slot = set * this.n + index;
     if (slot >= this.textures.length) return;
     const tex = gl.createTexture();
     if (!tex) return;
     // Uploaded on the last unit rather than on the layer's own, so that
-    // filling the second set does not disturb the first set's bindings.
+    // filling one set does not disturb another set's bindings.
     gl.activeTexture(gl.TEXTURE0 + this.n - 1);
     gl.bindTexture(gl.TEXTURE_2D, tex);
     // Uploaded in the image's own orientation; the shader does the v flip.
@@ -479,47 +594,41 @@ export class PlateRenderer {
     this.fboSize = { width, height };
   }
 
-  /** Bind one plate set and add it to whatever the framebuffer already holds. */
-  private accumulate(weights: Float32Array, closed: boolean, mix: number): void {
+  /** Bind one plate set and add its share to whatever the buffer holds. */
+  private accumulate(weights: Float32Array, set: number): void {
     const gl = this.gl;
-    const offset = closed ? this.n : 0;
+    const offset = set * this.n;
     for (let i = 0; i < this.n; i++) {
       gl.activeTexture(gl.TEXTURE0 + i);
       gl.bindTexture(gl.TEXTURE_2D, this.textures[i + offset] ?? this.blank);
     }
-    gl.uniform1fv(this.uScale, closed ? this.scalesClosed! : this.scales);
-    if (mix === 1) {
-      gl.uniform3fv(this.uWeight, weights);
-    } else {
-      // Scaled into a scratch array rather than in place: `weights` belongs
-      // to the stage and the other pass needs it unmodified.
-      const scaled = new Float32Array(weights.length);
-      for (let i = 0; i < weights.length; i++) scaled[i] = weights[i] * mix;
-      gl.uniform3fv(this.uWeight, scaled);
-    }
+    gl.uniform1fv(this.uScale, this.scales[set]);
+    gl.uniform1i(this.uSet, set);
+    gl.uniform3fv(this.uWeight, weights);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
   /**
    * Draw the room.
    *
-   * `curtain` is 0 for the first plate set alone, 1 for the second alone, and
-   * anything between for a crossfade. Light adds linearly, so
+   * `curtain` is the two tracks, each 0 drawn back to 1 drawn across. The
+   * shader turns them into a per-pixel share of each plate set — see
+   * `WIPE` — and because light adds linearly, the three shares can be
+   * accumulated into one float buffer and tone mapped once at the end.
+   * Tone mapping is not linear, so the sum has to be complete before the
+   * curve is applied; compositing each set to the screen and blending there
+   * would be a different and wrong picture.
    *
-   *     mix(sum(open), sum(closed), t)  ==  sum(mix(open, closed, t))
-   *
-   * and this does it the first way: two accumulate passes into one float
-   * buffer, weighted 1-t and t, then one pass to expose and tone map the
-   * finished sum. Tone mapping is not linear, so the sum has to be complete
-   * before the curve is applied — compositing each set to the screen and
-   * blending there would be a different and wrong picture.
+   * A set whose share is zero over the whole frame is not drawn at all, so
+   * a room sitting at any of the three rest positions costs one pass and a
+   * blit, and only a track actually in motion costs two or three.
    */
-  draw(weights: Float32Array, exposure: number, curtain = 0): void {
+  draw(weights: Float32Array, exposure: number, curtain: [number, number] = [0, 0]): void {
     const gl = this.gl;
     if (this.lost) return;
     gl.useProgram(this.program);
 
-    if (!this.blends) {
+    if (this.sets === 1) {
       for (let i = 0; i < this.n; i++) {
         gl.activeTexture(gl.TEXTURE0 + i);
         gl.bindTexture(gl.TEXTURE_2D, this.textures[i] ?? this.blank);
@@ -531,27 +640,44 @@ export class PlateRenderer {
       return;
     }
 
-    const t = Math.min(Math.max(curtain, 0), 1);
+    const sheer = Math.min(Math.max(curtain[0], 0), 1);
+    const blackout = Math.min(Math.max(curtain[1], 0), 1);
+    /**
+     * Which sets contribute anything at all.
+     *
+     * Read straight off the algebra in `WIPE`: the open set is gone the
+     * moment either track is fully across, the sheer set needs the sheer
+     * drawn and the blackout not, and the closed set needs the blackout to
+     * have started. Every rest position leaves exactly one.
+     */
+    const contributes = [
+      sheer < 1 && blackout < 1,
+      sheer > 0 && blackout < 1,
+      blackout > 0,
+    ];
+
     this.sizeHdr();
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.disable(gl.BLEND);
+    gl.uniform2f(this.uCurtain, sheer, blackout);
 
-    // At either end only one set contributes, so the other pass is skipped
-    // rather than drawn at weight zero — a curtain sits fully open or fully
-    // shut for all but four seconds at a time.
     let first = true;
-    if (t < 1) {
-      this.accumulate(weights, false, 1 - t);
-      first = false;
-    }
-    if (t > 0) {
+    for (let set = 0; set < this.sets; set++) {
+      if (!contributes[set]) continue;
       if (!first) {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE);
       }
-      this.accumulate(weights, true, t);
-      gl.disable(gl.BLEND);
+      this.accumulate(weights, set);
+      first = false;
+    }
+    gl.disable(gl.BLEND);
+    if (first) {
+      // Nothing contributed, which the algebra says cannot happen — but a
+      // cleared buffer is a black room rather than last frame's.
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
     }
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);

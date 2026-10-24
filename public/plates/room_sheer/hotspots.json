@@ -1,0 +1,88 @@
+{
+  "camera": "hero",
+  "points": {
+    "rm-entry": {
+      "u": -0.1563,
+      "v": -0.1417,
+      "visible": false
+    },
+    "rm-dnd": {
+      "u": 0.0575,
+      "v": 0.5,
+      "visible": true
+    },
+    "rm-wardrobe": {
+      "u": 0.1809,
+      "v": 0.3854,
+      "visible": true
+    },
+    "rm-bath": {
+      "u": 0.275,
+      "v": 0.4575,
+      "visible": true
+    },
+    "rm-bedside": {
+      "u": 0.4342,
+      "v": 0.4913,
+      "visible": true
+    },
+    "rm-reading": {
+      "u": 0.5747,
+      "v": 0.5722,
+      "visible": true
+    },
+    "rm-cove": {
+      "u": 0.53,
+      "v": 0.2515,
+      "visible": true
+    },
+    "rm-deco": {
+      "u": 0.6654,
+      "v": 0.3162,
+      "visible": true
+    },
+    "rm-night": {
+      "u": 0.6255,
+      "v": 0.6748,
+      "visible": true
+    },
+    "rm-tunable": {
+      "u": 0.6747,
+      "v": 0.1925,
+      "visible": true
+    },
+    "curtains": {
+      "u": 0.7317,
+      "v": 0.4558,
+      "visible": true
+    },
+    "hvac": {
+      "u": 0.9871,
+      "v": 0.5852,
+      "visible": true
+    }
+  },
+  "curtain": {
+    "quad": [
+      [
+        0.9585,
+        0.7522
+      ],
+      [
+        0.5996,
+        0.6491
+      ],
+      [
+        0.5996,
+        0.3451
+      ],
+      [
+        0.9585,
+        0.2379
+      ]
+    ],
+    "order": "near-bottom, far-bottom, far-top, near-top",
+    "travel": "both ends to centre",
+    "pad": 0.02
+  }
+}

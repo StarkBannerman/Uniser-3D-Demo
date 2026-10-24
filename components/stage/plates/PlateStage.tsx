@@ -29,6 +29,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSim } from "@/lib/sim/store";
 import type { LightState, ShadeState } from "@/lib/sim/types";
+import { curtainWindow } from "./window";
 import { classifyRenderer, detectRenderPath, rendererString } from "@/lib/device";
 import {
   DAY_ORDER,
@@ -65,13 +66,18 @@ function param(name: string): string | null {
  * phone GPU buys nothing a phone screen can show. A software rasteriser
  * takes it unconditionally.
  *
- * `sets` is how many plate sets this room holds, which is two for a room
- * with curtains. That doubles the texture memory — sixteen HD layers is
- * about 175 MB with mipmaps, and thirty-two is 350 — so a machine the
- * renderer string puts in the low tier takes SD for a two-set room even
- * where it would have had HD for a one-set one. It is the same Intel
- * integrated part `lib/device.ts` was written for, sharing system RAM, and
- * 350 MB of plates is not a reasonable thing to ask of it.
+ * `sets` is how many plate sets this room holds, which is three for a room
+ * with curtains — open, sheer across, blackout shut. Sixteen HD layers is
+ * about 175 MB of texture with mipmaps, so forty-eight is 530, and that is
+ * the figure the tier has to answer for.
+ *
+ * Measured on Apple silicon, 530 MB loads and a travelling curtain holds
+ * 58 fps with three accumulate passes, so a GPU we can name as capable
+ * gets HD. Anything in the low tier does not — it is the Intel integrated
+ * part `lib/device.ts` was written for, sharing system RAM, and half a
+ * gigabyte of plates is not a reasonable thing to ask of it. Nor does a
+ * renderer string we cannot place at all: at two sets an unknown GPU was
+ * worth the benefit of the doubt, and at three it is not.
  */
 function pickTier(sets = 1): PlateTier {
   const forced = param("tier");
@@ -80,7 +86,11 @@ function pickTier(sets = 1): PlateTier {
   if (window.innerWidth < 1200) return "sd";
   const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
   if (coarse && (window.devicePixelRatio || 1) > 2) return "sd";
-  if (sets > 1 && classifyRenderer(rendererString()) === "low") return "sd";
+  if (sets > 1) {
+    const gpu = classifyRenderer(rendererString());
+    if (gpu === "low") return "sd";
+    if (gpu === null && sets > 2) return "sd";
+  }
   return "hd";
 }
 
@@ -162,12 +172,12 @@ export function PlateStage({
   /** Names the calibration in `plates/profiles`. */
   profile?: string;
   /**
-   * A second plate set to crossfade to, and the shade that drives it.
+   * The window's two further plate sets, and the shade that drives them.
    *
    * See `Space.plates.curtain`. Absent for the three rooms with no curtain,
    * which take the single-pass path unchanged.
    */
-  curtain?: { dir: string; deviceId: string };
+  curtain?: { sheerDir: string; closedDir: string; deviceId: string };
   /** Controls tab is showing, so the room should say where each circuit is. */
   controlsOpen?: boolean;
 }) {
@@ -179,7 +189,8 @@ export function PlateStage({
   const [failed, setFailed] = useState<string | null>(null);
   // Destructured so the effect depends on two strings rather than on an
   // object literal the space file rebuilds on every render.
-  const closedDir = curtain?.dir;
+  const sheerDir = curtain?.sheerDir;
+  const closedDir = curtain?.closedDir;
   const curtainId = curtain?.deviceId;
 
   useEffect(() => {
@@ -195,20 +206,24 @@ export function PlateStage({
 
     (async () => {
       let manifest: PlateManifest;
-      let closed: PlateManifest | null = null;
+      /** The two curtain sets, in shader order: sheer drawn, then shut. */
+      let extra: PlateManifest[] = [];
+      let hotspotFile: HotspotFile;
       let chosen: PlateTier;
       try {
-        const [m, h, c] = await Promise.all([
+        const dirs = sheerDir && closedDir ? [sheerDir, closedDir] : [];
+        const [m, h, ...rest] = await Promise.all([
           fetch(`${dir}/manifest.json`).then((r) => r.json() as Promise<PlateManifest>),
           fetch(`${dir}/hotspots.json`).then((r) => r.json() as Promise<HotspotFile>),
-          closedDir
-            ? fetch(`${closedDir}/manifest.json`).then((r) => r.json() as Promise<PlateManifest>)
-            : Promise.resolve(null),
+          ...dirs.map((d) =>
+            fetch(`${d}/manifest.json`).then((r) => r.json() as Promise<PlateManifest>),
+          ),
         ]);
         if (cancelled) return;
         manifest = m;
-        closed = c;
-        chosen = pickTier(closed ? 2 : 1);
+        hotspotFile = h;
+        extra = rest;
+        chosen = pickTier(1 + extra.length);
         setTier(chosen);
         setHotspots(h);
       } catch (e) {
@@ -221,27 +236,41 @@ export function PlateStage({
       const plateH = chosen === "hd" ? manifest.height : manifest.sd[1];
 
       /**
-       * The second set must describe the same circuits as the first.
+       * The curtain sets must describe the same circuits as the first.
        *
        * The layer list and the sampler order come from the open manifest, so
-       * a second set that renamed or dropped a layer would quietly composite
-       * one circuit's plate under another's weight. Better to fall back to
-       * the single set and say so than to show a wrong room.
+       * a set that renamed or dropped a layer would quietly composite one
+       * circuit's plate under another's weight. Better to fall back to the
+       * single set and say so than to show a wrong room.
        */
-      if (closed && layers.some((l) => closed!.layers[l] === undefined)) {
+      if (extra.some((e) => layers.some((l) => e.layers[l] === undefined))) {
         console.error(
-          `plates: ${closedDir} does not have every layer ${dir} has — ignoring the second set`,
+          `plates: ${sheerDir} / ${closedDir} do not have every layer ${dir} has — ignoring the curtain`,
         );
-        closed = null;
+        extra = [];
+      }
+
+      /**
+       * Where the glass is, so the panels can travel across it rather than
+       * dissolving over it. Null is a working outcome: the sets then
+       * crossfade globally, which is the same picture at either end.
+       */
+      const glass = extra.length
+        ? curtainWindow(hotspotFile.curtain, { width: plateW, height: plateH })
+        : null;
+      if (extra.length && !glass) {
+        console.warn(
+          `plates: ${dir}/hotspots.json has no usable curtain quad — the panels will crossfade rather than travel`,
+        );
       }
 
       try {
         renderer = new PlateRenderer(
           canvas,
           manifest.gamma,
-          layers.map((l) => manifest.layers[l].scale),
+          [manifest, ...extra].map((m) => layers.map((l) => m.layers[l].scale)),
           toneCurve(),
-          closed ? layers.map((l) => closed!.layers[l].scale) : undefined,
+          glass,
         );
       } catch (e) {
         if (!cancelled) {
@@ -326,9 +355,13 @@ export function PlateStage({
        * plate sets rather than scaling one of them, so it reaches the GPU as
        * its own uniform and has to be watched for change separately.
        */
-      let curtainPos = closed && curtainId
-        ? Math.min(Math.max(((useSim.getState().states[curtainId] as ShadeState | undefined)?.blackout ?? 0) / 100, 0), 1)
-        : 0;
+      const trackPositions = (): [number, number] => {
+        if (!extra.length || !curtainId) return [0, 0];
+        const st = useSim.getState().states[curtainId] as ShadeState | undefined;
+        const clamp = (v: number) => Math.min(Math.max(v / 100, 0), 1);
+        return [clamp(st?.sheer ?? 0), clamp(st?.blackout ?? 0)];
+      };
+      let curtainPos: [number, number] = trackPositions();
 
       const refresh = () => {
         const { space, states, clockMin, daylightMix } = useSim.getState();
@@ -343,13 +376,17 @@ export function PlateStage({
           daylightMix,
         );
         let curtainMoved = false;
-        if (closed && curtainId) {
+        if (extra.length && curtainId) {
           const shade = states[curtainId] as ShadeState | undefined;
-          const next = Math.min(Math.max((shade?.blackout ?? 0) / 100, 0), 1);
+          const clamp = (v: number) => Math.min(Math.max(v / 100, 0), 1);
+          const next: [number, number] = [clamp(shade?.sheer ?? 0), clamp(shade?.blackout ?? 0)];
           // The same deadband `computeWeights` uses, and for the same
           // reason: the travel tween lands a hair off its target and the
           // room must not redraw for ever chasing the last thousandth.
-          if (Math.abs(next - curtainPos) > 1e-4) {
+          if (
+            Math.abs(next[0] - curtainPos[0]) > 1e-4 ||
+            Math.abs(next[1] - curtainPos[1]) > 1e-4
+          ) {
             curtainPos = next;
             curtainMoved = true;
           }
@@ -410,12 +447,12 @@ export function PlateStage({
       tweening = false;
       unsubscribe = useSim.subscribe(refresh);
 
-      const fetchLayer = async (layer: string, fromClosed: boolean) => {
+      const setDirs = [dir, ...(extra.length ? [sheerDir!, closedDir!] : [])];
+      const fetchLayer = async (layer: string, set: number) => {
         try {
-          const from = fromClosed ? closedDir! : dir;
-          const image = await loadImage(plateUrl(from, chosen, layer));
+          const image = await loadImage(plateUrl(setDirs[set], chosen, layer));
           if (cancelled || !renderer) return;
-          renderer.setLayer(layers.indexOf(layer), image, fromClosed);
+          renderer.setLayer(layers.indexOf(layer), image, set);
           if ("close" in image) image.close();
           dirty = true;
           schedule();
@@ -434,18 +471,18 @@ export function PlateStage({
        * the whole open set is. Only a scene that opens on sheer needs both
        * before the room can be shown.
        */
+      const [sheerNow, blackoutNow] = curtainPos;
       const first: (() => Promise<void>)[] = [];
       const later: (() => Promise<void>)[] = [];
-      const plan = closed
-        ? [
-            { fromClosed: false, showing: curtainPos < 1 },
-            { fromClosed: true, showing: curtainPos > 0 },
-          ]
-        : [{ fromClosed: false, showing: true }];
-      for (const set of plan) {
+      // The same test `draw` uses to decide which sets contribute, so the
+      // first wave is exactly the plates the opening frame will sample.
+      const showing = extra.length
+        ? [sheerNow < 1 && blackoutNow < 1, sheerNow > 0 && blackoutNow < 1, blackoutNow > 0]
+        : [true];
+      for (let set = 0; set < showing.length; set++) {
         for (const layer of layers) {
-          const urgent = set.showing && needed.includes(layer);
-          (urgent ? first : later).push(() => fetchLayer(layer, set.fromClosed));
+          const urgent = showing[set] && needed.includes(layer);
+          (urgent ? first : later).push(() => fetchLayer(layer, set));
         }
       }
       // Two waves, each in parallel. Over HTTP/2 the expensive part of a
@@ -468,7 +505,7 @@ export function PlateStage({
       renderer?.dispose();
       useSim.getState().setStageStatic(false);
     };
-  }, [dir, profileName, closedDir, curtainId]);
+  }, [dir, profileName, sheerDir, closedDir, curtainId]);
 
   const space = useSim((s) => s.space);
   const select = useSim((s) => s.select);

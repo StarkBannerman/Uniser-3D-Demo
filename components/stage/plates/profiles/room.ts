@@ -35,13 +35,13 @@ import type { PlateProfile } from "../profile";
  */
 export const ROOM_PROFILE: PlateProfile = {
   gain: {
-    rm_tunable: 38.0,
-    rm_entry: 40.8,
-    rm_bedside: 24.2,
-    rm_reading: 102.3,
-    rm_cove: 7.6,
-    rm_bath: 7.4,
-    rm_wardrobe: 2.8,
+    rm_tunable: 38.6,
+    rm_entry: 41.4,
+    rm_bedside: 25.2,
+    rm_reading: 103.6,
+    rm_cove: 7.8,
+    rm_bath: 7.5,
+    rm_wardrobe: 2.9,
     rm_deco: 1.5,
     rm_night: 1.6,
     /**
@@ -56,8 +56,8 @@ export const ROOM_PROFILE: PlateProfile = {
      * Disturb on moves its brightest pixel by +0.65 — an unmistakable red
      * point. The honest number was already the right one.
      */
-    rm_dnd: 6.1,
-    rm_service: 2.6,
+    rm_dnd: 6.2,
+    rm_service: 2.7,
 
     /**
      * The view, and the sun on top of it.

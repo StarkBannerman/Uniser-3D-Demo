@@ -240,17 +240,19 @@ function Occupancy() {
 /* ------------------------------------------------------------------ */
 
 /**
- * One track, three presets and a slider.
+ * Two tracks, three presets and a slider.
  *
- * The position is the shade's `blackout` layer, 0 drawn back to 100 shut,
- * and Sheer is the halfway point of it rather than a second fabric — this
- * window has one track and the plates were rendered at its two ends, so half
- * is what half looks like.
+ * The window has a sheer and a blackout, and the three buttons are the
+ * three states a guest ever wants: nothing across, the sheer across, both
+ * across. Anything else is a slider job, and the slider drives whichever
+ * track is the one still free to move — the blackout once the sheer is
+ * already drawn, the sheer otherwise. That is one control for two motors
+ * without ever asking which motor you meant.
  *
- * Every button goes through `patch`, which hands the move to the motor model:
- * the travel time is the track's, scaled by how far it has to go, and the
- * control locks itself until it arrives. A curtain that answered instantly
- * would be the one obviously fake thing in the room.
+ * Every press goes through `patch`, which hands the move to the motor
+ * model: travel time is the track's, scaled by how far it has to go, and
+ * the control locks itself until it arrives. A curtain that answered
+ * instantly would be the one obviously fake thing in the room.
  */
 function Curtains() {
   const space = useSim((s) => s.space);
@@ -261,62 +263,63 @@ function Curtains() {
   const st = shade ? (states[shade.id] as ShadeState | undefined) : undefined;
   if (!shade || !st) return null;
 
-  const position = Math.round(st.blackout);
+  const sheer = Math.round(st.sheer);
+  const blackout = Math.round(st.blackout);
   const moving = busyDevices.includes(shade.id);
-  const travel = Math.round(shade.travelMs / 1000);
-  const where =
-    position <= 2 ? "open" : position >= 98 ? "blackout" : position > 45 && position < 55 ? "sheer" : `${position}% closed`;
+  const travel = (shade.travelMs / 1000).toFixed(1).replace(/\.0$/, "");
 
-  const PRESETS: { label: string; to: number; hint: string }[] = [
-    { label: "Open", to: 0, hint: "Drawn fully back" },
-    { label: "Sheer", to: 50, hint: "Half across — daylight, no view in" },
-    { label: "Close", to: 100, hint: "Blackout" },
+  const PRESETS: { label: string; to: ShadeState; hint: string }[] = [
+    { label: "Open", to: { sheer: 0, blackout: 0 }, hint: "Both tracks drawn back" },
+    { label: "Sheer", to: { sheer: 100, blackout: 0 }, hint: "Daylight, no view in" },
+    { label: "Blackout", to: { sheer: 100, blackout: 100 }, hint: "Both tracks across" },
   ];
+  const at = (to: ShadeState) =>
+    Math.abs(sheer - to.sheer) <= 2 && Math.abs(blackout - to.blackout) <= 2;
+  const here = PRESETS.find((preset) => at(preset.to));
+
+  // The track the slider is holding: the blackout once the sheer is across.
+  const live: keyof ShadeState = sheer >= 98 ? "blackout" : "sheer";
 
   return (
-    <Card title={shade.name} note={moving ? "travelling…" : where}>
+    <Card
+      title={shade.name}
+      note={moving ? "travelling…" : (here?.label.toLowerCase() ?? `sheer ${sheer}% · blackout ${blackout}%`)}
+    >
       <div className="mb-2 flex gap-1">
-        {PRESETS.map((preset) => {
-          const here = Math.abs(position - preset.to) <= 2;
-          return (
-            <button
-              key={preset.label}
-              type="button"
-              title={preset.hint}
-              disabled={moving}
-              onClick={() => patch(shade.id, { blackout: preset.to })}
-              aria-pressed={here}
-              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] transition-colors disabled:opacity-40 ${
-                here
-                  ? "border-brass-700 bg-shell-800 text-brass-300"
-                  : "border-shell-800 text-shell-300 hover:text-shell-100"
-              }`}
-            >
-              {preset.label}
-            </button>
-          );
-        })}
+        {PRESETS.map((preset) => (
+          <button
+            key={preset.label}
+            type="button"
+            title={preset.hint}
+            disabled={moving}
+            onClick={() => patch(shade.id, { ...preset.to })}
+            aria-pressed={here?.label === preset.label}
+            className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] transition-colors disabled:opacity-40 ${
+              here?.label === preset.label
+                ? "border-brass-700 bg-shell-800 text-brass-300"
+                : "border-shell-800 text-shell-300 hover:text-shell-100"
+            }`}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      <div className="mb-1 flex items-center justify-between text-[10px] text-shell-500">
+        <span>{live === "blackout" ? "Blackout" : "Sheer"}</span>
+        <span className="tabular-nums text-shell-300">{live === "blackout" ? blackout : sheer}%</span>
       </div>
       <Slider
-        value={position}
+        value={live === "blackout" ? blackout : sheer}
         min={0}
         max={100}
-        label="Curtain position"
+        label={live === "blackout" ? "Blackout position" : "Sheer position"}
         disabled={moving}
-        onChange={(blackout) => patch(shade.id, { blackout })}
+        onChange={(v) => patch(shade.id, { [live]: v })}
       />
-      <button
-        type="button"
-        disabled={moving || position >= 98}
-        onClick={() => patch(shade.id, { blackout: 100 })}
-        className="mt-2 w-full rounded-lg border border-shell-800 px-2 py-1.5 text-[11px] text-shell-300 transition-colors hover:text-shell-100 disabled:opacity-40"
-      >
-        Blackout
-      </button>
       <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
         {moving
           ? "Motor running. The control is held until the track arrives — the same lock a wall switch would have."
-          : `${travel} s end to end, and proportional: asked for the last fifth, it takes a fifth of that.`}
+          : `${travel} s a track, and proportional: asked for the last fifth, it takes a fifth of that.`}
       </p>
     </Card>
   );

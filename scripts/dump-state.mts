@@ -71,16 +71,18 @@ function dump(spaceId: string, sceneId: string) {
     };
   }
 
-  // The curtain, as the plates shader wants it: 0 drawn back, 1 shut.
+  // The two curtain tracks, as the plates shader wants them: 0 drawn back,
+  // 1 drawn across, sheer first.
   const shadeId = space.plates?.curtain?.deviceId;
   const shade = shadeId ? (states[shadeId] as ShadeState | undefined) : undefined;
+  const track = (v: number) => Math.round(Math.min(Math.max(v, 0), 100)) / 100;
 
   return {
     space: spaceId,
     scene: sceneId,
     clockMin: Math.round(clockMin),
     daylightMix: daylightMix ?? null,
-    curtain: shade ? Math.round((shade.blackout / 100) * 1000) / 1000 : 0,
+    curtain: shade ? [track(shade.sheer), track(shade.blackout)] : [0, 0],
     states: out,
   };
 }

@@ -55,7 +55,7 @@ Targets, at 01:00 and 13:00 with every circuit off:
                 the skyline still reads as points of light.
   * `sky_day` — glass mean 0.65–0.80, and the frame must not clip badly.
 """
-import argparse, json, math, pathlib, sys
+import argparse, json, math, pathlib, re, sys
 
 try:
     import numpy as np
@@ -66,69 +66,77 @@ except ImportError:
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # ------------------------------------------------------------------ #
-# The profiles, mirrored from components/stage/plates/profiles/.      #
+# The profiles, read from the TypeScript the runtime uses.             #
 # ------------------------------------------------------------------ #
 
-SETS = {
-    "restaurant": {
-        "exposure": 0.25,
-        "tint": 0.55,
-        "neutral": ["rs_pendant"],
-        "fixed": {},
-        "rgbw": ["rs_cove", "rs_arch"],
-        "bus": "rs-rgb",
-        "gain": {
-            "rs_general": 90, "rs_tunable": 260, "rs_cove": 7, "rs_pendant": 1.2,
-            "rs_arch": 5, "rs_feature": 0.1, "rs_table": 5, "rs_rgb": 1.5,
-            "sky": 6.7, "sky_day": 43.5,
-            "day_morning": 600, "day_midday": 25, "day_evening": 15,
-        },
-    },
-    "showroom": {
-        "exposure": 0.2,
-        "tint": 0.55,
-        "neutral": [],
-        "fixed": {},
-        "rgbw": [],
-        "bus": "sr-rgb",
-        "gain": {
-            "sr_general": 29.4, "sr_spot": 52263, "sr_track": 296, "sr_linear": 3.4,
-            "sr_accent": 1.1, "sr_floor": 6.6, "sr_arch": 2.1, "sr_tunable": 552,
-            "sr_rgb": 29, "sr_zone_1": 149, "sr_zone_2": 5921, "sr_zone_3": 50,
-            "sr_zone_4": 5628, "sr_zone_5": 2648, "sr_zone_6": 25301,
-        },
-    },
-    "lobby": {
-        "exposure": 0.1,
-        "tint": 0.55,
-        "neutral": ["ca_cove", "ca_deco", "ca_accent", "ca_feature"],
-        "fixed": {"ca_arch": 2700, "ca_facade": 2700},
-        "rgbw": [],
-        "bus": None,
-        "gain": {
-            "ca_tunable": 35.1, "ca_arch": 3.6, "ca_deco": 6.4, "ca_feature": 7.9,
-            "ca_accent": 2916, "ca_cove": 12.9, "ca_facade": 17.4,
-            "day_sky": 6.46, "sky": 1.67,
-            "day_morning": 2, "day_midday": 8.1, "day_evening": 4.5,
-        },
-    },
-    "room": {
-        "exposure": 0.08,
-        "tint": 0.4,
-        # The two door indicators are rendered in their own colour — the red
-        # plate measures R/B 95, the green one 0.18 — so a 2700 K tint on top
-        # would turn the green one yellow and the red one into a filament.
-        "neutral": ["rm_dnd", "rm_service"],
-        "fixed": {
-            "rm_entry": 2700, "rm_bedside": 2700, "rm_reading": 2700,
-            "rm_cove": 2700, "rm_bath": 2700, "rm_wardrobe": 2700,
-            "rm_deco": 2700, "rm_night": 2700,
-        },
-        "rgbw": [],
-        "bus": None,
-        "gain": {"rm_tunable": 38.0, "rm_entry": 40.8, "rm_bedside": 24.2, "rm_reading": 102.3, "rm_cove": 7.6, "rm_bath": 7.4, "rm_wardrobe": 2.8, "rm_deco": 1.5, "rm_night": 1.6, "rm_dnd": 6.1, "rm_service": 2.6, "sky": 2.86, "day_sky": 5.66, "day_morning": 3.0, "day_midday": 6.0, "day_evening": 5.0},
-        },
-}
+PROFILE_DIR = ROOT / "components/stage/plates/profiles"
+
+
+def _strip_comments(src: str) -> str:
+    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    return re.sub(r"//[^\n]*", "", src)
+
+
+def _block(src: str, key: str) -> str:
+    """The `{ ... }` or `[ ... ]` a property is assigned, brace-matched."""
+    m = re.search(rf"\b{key}\s*:\s*([{{\[])", src)
+    if not m:
+        return ""
+    open_c = m.group(1)
+    close_c = "}" if open_c == "{" else "]"
+    depth, i = 0, m.end(1) - 1
+    while i < len(src):
+        if src[i] == open_c:
+            depth += 1
+        elif src[i] == close_c:
+            depth -= 1
+            if depth == 0:
+                return src[m.end(1):i]
+        i += 1
+    return ""
+
+
+def load_profile(name: str) -> dict:
+    """One room's calibration, parsed out of `plates/profiles/<name>.ts`.
+
+    Read rather than restated. This table used to be kept in step with the
+    TypeScript by hand, and it was not: the gains for all four rooms lived
+    in one dict with duplicate keys in it, so this tool spent months
+    measuring the restaurant with the lobby's sky gain and reporting that
+    the restaurant was out of specification. A profile is the one thing
+    here that genuinely has a single home, and this is it.
+    """
+    path = PROFILE_DIR / f"{name}.ts"
+    if not path.exists():
+        sys.exit(f"no profile at {path.relative_to(ROOT)}")
+    src = _strip_comments(path.read_text())
+
+    def number(key: str, default=None):
+        m = re.search(rf"\b{key}\s*:\s*(-?[0-9.]+)", src)
+        if m:
+            return float(m.group(1))
+        if default is None:
+            sys.exit(f"{path.name}: no {key}")
+        return default
+
+    def pairs(key: str) -> dict:
+        return {k: float(v) for k, v in re.findall(r"([A-Za-z_][\w]*)\s*:\s*(-?[0-9.]+)",
+                                                   _block(src, key))}
+
+    def strings(key: str) -> list:
+        return re.findall(r'"([^"]+)"', _block(src, key))
+
+    bus = re.search(r'\bcolourBus\s*:\s*(?:"([^"]+)"|null)', src)
+    return {
+        "gain": pairs("gain"),
+        "exposure": number("exposure"),
+        "tint": number("tintSaturation"),
+        "neutral": strings("neutralLayers"),
+        "fixed": {k: int(v) for k, v in pairs("fixedTint").items()},
+        "rgbw": strings("rgbwLayers"),
+        "bus": bus.group(1) if bus and bus.group(1) else None,
+    }
+
 
 _ap = argparse.ArgumentParser(add_help=False)
 _ap.add_argument("--dir", default="public/plates/restaurant")
@@ -136,9 +144,10 @@ _known, _ = _ap.parse_known_args()
 PLATES = ROOT / _known.dir
 WINDOW_X = 0.62
 
-# `room_closed` is the same room behind a drawn curtain: same circuits, same
-# calibration, a second render. It takes the profile its open twin names.
-SET = SETS.get(PLATES.name.replace("_closed", ""), SETS["restaurant"])
+# `room_sheer` and `room_closed` are the same room behind a drawn curtain:
+# same circuits, same calibration, further renders. They take the profile
+# their open twin names.
+SET = load_profile(re.sub(r"_(sheer|closed)$", "", PLATES.name))
 GAIN = SET["gain"]
 EXPOSURE = SET["exposure"]
 TINT_SATURATION = SET["tint"]
@@ -285,6 +294,94 @@ def day_weights(clock, env):
 ENV = {"sunriseMin": 380, "sunsetMin": 1135, "outdoorPeakLux": 95000}
 
 
+# ------------------------------------------------------------------ #
+# The curtain, mirroring plates/window.ts and the WIPE shader.         #
+# ------------------------------------------------------------------ #
+
+_HOTSPOTS = PLATES / "hotspots.json"
+CURTAIN = json.loads(_HOTSPOTS.read_text()).get("curtain") if _HOTSPOTS.exists() else None
+# A plate set with a `_sheer` sibling is a window with two tracks.
+CURTAIN_SETS = [PLATES]
+if (PLATES.parent / f"{PLATES.name}_sheer").is_dir():
+    CURTAIN_SETS += [PLATES.parent / f"{PLATES.name}_sheer",
+                     PLATES.parent / f"{PLATES.name}_closed"]
+
+
+def smoothstep(a, b, x):
+    k = np.clip((x - a) / (b - a), 0, 1)
+    return k * k * (3 - 2 * k)
+
+
+def _square_to_quad(q):
+    """Heckbert's closed form, as `plates/window.ts` uses it."""
+    (x0, y0), (x1, y1), (x2, y2), (x3, y3) = q
+    sx, sy = x0 - x1 + x2 - x3, y0 - y1 + y2 - y3
+    if abs(sx) < 1e-9 and abs(sy) < 1e-9:
+        return np.array([[x1 - x0, x3 - x0, x0], [y1 - y0, y3 - y0, y0], [0, 0, 1]], float)
+    dx1, dx2, dy1, dy2 = x1 - x2, x3 - x2, y1 - y2, y3 - y2
+    den = dx1 * dy2 - dx2 * dy1
+    g = (sx * dy2 - dx2 * sy) / den
+    h = (dx1 * sy - sx * dy1) / den
+    return np.array([[x1 - x0 + g * x1, x3 - x0 + h * x3, x0],
+                     [y1 - y0 + g * y1, y3 - y0 + h * y3, y0],
+                     [g, h, 1]], float)
+
+
+_TS_CACHE = {}
+
+
+def window_coords(shape):
+    """`t` along the track, `s` up the glass, and how far inside we are."""
+    if CURTAIN is None:
+        return None
+    if shape in _TS_CACHE:
+        return _TS_CACHE[shape]
+    h, w = shape
+    inv = np.linalg.inv(_square_to_quad(CURTAIN["quad"]))
+    # Pixel centres, in the same normalised uv the shader samples with.
+    uu, vv = np.meshgrid((np.arange(w) + 0.5) / w, (np.arange(h) + 0.5) / h)
+    den = inv[2, 0] * uu + inv[2, 1] * vv + inv[2, 2]
+    safe = np.where(np.abs(den) < 1e-6, 1e-6, den)
+    t = (inv[0, 0] * uu + inv[0, 1] * vv + inv[0, 2]) / safe
+    sc = (inv[1, 0] * uu + inv[1, 1] * vv + inv[1, 2]) / safe
+    pad = CURTAIN.get("pad", 0.02)
+    us = [q[0] for q in CURTAIN["quad"]]
+    vs = [q[1] for q in CURTAIN["quad"]]
+    soft_t = 4.0 / max(1.0, (max(us) - min(us)) * w)
+    soft_s = 4.0 / max(1.0, (max(vs) - min(vs)) * h)
+
+    def axis(x, soft):
+        return (smoothstep(-pad - soft, -pad + soft, x)
+                * smoothstep(-pad - soft, -pad + soft, 1.0 - x))
+
+    _TS_CACHE[shape] = (t, sc, np.where(den > 1e-6, axis(t, soft_t) * axis(sc, soft_s), 0.0))
+    return _TS_CACHE[shape]
+
+
+def cover_at(p, t, s):
+    """How much of the glass a track has covered, along the window."""
+    if p <= 0:
+        return 0.0
+    if p >= 1:
+        return 1.0
+    half = p * 0.5 + 0.01 * math.sin(math.pi * p) * np.sin(s * 12.0)
+    e = 0.03
+    return np.clip(smoothstep(0.0, e, half - t) + smoothstep(0.0, e, t - (1.0 - half)), 0, 1)
+
+
+def curtain_shares(curtain, shape):
+    """Each plate set's per-pixel share: open, sheer drawn, blackout shut."""
+    sheer, blackout = (float(np.clip(x, 0, 1)) for x in curtain)
+    ts = window_coords(shape)
+    if ts is None:
+        m1, m2 = sheer, blackout
+    else:
+        t, s, inside = ts
+        m1 = sheer + (cover_at(sheer, t, s) - sheer) * inside
+        m2 = blackout + (cover_at(blackout, t, s) - blackout) * inside
+    return [(1 - m1) * (1 - m2), m1 * (1 - m2), m2]
+
+
 def layer_weight(layer, targets, clock, g, mix=None):
     """One layer's RGB weight, exactly as `computeWeights` works it out.
 
@@ -321,29 +418,42 @@ def layer_weight(layer, targets, clock, g, mix=None):
 
 
 def render(targets, clock, gain=None, exposure=EXPOSURE, mix=None, tier="sd",
-           plates=None, curtain=0.0):
+           plates=None, curtain=(0.0, 0.0)):
     """The composite, as the browser draws it.
 
-    `curtain` crossfades to the second plate set the way the shader does:
-    `mix(open, closed, position)` per layer, with one set of weights. The sum
-    is linear, so `(1-t)·Σ w·O + t·Σ w·C` and the per-layer form are the same
-    picture — this does it per layer because that is what the shader does and
-    the point of this file is to agree with it.
+    `curtain` is the two tracks, each 0 drawn back to 1 drawn across. The
+    three plate sets are summed separately and weighted by the per-pixel
+    share `curtain_shares` works out, exactly as the three accumulate passes
+    in `PlateRenderer` do — light adds linearly, so a share applied to a
+    finished sum and the same share applied layer by layer are the same
+    picture, and this does it the first way because that is what the shader
+    does and the point of this file is to agree with it.
     """
     g = {**GAIN, **(gain or {})}
     base = plates or PLATES
-    closed = base.parent / f"{base.name}_closed" if curtain > 0 else None
+    sets = CURTAIN_SETS if (base == PLATES and len(CURTAIN_SETS) > 1) else [base]
+    shape = linear(LAYERS[0], tier, base).shape[:2]
+    shares = curtain_shares(curtain, shape) if len(sets) > 1 else [1.0]
+
     hdr = None
-    for l in LAYERS:
-        w = layer_weight(l, targets, clock, g, mix)
-        if w is None:
+    for k, folder in enumerate(sets):
+        share = shares[k]
+        if np.isscalar(share):
+            if share <= 0:
+                continue
+        elif not np.any(share > 1e-6):
             continue
-        w = np.asarray(w, np.float32)
-        contrib = linear(l, tier, base) * (w * np.float32(1 - curtain)) if curtain < 1 else None
-        if closed is not None:
-            shut = linear(l, tier, closed) * (w * np.float32(curtain))
-            contrib = shut if contrib is None else contrib + shut
-        hdr = contrib if hdr is None else hdr + contrib
+        acc = None
+        for l in LAYERS:
+            w = layer_weight(l, targets, clock, g, mix)
+            if w is None:
+                continue
+            contrib = linear(l, tier, folder) * np.asarray(w, np.float32)
+            acc = contrib if acc is None else acc + contrib
+        if acc is None:
+            continue
+        acc *= np.float32(share) if np.isscalar(share) else share.astype(np.float32)[..., None]
+        hdr = acc if hdr is None else hdr + acc
     if hdr is None:
         hdr = np.zeros_like(linear(LAYERS[0], tier, base))
     return to_srgb(agx(hdr * exposure))
@@ -420,12 +530,12 @@ def still(state_path: str, out_dir: str):
     # the closed one: the curtain position in the state decides which plates
     # `render` reaches for, and pointing it at `room_closed` would send it
     # looking for `room_closed_closed`.
-    if PLATES.name.endswith("_closed"):
+    if PLATES.name.endswith(("_sheer", "_closed")):
         sys.exit(f"--dir should be the open plate set, not {PLATES.name}")
     targets = st["states"]
     clock = st["clockMin"]
     mix = st.get("daylightMix")
-    curtain = st.get("curtain", 0.0)
+    curtain = st.get("curtain", [0.0, 0.0])
     for tier, w, h in (("hd", MAN["width"], MAN["height"]), ("sd", *MAN["sd"])):
         img = render(targets, clock, mix=mix, tier=tier, curtain=curtain)
         L = lum(img)

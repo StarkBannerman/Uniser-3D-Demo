@@ -36,15 +36,21 @@ export const room: Space = {
     dir: "/plates/room",
     profile: "room",
     /**
-     * The second plate set, and the motor that crossfades to it.
+     * The window's other two states, and the motor that drives them.
      *
-     * Two complete renders of the same camera, one with the curtains open and
-     * one with the blackout shut, composited `mix(open, closed, position)`.
-     * A curtain is the one thing in a room that light cannot be summed
-     * around: it is an occluder, so its effect is on every other circuit's
-     * plate rather than a plate of its own.
+     * Three complete renders of the same camera — drawn back, sheer across,
+     * blackout shut — because a curtain is the one thing in a room that
+     * light cannot be summed around: it is an occluder, so its effect is on
+     * every other circuit's plate rather than a plate of its own. The
+     * shader wipes between them inside the window quad that
+     * `room/hotspots.json` carries, so the panels travel rather than
+     * dissolve.
      */
-    curtain: { dir: "/plates/room_closed", deviceId: "rm-curtain" },
+    curtain: {
+      sheerDir: "/plates/room_sheer",
+      closedDir: "/plates/room_closed",
+      deviceId: "rm-curtain",
+    },
     hotspotAliases: {
       curtains: { deviceId: "rm-curtain", label: "Blackout curtains" },
       hvac: { deviceId: "rm-ac", label: "Air conditioning" },
@@ -257,17 +263,29 @@ export const room: Space = {
       productId: "uniser-curtain-track",
       subsystem: "shades",
       /**
-       * One track, two plate sets, and a position rather than two layers.
+       * Two tracks, and the engine's shade model already has both.
        *
-       * The engine's shade model carries a sheer and a blackout separately,
-       * which is the right model for a window with two tracks on it. This
-       * window has one, and the render is a pair — fully drawn back, fully
-       * shut — so the honest control is a single position and "sheer" is the
-       * halfway point of it. Declaring only `blackout` is what says so.
+       * The window is rendered in three states — drawn back, sheer across,
+       * blackout shut — so the sheer is a real second layer with its own
+       * motor rather than the halfway point of one. `shadeTransmission`
+       * multiplies the two, which is what makes a sheer at the window and
+       * the blackout behind it darker than either, and what daylight
+       * harvesting regulates against.
        */
-      layers: ["blackout"],
+      layers: ["sheer", "blackout"],
       watts: 45,
-      travelMs: 4000,
+      /**
+       * 2.5 s a track, not 4.
+       *
+       * Both tracks move together on a single press, so Open, Sheer and
+       * Blackout each still show two and a half seconds of panel crossing
+       * the glass — and now that it is a wipe rather than a dissolve, that
+       * reads far longer than four seconds of crossfade ever did. The
+       * figure is set by Guest Arrival, where the two tracks are staggered
+       * a beat apart: 2.5 s each with about a second of overlap is the four
+       * seconds end to end the sequence is specified for.
+       */
+      travelMs: 2500,
       window: { x: 0.74, y: 0.18, w: 0.24, h: 0.62 },
       draw: "both",
     },
@@ -384,7 +402,7 @@ export const room: Space = {
         "rm-night": { on: false },
         "rm-dnd": { on: false },
         "rm-service": { on: false },
-        "rm-curtain": { blackout: 100 },
+        "rm-curtain": { sheer: 100, blackout: 100 },
         "rm-ac": { on: false },
       },
       steps: [
@@ -399,8 +417,20 @@ export const room: Space = {
           label: "Curtains opening",
           holdMs: 3700,
           targets: {
-            // No `fadeMs`: a motor's travel is its own and a scene cannot
-            // shorten it. Four seconds, which is what the track does.
+            /**
+             * The blackout alone. The sheer follows in the next beat.
+             *
+             * Two tracks commanded in one patch start together and arrive
+             * together, which looks like one thick curtain. Staggering them
+             * by a beat is what makes the window read as two layers — the
+             * blackout parts, the city comes up behind a sheer that is
+             * still across, and then the sheer parts in turn. The next beat
+             * fires 1.4 s after this one and each track takes 2.5 s, so the
+             * pair is four seconds end to end with 1.1 s of overlap.
+             *
+             * No `fadeMs`: a motor's travel is its own and a scene cannot
+             * shorten it.
+             */
             "rm-curtain": { blackout: 0 },
           },
         },
@@ -408,6 +438,8 @@ export const room: Space = {
           label: "Room lighting to preset",
           holdMs: 4200,
           targets: {
+            // The sheer, following the blackout — see the beat above.
+            "rm-curtain": { sheer: 0 },
             "rm-cove": { on: true, level: 80, fadeMs: 1400 },
             "rm-tunable": { on: true, level: 70, cct: 3500, sat: 0, fadeMs: 1400 },
             "rm-bedside": { on: true, level: 60, fadeMs: 1400 },
@@ -453,7 +485,7 @@ export const room: Space = {
         "rm-tunable": { on: true, level: 75, cct: 3500, sat: 0 },
         "rm-dnd": { on: false },
         "rm-service": { on: false },
-        "rm-curtain": { blackout: 0 },
+        "rm-curtain": { sheer: 0, blackout: 0 },
         "rm-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
       },
       highlight: ["proplus-downlight", "connekt-profile"],
@@ -478,7 +510,7 @@ export const room: Space = {
         "rm-tunable": { on: true, level: 25, cct: 2700, sat: 0 },
         "rm-dnd": { on: false },
         "rm-service": { on: false },
-        "rm-curtain": { blackout: 50 },
+        "rm-curtain": { sheer: 100, blackout: 0 },
         "rm-ac": { on: true, setpointC: 23, mode: "cool", fan: 1 },
       },
       highlight: ["connekt-profile", "uniser-curtain-track"],
@@ -503,7 +535,7 @@ export const room: Space = {
         "rm-tunable": { on: true, level: 30, cct: 3000, sat: 0 },
         "rm-dnd": { on: false },
         "rm-service": { on: false },
-        "rm-curtain": { blackout: 50 },
+        "rm-curtain": { sheer: 100, blackout: 0 },
         "rm-ac": { on: true, setpointC: 23, mode: "cool", fan: 1 },
       },
       highlight: ["magneto-track"],
@@ -529,7 +561,7 @@ export const room: Space = {
         "rm-tunable": { on: true, level: 40, cct: 2700, sat: 0 },
         "rm-dnd": { on: false },
         "rm-service": { on: false },
-        "rm-curtain": { blackout: 0 },
+        "rm-curtain": { sheer: 0, blackout: 0 },
         "rm-ac": { on: true, setpointC: 23, mode: "cool", fan: 2 },
       },
       highlight: ["pipeline-pendant", "connekt-profile"],
@@ -554,7 +586,7 @@ export const room: Space = {
         "rm-tunable": { on: false },
         "rm-dnd": { on: true, level: 100 },
         "rm-service": { on: false },
-        "rm-curtain": { blackout: 100 },
+        "rm-curtain": { sheer: 100, blackout: 100 },
         "rm-ac": { on: true, setpointC: 24, mode: "cool", fan: 1 },
       },
       highlight: ["connekt-profile", "uniser-curtain-track"],
@@ -579,7 +611,7 @@ export const room: Space = {
         "rm-tunable": { on: false },
         "rm-dnd": { on: true, level: 100 },
         "rm-service": { on: false },
-        "rm-curtain": { blackout: 100 },
+        "rm-curtain": { sheer: 100, blackout: 100 },
         "rm-ac": { on: true, setpointC: 24, mode: "cool", fan: 1 },
       },
       highlight: ["connekt-profile", "sensibo-airbend"],
@@ -605,7 +637,7 @@ export const room: Space = {
         "rm-tunable": { on: true, level: 100, cct: 5000, sat: 0 },
         "rm-dnd": { on: false },
         "rm-service": { on: true, level: 100 },
-        "rm-curtain": { blackout: 0 },
+        "rm-curtain": { sheer: 0, blackout: 0 },
         "rm-ac": { on: true, setpointC: 24, mode: "fan", fan: 2 },
       },
       highlight: ["proplus-downlight"],
@@ -703,7 +735,7 @@ export const room: Space = {
     "rm-night": { on: false, level: 0 },
     "rm-dnd": { on: false, level: 0 },
     "rm-service": { on: false, level: 0 },
-    "rm-curtain": { blackout: 0 },
+    "rm-curtain": { sheer: 0, blackout: 0 },
     "rm-ac": { on: true, setpointC: 24, mode: "cool", fan: 1 },
   },
 
