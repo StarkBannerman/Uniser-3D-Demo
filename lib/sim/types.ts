@@ -113,6 +113,17 @@ export type ShadeLayerId = "sheer" | "blackout";
 export interface ShadeDevice extends DeviceBase {
   kind: "shade";
   layers: ShadeLayerId[];
+  /**
+   * The named positions the automation panel offers as buttons.
+   *
+   * Declared rather than inferred, because the middle one is the part
+   * with a name worth printing and only the space knows it: a window with
+   * two tracks calls half-covered "Sheer", and a cabin with one venetian
+   * calls it the meeting preset. Omitted, the panel derives Open / Half /
+   * Close from `layers`, which is right for a shade nobody has thought
+   * about yet.
+   */
+  presets?: { label: string; sheer?: number; blackout: number; hint?: string }[];
   /** Motor draw while travelling. Negligible, but honest. */
   watts: number;
   /** Full open -> fully closed travel time. */
@@ -658,11 +669,19 @@ export interface Space {
      * each one owns as the panels travel. See `plates/window.ts`.
      *
      * `deviceId` names a shade whose `sheer` and `blackout` positions, 0 to
-     * 100 each, drive the two wipes. All three sets must have the same
-     * layer names; each one's `manifest.json` supplies its own per-layer
-     * scales, because they are separate renders.
+     * 100 each, drive the two wipes. All the sets must have the same layer
+     * names; each one's `manifest.json` supplies its own per-layer scales,
+     * because they are separate renders.
+     *
+     * `sheerDir` is optional, and leaving it out is the ordinary case: a
+     * window with one covering — blinds that lower, a single curtain —
+     * has two states, not three, and its shade declares only `blackout`.
+     * A covering with no window quad in `hotspots.json` crossfades rather
+     * than wiping, which is what a venetian blind lowering and tilting
+     * actually looks like: the whole aperture closes at once rather than
+     * an edge travelling along a track.
      */
-    curtain?: { sheerDir: string; closedDir: string; deviceId: string };
+    curtain?: { sheerDir?: string; closedDir: string; deviceId: string };
     /**
      * Hotspots that are not named after a device, and what they mean.
      *

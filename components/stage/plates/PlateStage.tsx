@@ -177,7 +177,7 @@ export function PlateStage({
    * See `Space.plates.curtain`. Absent for the three rooms with no curtain,
    * which take the single-pass path unchanged.
    */
-  curtain?: { sheerDir: string; closedDir: string; deviceId: string };
+  curtain?: { sheerDir?: string; closedDir: string; deviceId: string };
   /** Controls tab is showing, so the room should say where each circuit is. */
   controlsOpen?: boolean;
 }) {
@@ -211,7 +211,8 @@ export function PlateStage({
       let hotspotFile: HotspotFile;
       let chosen: PlateTier;
       try {
-        const dirs = sheerDir && closedDir ? [sheerDir, closedDir] : [];
+        // In shader order: the middle state, if there is one, then shut.
+        const dirs = closedDir ? [...(sheerDir ? [sheerDir] : []), closedDir] : [];
         const [m, h, ...rest] = await Promise.all([
           fetch(`${dir}/manifest.json`).then((r) => r.json() as Promise<PlateManifest>),
           fetch(`${dir}/hotspots.json`).then((r) => r.json() as Promise<HotspotFile>),
@@ -251,16 +252,21 @@ export function PlateStage({
       }
 
       /**
-       * Where the glass is, so the panels can travel across it rather than
-       * dissolving over it. Null is a working outcome: the sets then
-       * crossfade globally, which is the same picture at either end.
+       * Where the glass is, so a covering can travel across it rather than
+       * dissolving over it.
+       *
+       * Null is a working outcome and often the intended one: a venetian
+       * blind lowering and tilting is the whole aperture closing at once,
+       * not an edge crossing it, so a plate set with no quad crossfades on
+       * purpose. Only a quad that is *present and unusable* is worth
+       * saying anything about.
        */
       const glass = extra.length
         ? curtainWindow(hotspotFile.curtain, { width: plateW, height: plateH })
         : null;
-      if (extra.length && !glass) {
+      if (extra.length && hotspotFile.curtain && !glass) {
         console.warn(
-          `plates: ${dir}/hotspots.json has no usable curtain quad — the panels will crossfade rather than travel`,
+          `plates: ${dir}/hotspots.json has a curtain quad that will not resolve — the covering will crossfade rather than travel`,
         );
       }
 
@@ -359,7 +365,9 @@ export function PlateStage({
         if (!extra.length || !curtainId) return [0, 0];
         const st = useSim.getState().states[curtainId] as ShadeState | undefined;
         const clamp = (v: number) => Math.min(Math.max(v / 100, 0), 1);
-        return [clamp(st?.sheer ?? 0), clamp(st?.blackout ?? 0)];
+        // A one-covering window reports no middle track, so its shade's
+        // unused `sheer` never reaches the shader as a position.
+        return [extra.length === 2 ? clamp(st?.sheer ?? 0) : 0, clamp(st?.blackout ?? 0)];
       };
       let curtainPos: [number, number] = trackPositions();
 
@@ -379,7 +387,10 @@ export function PlateStage({
         if (extra.length && curtainId) {
           const shade = states[curtainId] as ShadeState | undefined;
           const clamp = (v: number) => Math.min(Math.max(v / 100, 0), 1);
-          const next: [number, number] = [clamp(shade?.sheer ?? 0), clamp(shade?.blackout ?? 0)];
+          const next: [number, number] = [
+            extra.length === 2 ? clamp(shade?.sheer ?? 0) : 0,
+            clamp(shade?.blackout ?? 0),
+          ];
           /**
            * Exactly, with no deadband — unlike the layer weights.
            *
@@ -458,7 +469,7 @@ export function PlateStage({
       tweening = false;
       unsubscribe = useSim.subscribe(refresh);
 
-      const setDirs = [dir, ...(extra.length ? [sheerDir!, closedDir!] : [])];
+      const setDirs = [dir, ...(extra.length ? [...(sheerDir ? [sheerDir] : []), closedDir!] : [])];
       const fetchLayer = async (layer: string, set: number) => {
         try {
           const image = await loadImage(plateUrl(setDirs[set], chosen, layer));
@@ -487,9 +498,13 @@ export function PlateStage({
       const later: (() => Promise<void>)[] = [];
       // The same test `draw` uses to decide which sets contribute, so the
       // first wave is exactly the plates the opening frame will sample.
-      const showing = extra.length
-        ? [sheerNow < 1 && blackoutNow < 1, sheerNow > 0 && blackoutNow < 1, blackoutNow > 0]
-        : [true];
+      const byRole = [
+        sheerNow < 1 && blackoutNow < 1,
+        sheerNow > 0 && blackoutNow < 1,
+        blackoutNow > 0,
+      ];
+      const roles = extra.length === 2 ? [0, 1, 2] : extra.length === 1 ? [0, 2] : [0];
+      const showing = roles.map((r) => byRole[r]);
       for (let set = 0; set < showing.length; set++) {
         for (const layer of layers) {
           const urgent = showing[set] && needed.includes(layer);

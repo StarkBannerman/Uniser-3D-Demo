@@ -361,17 +361,29 @@ export class PlateRenderer {
   private scratch: Float32Array | null = null;
 
   /**
+   * Which blend role each plate set plays: 0 open, 1 middle, 2 shut.
+   *
+   * Three sets is a window with two tracks and all three roles are filled.
+   * Two sets is a window with one — blinds that lower, a single curtain —
+   * and the second set is the *shut* one, not the middle one, so it takes
+   * role 2 and the middle share stays empty. That keeps one shader and one
+   * piece of algebra across both.
+   */
+  private roles: number[];
+
+  /**
    * `scales` is one array per plate set, each one entry per layer in the
    * order the manifest lists them.
    *
    * One set is the plain path: accumulate straight to the canvas, tone map
-   * in the same shader, no framebuffer. Three sets is the curtain: open,
-   * sheer and closed, composited by `WIPE`. Two is not a case anything
-   * needs and is rejected rather than half-supported.
+   * in the same shader, no framebuffer. Two or three is a covering that
+   * moves — blinds that lower, or a sheer and a blackout on their own
+   * tracks — composited by `WIPE`.
    *
-   * `window` places the glass so the curtain can wipe across it. Without it
-   * the three sets still crossfade globally, which is the same picture at
-   * either end of the travel and only loses the movement in between.
+   * `window` places the glass so the covering can wipe across it. Without
+   * it the sets crossfade globally, which is what a venetian blind
+   * lowering and tilting actually looks like: it is not an edge travelling
+   * along a track, it is the whole aperture closing at once.
    */
   constructor(
     private canvas: HTMLCanvasElement,
@@ -393,9 +405,10 @@ export class PlateRenderer {
     if (!gl) throw new Error("plates: no WebGL2 context");
     this.gl = gl;
     this.sets = scales.length;
-    if (this.sets !== 1 && this.sets !== 3) {
-      throw new Error(`plates: expected one or three plate sets, got ${this.sets}`);
+    if (this.sets < 1 || this.sets > 3) {
+      throw new Error(`plates: expected one to three plate sets, got ${this.sets}`);
     }
+    this.roles = this.sets === 3 ? [0, 1, 2] : this.sets === 2 ? [0, 2] : [0];
     this.n = scales[0].length;
     if (scales.some((set) => set.length !== this.n)) {
       throw new Error("plates: the plate sets do not have the same layers");
@@ -613,7 +626,7 @@ export class PlateRenderer {
       gl.bindTexture(gl.TEXTURE_2D, this.textures[i + offset] ?? this.blank);
     }
     gl.uniform1fv(this.uScale, this.scales[set]);
-    gl.uniform1i(this.uSet, set);
+    gl.uniform1i(this.uSet, this.roles[set]);
     gl.uniform3fv(this.uWeight, weights);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
@@ -650,17 +663,19 @@ export class PlateRenderer {
       return;
     }
 
-    const sheer = Math.min(Math.max(curtain[0], 0), 1);
+    // A two-set room has no middle track, so whatever its one motor is
+    // called, it drives the shut set.
+    const sheer = this.sets === 3 ? Math.min(Math.max(curtain[0], 0), 1) : 0;
     const blackout = Math.min(Math.max(curtain[1], 0), 1);
     /**
-     * Which sets contribute anything at all.
+     * Which sets contribute anything at all, by role.
      *
      * Read straight off the algebra in `WIPE`: the open set is gone the
-     * moment either track is fully across, the sheer set needs the sheer
-     * drawn and the blackout not, and the closed set needs the blackout to
-     * have started. Every rest position leaves exactly one.
+     * moment either track is fully across, the middle set needs the first
+     * track across and the second not, and the shut set needs the second
+     * to have started. Every rest position leaves exactly one.
      */
-    const contributes = [
+    const byRole = [
       sheer < 1 && blackout < 1,
       sheer > 0 && blackout < 1,
       blackout > 0,
@@ -674,7 +689,7 @@ export class PlateRenderer {
 
     let first = true;
     for (let set = 0; set < this.sets; set++) {
-      if (!contributes[set]) continue;
+      if (!byRole[this.roles[set]]) continue;
       if (!first) {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE);

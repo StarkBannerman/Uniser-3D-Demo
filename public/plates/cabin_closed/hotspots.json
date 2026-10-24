@@ -1,0 +1,75 @@
+{
+  "camera": "hero",
+  "points": {
+    "cx-cove": {
+      "u": 0.4402,
+      "v": 0.2646,
+      "visible": true
+    },
+    "cx-general": {
+      "u": 0.2324,
+      "v": 0.1514,
+      "visible": true
+    },
+    "cx-task": {
+      "u": 0.4755,
+      "v": 0.3393,
+      "visible": true
+    },
+    "cx-accent": {
+      "u": 0.8191,
+      "v": 0.4151,
+      "visible": true
+    },
+    "cx-feature": {
+      "u": 0.5215,
+      "v": 0.3879,
+      "visible": true
+    },
+    "cx-shelf": {
+      "u": 0.6755,
+      "v": 0.4212,
+      "visible": true
+    },
+    "cx-plinth": {
+      "u": 0.5077,
+      "v": 0.6386,
+      "visible": true
+    },
+    "cx-deco": {
+      "u": 0.234,
+      "v": 0.5331,
+      "visible": true
+    },
+    "cx-lounge": {
+      "u": 0.1422,
+      "v": 0.6724,
+      "visible": true
+    },
+    "blinds": {
+      "u": 0.188,
+      "v": 0.414,
+      "visible": true
+    },
+    "hvac": {
+      "u": 0.093,
+      "v": 0.2096,
+      "visible": true
+    },
+    "fan": {
+      "u": 0.2551,
+      "v": 0.2761,
+      "visible": true
+    },
+    "music": {
+      "u": 0.1395,
+      "v": 0.0741,
+      "visible": true
+    },
+    "keypad": {
+      "u": 0.9347,
+      "v": 0.5053,
+      "visible": true
+    }
+  }
+}

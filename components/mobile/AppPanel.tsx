@@ -200,6 +200,26 @@ function Row({
  * machinery that never fires.
  */
 
+/**
+ * The colour a full-colour circuit can be set to, in one tap.
+ *
+ * Hue and saturation rather than hex, because the renderer works in the
+ * same colour model the rest of the lighting does — `tintLinear` takes the
+ * pure hue at unit luminance and mixes toward it by `sat`, so a swatch is
+ * a point on that mix rather than an sRGB triple. The numbers below are
+ * the HSV of the specified hex values, which is why they are not round.
+ *
+ * White is not in the list: it is `sat: 0`, which hands the fixture back
+ * to its colour-temperature control, and it gets its own chip so that the
+ * way out of colour is as obvious as the way in.
+ */
+const COLOUR_SWATCHES: { label: string; hex: string; hue: number; sat: number }[] = [
+  { label: "Amber", hex: "#ffb36b", hue: 29, sat: 58 },
+  { label: "Deep blue", hex: "#3d5cff", hue: 230, sat: 76 },
+  { label: "Teal", hex: "#2ad1c9", hue: 177, sat: 80 },
+  { label: "Magenta", hex: "#d93aa8", hue: 319, sat: 73 },
+];
+
 function LightRow({
   device,
   state,
@@ -288,6 +308,51 @@ function LightRow({
             disabled={roomBusy || !on}
             onChange={(cct) => patch(device.id, { cct })}
           />
+        </ControlRow>
+      )}
+      {device.rgb && (
+        <ControlRow icon="bulb" hint="Colour">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={roomBusy || !on}
+              onClick={() => patch(device.id, { sat: 0 })}
+              aria-pressed={state.sat <= 0}
+              aria-label={`${device.name} white`}
+              className={`rounded-md border px-2 py-1 text-[10px] transition-colors disabled:opacity-40 ${
+                state.sat <= 0
+                  ? "border-brass-700 bg-shell-800 text-brass-300"
+                  : "border-shell-800 text-shell-400 hover:text-shell-200"
+              }`}
+            >
+              White
+            </button>
+            {COLOUR_SWATCHES.map((swatch) => {
+              // Near enough counts: a scene fade passes through intermediate
+              // hues, and a chip that only lights on an exact match would be
+              // off for most of every transition.
+              const chosen =
+                state.sat > 0 &&
+                Math.abs(((state.hue - swatch.hue + 540) % 360) - 180) > 174;
+              return (
+                <button
+                  key={swatch.label}
+                  type="button"
+                  disabled={roomBusy || !on}
+                  onClick={() => patch(device.id, { hue: swatch.hue, sat: swatch.sat })}
+                  aria-pressed={chosen}
+                  aria-label={`${device.name} ${swatch.label.toLowerCase()}`}
+                  title={swatch.label}
+                  style={{ backgroundColor: swatch.hex }}
+                  className={`h-5 w-5 rounded-full transition disabled:opacity-40 ${
+                    chosen
+                      ? "ring-2 ring-brass-300 ring-offset-1 ring-offset-shell-900"
+                      : "ring-1 ring-black/40 hover:scale-110"
+                  }`}
+                />
+              );
+            })}
+          </div>
         </ControlRow>
       )}
     </Row>
@@ -583,6 +648,15 @@ export function AppPanel({ view }: { view: AppView }) {
                 ? space.scenes.find((s) => s.id === activeSceneId)?.blurb
                 : "Adjusted by hand — no scene active."}
             </p>
+            {/* The same presets, three ways in. Worth saying out loud: a
+                client looking at a phone assumes the phone is the system,
+                and the thing actually being sold is the plate on the wall. */}
+            {space.keypad && (
+              <p className="px-1 text-[10px] leading-snug text-shell-600">
+                Recall any of these from the {space.keypad.finish} wall keypad, this
+                app, or voice.
+              </p>
+            )}
           </div>
         )}
 

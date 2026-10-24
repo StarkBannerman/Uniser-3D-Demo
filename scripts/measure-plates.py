@@ -300,11 +300,18 @@ ENV = {"sunriseMin": 380, "sunsetMin": 1135, "outdoorPeakLux": 95000}
 
 _HOTSPOTS = PLATES / "hotspots.json"
 CURTAIN = json.loads(_HOTSPOTS.read_text()).get("curtain") if _HOTSPOTS.exists() else None
-# A plate set with a `_sheer` sibling is a window with two tracks.
+# A plate set with a `_closed` sibling has a covering that moves; one with
+# a `_sheer` sibling as well has two of them. In shader order, and matching
+# `PlateStage`: open, then the middle state if there is one, then shut.
 CURTAIN_SETS = [PLATES]
-if (PLATES.parent / f"{PLATES.name}_sheer").is_dir():
-    CURTAIN_SETS += [PLATES.parent / f"{PLATES.name}_sheer",
-                     PLATES.parent / f"{PLATES.name}_closed"]
+if (PLATES.parent / f"{PLATES.name}_closed").is_dir():
+    if (PLATES.parent / f"{PLATES.name}_sheer").is_dir():
+        CURTAIN_SETS.append(PLATES.parent / f"{PLATES.name}_sheer")
+    CURTAIN_SETS.append(PLATES.parent / f"{PLATES.name}_closed")
+# Which blend role each set plays, as `PlateRenderer` assigns them: a
+# second set is the *shut* one, not the middle one.
+CURTAIN_ROLES = ([0, 1, 2] if len(CURTAIN_SETS) == 3
+                 else [0, 2] if len(CURTAIN_SETS) == 2 else [0])
 
 
 def smoothstep(a, b, x):
@@ -377,8 +384,11 @@ def cover_at(p, t, s):
 
 
 def curtain_shares(curtain, shape):
-    """Each plate set's per-pixel share: open, sheer drawn, blackout shut."""
+    """Each plate set's per-pixel share, by role: open, middle, shut."""
     sheer, blackout = (float(np.clip(x, 0, 1)) for x in curtain)
+    # A one-covering window has no middle track, whatever its shade calls it.
+    if len(CURTAIN_SETS) < 3:
+        sheer = 0.0
     ts = window_coords(shape)
     if ts is None:
         m1, m2 = sheer, blackout
@@ -386,7 +396,8 @@ def curtain_shares(curtain, shape):
         t, s, inside = ts
         m1 = sheer + (cover_at(sheer, t, s) - sheer) * inside
         m2 = blackout + (cover_at(blackout, t, s) - blackout) * inside
-    return [(1 - m1) * (1 - m2), m1 * (1 - m2), m2]
+    by_role = [(1 - m1) * (1 - m2), m1 * (1 - m2), m2]
+    return [by_role[r] for r in CURTAIN_ROLES]
 
 
 def layer_weight(layer, targets, clock, g, mix=None):

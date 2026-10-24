@@ -240,18 +240,20 @@ function Occupancy() {
 /* ------------------------------------------------------------------ */
 
 /**
- * Two tracks, three presets and a slider.
+ * One or two tracks, the space's own presets, and a slider.
  *
- * The window has a sheer and a blackout, and the three buttons are the
- * three states a guest ever wants: nothing across, the sheer across, both
- * across. Anything else is a slider job, and the slider drives whichever
- * track is the one still free to move — the blackout once the sheer is
- * already drawn, the sheer otherwise. That is one control for two motors
- * without ever asking which motor you meant.
+ * The buttons come from `ShadeDevice.presets` rather than from anything in
+ * here, because the middle one is the part with a name worth printing and
+ * only the space knows it: a hotel window with two tracks calls
+ * half-covered "Sheer", and a cabin with one venetian calls it the meeting
+ * preset. The slider then drives whichever track is still free to move —
+ * the blackout once the sheer is already across, the sheer otherwise, and
+ * on a one-track window simply the one track. That is one control for two
+ * motors without ever asking which motor you meant.
  *
  * Every press goes through `patch`, which hands the move to the motor
  * model: travel time is the track's, scaled by how far it has to go, and
- * the control locks itself until it arrives. A curtain that answered
+ * the control locks itself until it arrives. A blind that answered
  * instantly would be the one obviously fake thing in the room.
  */
 function Curtains() {
@@ -263,36 +265,59 @@ function Curtains() {
   const st = shade ? (states[shade.id] as ShadeState | undefined) : undefined;
   if (!shade || !st) return null;
 
+  const twoTrack = shade.layers.includes("sheer");
   const sheer = Math.round(st.sheer);
   const blackout = Math.round(st.blackout);
   const moving = busyDevices.includes(shade.id);
   const travel = (shade.travelMs / 1000).toFixed(1).replace(/\.0$/, "");
 
-  const PRESETS: { label: string; to: ShadeState; hint: string }[] = [
-    { label: "Open", to: { sheer: 0, blackout: 0 }, hint: "Both tracks drawn back" },
-    { label: "Sheer", to: { sheer: 100, blackout: 0 }, hint: "Daylight, no view in" },
-    { label: "Blackout", to: { sheer: 100, blackout: 100 }, hint: "Both tracks across" },
-  ];
-  const at = (to: ShadeState) =>
-    Math.abs(sheer - to.sheer) <= 2 && Math.abs(blackout - to.blackout) <= 2;
-  const here = PRESETS.find((preset) => at(preset.to));
+  const presets =
+    shade.presets ??
+    (twoTrack
+      ? [
+          { label: "Open", sheer: 0, blackout: 0, hint: undefined as string | undefined },
+          { label: "Half", sheer: 100, blackout: 0, hint: undefined },
+          { label: "Close", sheer: 100, blackout: 100, hint: undefined },
+        ]
+      : [
+          { label: "Open", blackout: 0, hint: undefined as string | undefined },
+          { label: "Half", blackout: 50, hint: undefined },
+          { label: "Close", blackout: 100, hint: undefined },
+        ]);
 
-  // The track the slider is holding: the blackout once the sheer is across.
-  const live: keyof ShadeState = sheer >= 98 ? "blackout" : "sheer";
+  const at = (p: { sheer?: number; blackout: number }) =>
+    Math.abs(blackout - p.blackout) <= 2 &&
+    (!twoTrack || Math.abs(sheer - (p.sheer ?? 0)) <= 2);
+  const here = presets.find(at);
+
+  // The track the slider holds: on a two-track window, the blackout once
+  // the sheer is across; on a one-track window there is only ever one.
+  const live: keyof ShadeState = !twoTrack || sheer >= 98 ? "blackout" : "sheer";
+  const liveName = !twoTrack ? shade.name : live === "blackout" ? "Blackout" : "Sheer";
+  const position = live === "blackout" ? blackout : sheer;
 
   return (
     <Card
       title={shade.name}
-      note={moving ? "travelling…" : (here?.label.toLowerCase() ?? `sheer ${sheer}% · blackout ${blackout}%`)}
+      note={
+        moving
+          ? "travelling…"
+          : (here?.label.toLowerCase() ??
+            (twoTrack ? `sheer ${sheer}% · blackout ${blackout}%` : `${blackout}% down`))
+      }
     >
       <div className="mb-2 flex gap-1">
-        {PRESETS.map((preset) => (
+        {presets.map((preset) => (
           <button
             key={preset.label}
             type="button"
             title={preset.hint}
             disabled={moving}
-            onClick={() => patch(shade.id, { ...preset.to })}
+            onClick={() =>
+              patch(shade.id, twoTrack
+                ? { sheer: preset.sheer ?? 0, blackout: preset.blackout }
+                : { blackout: preset.blackout })
+            }
             aria-pressed={here?.label === preset.label}
             className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] transition-colors disabled:opacity-40 ${
               here?.label === preset.label
@@ -305,21 +330,21 @@ function Curtains() {
         ))}
       </div>
       <div className="mb-1 flex items-center justify-between text-[10px] text-shell-500">
-        <span>{live === "blackout" ? "Blackout" : "Sheer"}</span>
-        <span className="tabular-nums text-shell-300">{live === "blackout" ? blackout : sheer}%</span>
+        <span>{liveName}</span>
+        <span className="tabular-nums text-shell-300">{position}%</span>
       </div>
       <Slider
-        value={live === "blackout" ? blackout : sheer}
+        value={position}
         min={0}
         max={100}
-        label={live === "blackout" ? "Blackout position" : "Sheer position"}
+        label={`${liveName} position`}
         disabled={moving}
         onChange={(v) => patch(shade.id, { [live]: v })}
       />
       <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
         {moving
-          ? "Motor running. The control is held until the track arrives — the same lock a wall switch would have."
-          : `${travel} s a track, and proportional: asked for the last fifth, it takes a fifth of that.`}
+          ? "Motor running. The control is held until it arrives — the same lock a wall switch would have."
+          : `${travel} s ${twoTrack ? "a track" : "end to end"}, and proportional: asked for the last fifth, it takes a fifth of that.`}
       </p>
     </Card>
   );
@@ -436,20 +461,6 @@ function Hvac() {
   if (!climate || !space || !st) return null;
   const settled = Math.abs(measured - setpoint) < 0.1;
 
-  /**
-   * Fan speed as four named positions, not a 0-5 slider.
-   *
-   * `ClimateState.fan` has carried "0 = auto, 1..3 = low/med/high" since the
-   * type was written, and the slider was showing the integer. The client's
-   * list asks for Low / Med / High / Auto by name, which is both what the
-   * state already means and what is printed on every fan-coil controller.
-   */
-  const FAN: { value: number; label: string }[] = [
-    { value: 0, label: "Auto" },
-    { value: 1, label: "Low" },
-    { value: 2, label: "Med" },
-    { value: 3, label: "High" },
-  ];
   const MODES: { value: ClimateMode; label: string }[] = [
     { value: "cool", label: "Cool" },
     { value: "heat", label: "Heat" },
@@ -483,24 +494,66 @@ function Hvac() {
           label="Setpoint"
         />
       </div>
-      <div className="mb-2">
-        <Segmented
-          value={st.mode}
-          options={MODES}
-          onChange={(mode) => patch(climate.id, { on: true, mode })}
-          label="Mode"
-        />
-      </div>
       <Segmented
-        value={st.fan}
-        options={FAN}
-        onChange={(fan) => patch(climate.id, { on: true, fan })}
-        label="Fan speed"
+        value={st.mode}
+        options={MODES}
+        onChange={(mode) => patch(climate.id, { on: true, mode })}
+        label="Mode"
       />
       <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
         The measured temperature moves a tenth of a degree a second toward the
         setpoint — real seconds, so it answers while you watch rather than
         waiting for the clock to be scrubbed.
+      </p>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Fan                                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Fan speed, on its own card and not inside the thermostat.
+ *
+ * Every client list in this project names the fan separately from the air
+ * conditioning, and they are right to: the setpoint is a decision about
+ * comfort and the fan speed is a decision about noise, and in a cabin
+ * where somebody is on a call those are not the same conversation.
+ *
+ * Four named positions rather than a 0-5 slider. `ClimateState.fan` has
+ * carried "0 = auto, 1..3 = low/med/high" since the type was written, and
+ * the slider was showing the integer — which is both less than the state
+ * already means and less than is printed on every fan-coil controller.
+ */
+function Fan() {
+  const space = useSim((s) => s.space);
+  const states = useSim((s) => s.states);
+  const patch = useSim((s) => s.patch);
+  const climate = space?.devices.find((d) => d.kind === "climate");
+  const st = climate ? (states[climate.id] as ClimateState | undefined) : undefined;
+  if (!climate || !st) return null;
+
+  const SPEEDS: { value: number; label: string }[] = [
+    { value: 0, label: "Auto" },
+    { value: 1, label: "Low" },
+    { value: 2, label: "Med" },
+    { value: 3, label: "High" },
+  ];
+  const name = SPEEDS.find((f) => f.value === st.fan)?.label ?? `${st.fan}`;
+
+  return (
+    <Card title="Fan" note={st.on ? name.toLowerCase() : "off"}>
+      <Segmented
+        value={Math.min(st.fan, 3)}
+        options={SPEEDS}
+        onChange={(fan) => patch(climate.id, { on: true, fan })}
+        label="Fan speed"
+      />
+      <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
+        A concealed fan coil, not a ceiling fan — the speed is how much air
+        the diffuser moves, and it is the control somebody on a call reaches
+        for before they touch the setpoint.
       </p>
     </Card>
   );
@@ -668,6 +721,7 @@ export function BuildingAutomation() {
       <Curtains />
       <Occupancy />
       <Hvac />
+      <Fan />
       <Indicators />
       <Music />
     </div>

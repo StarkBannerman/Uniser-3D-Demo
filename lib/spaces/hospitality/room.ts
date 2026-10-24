@@ -273,6 +273,11 @@ export const room: Space = {
        * harvesting regulates against.
        */
       layers: ["sheer", "blackout"],
+      presets: [
+        { label: "Open", sheer: 0, blackout: 0, hint: "Both tracks drawn back" },
+        { label: "Sheer", sheer: 100, blackout: 0, hint: "Daylight, no view in" },
+        { label: "Blackout", sheer: 100, blackout: 100, hint: "Both tracks across" },
+      ],
       watts: 45,
       /**
        * 2.5 s a track, not 4.

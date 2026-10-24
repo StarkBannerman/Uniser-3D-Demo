@@ -1,35 +1,46 @@
 import Link from "next/link";
 import { spacesBySegment } from "@/lib/spaces";
-import type { Segment } from "@/lib/sim/types";
+import type { Segment, Space } from "@/lib/sim/types";
 
 /**
  * The front door: pick a world, then pick a room in it.
  *
  * This used to redirect straight to the bedroom, which was right while the
  * bedroom was the only finished room — a picker with one card on it is a click
- * between the client and the demo. There are six now across two segments that
- * get sold to different people in different meetings, and a flat row of six
- * tabs made the salesperson scan a list in front of the client to find the one
- * they came to show.
+ * between the client and the demo. There are several now across segments that
+ * get sold to different people in different meetings, and a flat row of tabs
+ * made the salesperson scan a list in front of the client to find the one they
+ * came to show.
  *
- * Two doors instead. A residential visit never needs the boardroom in the
- * frame, and an office visit never needs the bedroom, so the segment is chosen
- * once at the start and the room switcher inside stays scoped to it.
+ * Doors instead. A hospitality visit never needs the executive cabin in the
+ * frame and an office visit never needs the restaurant, so the segment is
+ * chosen once at the start and the room switcher inside stays scoped to it.
  *
  * `spacesBySegment` already hides anything `unlisted`, so a room appears here
  * by being finished rather than by being wired in.
  */
 
 /**
- * Two doors, and the segment ids behind them are not the titles.
+ * The doors, and the segment ids behind them are not the titles.
  *
  * `hospitality` is the door a client sees as "Commercial" — the rooms a
  * business is judged on by the people who walk into them. `commercial` is
  * the Office door. The names have been crossed since before the plates
  * work and renaming the segment would touch every space file, so the
  * mapping lives here and nowhere else.
+ *
+ * `soon` is rooms that are specified and not yet built. They are shown
+ * rather than hidden because the question a client asks in the first
+ * minute is what else there is, and a door with one room behind it answers
+ * that badly.
  */
-const DOORS: { segment: Segment; title: string; lead: string; blurb: string }[] = [
+const DOORS: {
+  segment: Segment;
+  title: string;
+  lead: string;
+  blurb: string;
+  soon?: string[];
+}[] = [
   {
     segment: "hospitality",
     title: "Commercial",
@@ -37,7 +48,68 @@ const DOORS: { segment: Segment; title: string; lead: string; blurb: string }[] 
     blurb:
       "A hotel restaurant, a hotel lobby, a guest room and a luxury car showroom — the rooms a business is judged on in the first ten seconds, with the lighting layers that do the judging on separate circuits.",
   },
+  {
+    segment: "commercial",
+    title: "Office",
+    lead: "Workplace and executive spaces",
+    blurb:
+      "The rooms a company works in and is seen working in. An executive cabin lit like hospitality rather than like an office, with the workspace and the boardroom alongside it.",
+    soon: ["Office Workspace", "Office Boardroom"],
+  },
 ];
+
+/** A room's holding image, which is the first frame its stage will show. */
+function thumb(space: Space): string | null {
+  return space.plates ? `${space.plates.dir}/still_sd.jpg` : null;
+}
+
+function RoomCard({ space }: { space: Space }) {
+  const image = thumb(space);
+  return (
+    <Link
+      href={`/demo/${space.id}`}
+      className="group flex items-center gap-3 overflow-hidden rounded-lg border border-shell-800 bg-shell-850 pr-3.5 transition-colors hover:border-brass-700 hover:bg-shell-800"
+    >
+      {image ? (
+        <img
+          src={image}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          width={80}
+          height={45}
+          className="h-[45px] w-20 shrink-0 object-cover opacity-80 transition-opacity group-hover:opacity-100"
+        />
+      ) : (
+        <span className="h-[45px] w-20 shrink-0 bg-shell-800" />
+      )}
+      <span className="flex-1 text-[13px] font-medium text-shell-200 group-hover:text-shell-100">
+        {space.name}
+      </span>
+      <span
+        aria-hidden
+        className="text-shell-600 transition-colors group-hover:text-brass-500"
+      >
+        →
+      </span>
+    </Link>
+  );
+}
+
+function SoonCard({ name }: { name: string }) {
+  return (
+    <div
+      aria-disabled
+      className="flex items-center gap-3 overflow-hidden rounded-lg border border-dashed border-shell-800 pr-3.5 opacity-55"
+    >
+      <span className="h-[45px] w-20 shrink-0 bg-shell-850" />
+      <span className="flex-1 text-[13px] font-medium text-shell-400">{name}</span>
+      <span className="text-[10px] uppercase tracking-wider text-shell-600">
+        Coming soon
+      </span>
+    </div>
+  );
+}
 
 export default function Home() {
   return (
@@ -56,10 +128,10 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid items-start gap-4 sm:grid-cols-2">
           {DOORS.map((door) => {
             const rooms = spacesBySegment(door.segment);
-            if (rooms.length === 0) return null;
+            if (rooms.length === 0 && !door.soon?.length) return null;
             return (
               <section
                 key={door.segment}
@@ -77,22 +149,9 @@ export default function Home() {
 
                 <div className="mt-5 flex flex-col gap-1.5">
                   {rooms.map((room) => (
-                    <Link
-                      key={room.id}
-                      href={`/demo/${room.id}`}
-                      className="group flex items-center justify-between rounded-lg border border-shell-800 bg-shell-850 px-3.5 py-2.5 transition-colors hover:border-brass-700 hover:bg-shell-800"
-                    >
-                      <span className="text-[13px] font-medium text-shell-200 group-hover:text-shell-100">
-                        {room.name}
-                      </span>
-                      <span
-                        aria-hidden
-                        className="text-shell-600 transition-colors group-hover:text-brass-500"
-                      >
-                        →
-                      </span>
-                    </Link>
+                    <RoomCard key={room.id} space={room} />
                   ))}
+                  {door.soon?.map((name) => <SoonCard key={name} name={name} />)}
                 </div>
               </section>
             );

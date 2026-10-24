@@ -1,5 +1,6 @@
 import type { PlateProfile } from "../profile";
 import { NEUTRAL_PROFILE } from "../profile";
+import { CABIN_PROFILE } from "./cabin";
 import { LOBBY_PROFILE } from "./lobby";
 import { RESTAURANT_PROFILE } from "./restaurant";
 import { ROOM_PROFILE } from "./room";
@@ -13,6 +14,7 @@ import { SHOWROOM_PROFILE } from "./showroom";
  * than a room that quietly composites at gain 1.
  */
 const PROFILES: Record<string, PlateProfile> = {
+  cabin: CABIN_PROFILE,
   lobby: LOBBY_PROFILE,
   restaurant: RESTAURANT_PROFILE,
   room: ROOM_PROFILE,
