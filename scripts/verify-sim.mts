@@ -971,7 +971,12 @@ console.log("\n18. Scenes settle inside the client's two to three seconds");
    * budget belongs to the space.
    */
   const STAGED_BUDGET_MS = 3000;
-  const SPACE_BUDGET_MS: Record<string, number> = { showroom: 4500, lobby: 7000 };
+  // The hotel room's brief asks for about eight seconds for Guest Arrival,
+  // and most of the back half of that is a four-second curtain track that
+  // `PACE` deliberately does not compress. Two beats are authored to land
+  // while it is still travelling, which is what the brief asks for and what
+  // makes the number legitimately larger than the lobby's dusk.
+  const SPACE_BUDGET_MS: Record<string, number> = { showroom: 4500, lobby: 7000, room: 8500 };
   const budgetFor = (spaceId: string) => SPACE_BUDGET_MS[spaceId] ?? STAGED_BUDGET_MS;
   const HARDWARE_PACED = new Set([
     "master-bedroom/goodnight",

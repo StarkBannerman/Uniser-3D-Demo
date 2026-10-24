@@ -5,17 +5,31 @@ Measure a plate set the way the shader will composite it.
 The runtime's gains are calibrated numbers, not dialled ones, and this is
 where the numbers come from. It reimplements `weights.ts` and the fragment
 shader exactly — the gamma/scale decode, the per-layer gain, level^2.2, the
-luminance-normalised and saturation-capped tint, the sky crossfade, AgX and
-the sRGB encode — so a figure printed here is the figure the browser renders.
+luminance-normalised and saturation-capped tint, the fixed-CCT circuits, the
+sky crossfade, AgX and the sRGB encode — so a figure printed here is the
+figure the browser renders.
 
     python3 scripts/measure-plates.py --dir public/plates/restaurant
     python3 scripts/measure-plates.py --dir public/plates/restaurant --solve
-    python3 scripts/measure-plates.py --dir public/plates/showroom --gains
+    python3 scripts/measure-plates.py --dir public/plates/showroom --gains lm.json
+    python3 scripts/measure-plates.py --still state.json --out public/plates/room
 
 `--gains` derives a lumen-proportional table for every circuit from a JSON
 map of `layer -> total lumens`, anchored so the reference layer alone at full
-reads about 0.25 mean display luminance. That is how both rooms' gains were
+reads about 0.25 mean display luminance. That is how every room's gains were
 produced, and re-running it is the right response to a re-render.
+
+`--still` renders the holding image a room shows before its live layers land.
+It takes the JSON that `scripts/dump-state.mts` prints — real device states
+out of the real store, after the real scene has settled — so the still is the
+first live frame rather than an artist's impression of it. The converter's own
+`still_*.jpg` is not that: it lights every layer at once, which mixes the day
+and night skies and turns both door indicators on at the same time.
+
+`SETS` below mirrors `components/stage/plates/profiles/*.ts` by hand. There is
+no import path from Python to TypeScript and inventing one would be worse —
+but a profile edited there and not here makes this tool lie, so the two are
+checked against each other by `--check`.
 
 Needs Pillow and numpy, which is why it is Python rather than another .mts:
 Node has no image decoder without pulling in a native dependency, and a dev
@@ -50,29 +64,84 @@ except ImportError:
     sys.exit("needs Pillow and numpy:  pip3 install pillow numpy")
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+# ------------------------------------------------------------------ #
+# The profiles, mirrored from components/stage/plates/profiles/.      #
+# ------------------------------------------------------------------ #
+
+SETS = {
+    "restaurant": {
+        "exposure": 0.25,
+        "tint": 0.55,
+        "neutral": ["rs_pendant"],
+        "fixed": {},
+        "rgbw": ["rs_cove", "rs_arch"],
+        "bus": "rs-rgb",
+        "gain": {
+            "rs_general": 90, "rs_tunable": 260, "rs_cove": 7, "rs_pendant": 1.2,
+            "rs_arch": 5, "rs_feature": 0.1, "rs_table": 5, "rs_rgb": 1.5,
+            "sky": 6.7, "sky_day": 43.5,
+            "day_morning": 600, "day_midday": 25, "day_evening": 15,
+        },
+    },
+    "showroom": {
+        "exposure": 0.2,
+        "tint": 0.55,
+        "neutral": [],
+        "fixed": {},
+        "rgbw": [],
+        "bus": "sr-rgb",
+        "gain": {
+            "sr_general": 29.4, "sr_spot": 52263, "sr_track": 296, "sr_linear": 3.4,
+            "sr_accent": 1.1, "sr_floor": 6.6, "sr_arch": 2.1, "sr_tunable": 552,
+            "sr_rgb": 29, "sr_zone_1": 149, "sr_zone_2": 5921, "sr_zone_3": 50,
+            "sr_zone_4": 5628, "sr_zone_5": 2648, "sr_zone_6": 25301,
+        },
+    },
+    "lobby": {
+        "exposure": 0.1,
+        "tint": 0.55,
+        "neutral": ["ca_cove", "ca_deco", "ca_accent", "ca_feature"],
+        "fixed": {"ca_arch": 2700, "ca_facade": 2700},
+        "rgbw": [],
+        "bus": None,
+        "gain": {
+            "ca_tunable": 35.1, "ca_arch": 3.6, "ca_deco": 6.4, "ca_feature": 7.9,
+            "ca_accent": 2916, "ca_cove": 12.9, "ca_facade": 17.4,
+            "day_sky": 6.46, "sky": 1.67,
+            "day_morning": 2, "day_midday": 8.1, "day_evening": 4.5,
+        },
+    },
+    "room": {
+        "exposure": 0.08,
+        "tint": 0.4,
+        # The two door indicators are rendered in their own colour — the red
+        # plate measures R/B 95, the green one 0.18 — so a 2700 K tint on top
+        # would turn the green one yellow and the red one into a filament.
+        "neutral": ["rm_dnd", "rm_service"],
+        "fixed": {
+            "rm_entry": 2700, "rm_bedside": 2700, "rm_reading": 2700,
+            "rm_cove": 2700, "rm_bath": 2700, "rm_wardrobe": 2700,
+            "rm_deco": 2700, "rm_night": 2700,
+        },
+        "rgbw": [],
+        "bus": None,
+        "gain": {"rm_tunable": 38.0, "rm_entry": 40.8, "rm_bedside": 24.2, "rm_reading": 102.3, "rm_cove": 7.6, "rm_bath": 7.4, "rm_wardrobe": 2.8, "rm_deco": 1.5, "rm_night": 1.6, "rm_dnd": 6.1, "rm_service": 2.6, "sky": 2.86, "day_sky": 5.66, "day_morning": 3.0, "day_midday": 6.0, "day_evening": 5.0},
+        },
+}
+
 _ap = argparse.ArgumentParser(add_help=False)
 _ap.add_argument("--dir", default="public/plates/restaurant")
 _known, _ = _ap.parse_known_args()
 PLATES = ROOT / _known.dir
 WINDOW_X = 0.62
 
-# Kept in step with components/stage/plates/gains.ts by hand. There is no
-# import path from Python to TypeScript and inventing one would be worse.
-GAIN = {
-    "rs_general": 90, "rs_tunable": 260, "rs_cove": 7, "rs_pendant": 1.2,
-    "rs_arch": 5, "rs_feature": 0.1, "rs_table": 5, "rs_rgb": 1.5,
-    "sky": 6.7, "sky_day": 43.5,
-    "day_morning": 600, "day_midday": 25, "day_evening": 15,
-    "sr_general": 29.4, "sr_spot": 52263, "sr_track": 296, "sr_linear": 3.4,
-    "sr_accent": 1.1, "sr_floor": 6.6, "sr_arch": 2.1, "sr_tunable": 552,
-    "sr_rgb": 29, "sr_zone_1": 149, "sr_zone_2": 5921, "sr_zone_3": 50,
-    "sr_zone_4": 5628, "sr_zone_5": 2648, "sr_zone_6": 25301,
-    "ca_tunable": 35.1, "ca_arch": 3.6, "ca_deco": 6.4, "ca_feature": 7.9,
-    "ca_accent": 2916, "ca_cove": 12.9, "ca_facade": 17.4,
-    "day_sky": 6.46, "sky": 1.67, "day_morning": 2, "day_midday": 8.1, "day_evening": 4.5,
-}
-EXPOSURE = 0.25  # restaurant; the showroom profile uses 0.20
-TINT_SATURATION = 0.55
+# `room_closed` is the same room behind a drawn curtain: same circuits, same
+# calibration, a second render. It takes the profile its open twin names.
+SET = SETS.get(PLATES.name.replace("_closed", ""), SETS["restaurant"])
+GAIN = SET["gain"]
+EXPOSURE = SET["exposure"]
+TINT_SATURATION = SET["tint"]
 
 MAN = json.loads((PLATES / "manifest.json").read_text())
 LAYERS = list(MAN["layers"].keys())
@@ -80,11 +149,40 @@ LAYERS = list(MAN["layers"].keys())
 # that is not one of the two views or a sun angle is a circuit.
 DAY_ORDER = ["day_morning", "day_midday", "day_evening"]
 CIRCUITS = [l for l in LAYERS if l not in ("sky", "sky_day", "day_sky") and l not in DAY_ORDER]
-LIN = {
-    l: (np.asarray(Image.open(PLATES / "sd" / f"{l}.webp").convert("RGB"), float) / 255.0)
-    ** MAN["gamma"] * MAN["layers"][l]["scale"]
-    for l in LAYERS
-}
+
+_CACHE: dict[tuple[str, str], "np.ndarray"] = {}
+
+
+def linear(layer, tier="sd", plates=None):
+    """One decoded plate in linear light.
+
+    Loaded on demand and cached. Sixteen HD plates held as float64 is 800 MB,
+    which is the difference between this running on a laptop and not, so the
+    still renderer accumulates one layer at a time and the measurement paths
+    never ask for HD at all.
+    """
+    base = plates or PLATES
+    key = (str(base), f"{tier}/{layer}")
+    hit = _CACHE.get(key)
+    if hit is None:
+        man = MAN if base == PLATES else json.loads((base / "manifest.json").read_text())
+        img = np.asarray(Image.open(base / tier / f"{layer}.webp").convert("RGB"), np.float32) / np.float32(255)
+        hit = (img ** np.float32(man["gamma"])) * np.float32(man["layers"][layer]["scale"])
+        _CACHE[key] = hit
+    return hit
+
+
+class _Lin(dict):
+    """`LIN[layer]`, kept for the measurement code that reads it as a map."""
+
+    def __missing__(self, layer):
+        return linear(layer)
+
+    def __contains__(self, layer):
+        return layer in LAYERS
+
+
+LIN = _Lin()
 
 AGX_IN = np.array([[0.856627153315983, 0.0951212405381588, 0.0482516061458583],
                    [0.137318972929847, 0.761241990602591, 0.101439036467562],
@@ -187,35 +285,67 @@ def day_weights(clock, env):
 ENV = {"sunriseMin": 380, "sunsetMin": 1135, "outdoorPeakLux": 95000}
 
 
-def render(targets, clock, gain=None, exposure=EXPOSURE):
-    g = {**GAIN, **(gain or {})}
-    hdr = np.zeros_like(next(iter(LIN.values())))
+def layer_weight(layer, targets, clock, g, mix=None):
+    """One layer's RGB weight, exactly as `computeWeights` works it out.
+
+    `mix` is a scene's `daylight` map, 0-100 per exterior layer; None means
+    follow the clock, which is what every space did before scenes could name
+    an hour of their own.
+    """
     night = 1 - dayness(clock)
-    dw = day_weights(clock, ENV)
-    # The colour bus, mirroring weights.ts: a live saturated rs-rgb pulls the
-    # RGBW circuits onto its hue.
-    busst = targets.get("rs-rgb")
-    bus = busst if busst and busst.get("on") and busst.get("sat", 0) > 0 else None
-    for l in LAYERS:
-        if l in CIRCUITS:
-            st = targets.get(l.replace("_", "-"))
-            if not st or not st.get("on"):
-                continue
-            w = (st.get("level", 0) / 100) ** 2.2 * g.get(l, 1)
-            lit = dict(st)
-            if bus and l in ("rs_cove", "rs_arch"):
-                lit = {**st, "hue": bus.get("hue", 0), "sat": 100}
-            t = np.array([1.0, 1.0, 1.0]) if l == "rs_pendant" else tint(
-                lit.get("cct", 2700), lit.get("hue", 0), lit.get("sat", 0))
-            hdr += LIN[l] * (w * t)
-        elif l == "sky":
-            hdr += LIN[l] * (night * g.get(l, 1))
-        elif l in ("sky_day", "day_sky"):
-            hdr += LIN[l] * ((1 - night) * g.get(l, 1))
+    if layer in CIRCUITS:
+        st = targets.get(layer.replace("_", "-"))
+        if not st or not st.get("on"):
+            return None
+        w = (st.get("level", 0) / 100) ** 2.2 * g.get(layer, 1)
+        bus = targets.get(SET["bus"]) if SET["bus"] else None
+        if not (bus and bus.get("on") and bus.get("sat", 0) > 0):
+            bus = None
+        if bus and layer in SET["rgbw"]:
+            lit = {**st, "hue": bus.get("hue", 0), "sat": 100}
+        elif layer in SET["fixed"]:
+            lit = {**st, "cct": SET["fixed"][layer], "hue": 0, "sat": 0}
         else:
-            w = dw[DAY_ORDER.index(l)]
-            if w > 0:
-                hdr += LIN[l] * (w * g.get(l, 1))
+            lit = st
+        t = (np.array([1.0, 1.0, 1.0]) if layer in SET["neutral"]
+             else tint(lit.get("cct", 2700), lit.get("hue", 0), lit.get("sat", 0)))
+        return w * t
+    if mix is not None:
+        return np.array([1.0, 1.0, 1.0]) * (mix.get(layer, 0) / 100) * g.get(layer, 1)
+    if layer == "sky":
+        return np.array([1.0, 1.0, 1.0]) * night * g.get(layer, 1)
+    if layer in ("sky_day", "day_sky"):
+        return np.array([1.0, 1.0, 1.0]) * (1 - night) * g.get(layer, 1)
+    w = day_weights(clock, ENV)[DAY_ORDER.index(layer)]
+    return np.array([1.0, 1.0, 1.0]) * w * g.get(layer, 1)
+
+
+def render(targets, clock, gain=None, exposure=EXPOSURE, mix=None, tier="sd",
+           plates=None, curtain=0.0):
+    """The composite, as the browser draws it.
+
+    `curtain` crossfades to the second plate set the way the shader does:
+    `mix(open, closed, position)` per layer, with one set of weights. The sum
+    is linear, so `(1-t)·Σ w·O + t·Σ w·C` and the per-layer form are the same
+    picture — this does it per layer because that is what the shader does and
+    the point of this file is to agree with it.
+    """
+    g = {**GAIN, **(gain or {})}
+    base = plates or PLATES
+    closed = base.parent / f"{base.name}_closed" if curtain > 0 else None
+    hdr = None
+    for l in LAYERS:
+        w = layer_weight(l, targets, clock, g, mix)
+        if w is None:
+            continue
+        w = np.asarray(w, np.float32)
+        contrib = linear(l, tier, base) * (w * np.float32(1 - curtain)) if curtain < 1 else None
+        if closed is not None:
+            shut = linear(l, tier, closed) * (w * np.float32(curtain))
+            contrib = shut if contrib is None else contrib + shut
+        hdr = contrib if hdr is None else hdr + contrib
+    if hdr is None:
+        hdr = np.zeros_like(linear(LAYERS[0], tier, base))
     return to_srgb(agx(hdr * exposure))
 
 
@@ -237,9 +367,10 @@ def report(gain=None):
     ok = lambda b: "ok " if b else "NO "
     sky_ok = 0.03 <= nmed <= 0.12 and np98 >= 0.45
     day_ok = 0.65 <= dmean <= 0.80
-    print(f"  {ok(sky_ok)}sky     gain {g['sky']:>6}   01:00 glass median {nmed:.3f} (target 0.03-0.12)"
+    dayname = "sky_day" if "sky_day" in LIN else "day_sky"
+    print(f"  {ok(sky_ok)}sky     gain {g.get('sky', 1):>6}   01:00 glass median {nmed:.3f} (target 0.03-0.12)"
           f"   skyline p98 {np98:.3f} (target >=0.45)")
-    print(f"  {ok(day_ok)}sky_day gain {g['sky_day']:>6}   13:00 glass mean   {dmean:.3f} (target 0.65-0.80)"
+    print(f"  {ok(day_ok)}{dayname} gain {g.get(dayname, 1):>6}   13:00 glass mean   {dmean:.3f} (target 0.65-0.80)"
           f"   frame clipped {clip:.2f}%")
     return sky_ok and day_ok
 
@@ -268,29 +399,62 @@ def solve():
 def derive(lumens: dict, ref: str, target: float = 0.25):
     """Lumen-proportional gains, anchored so `ref` alone at full hits `target`."""
     mean = {l: float(lum(LIN[l]).mean()) for l in lumens}
-    lo, hi = 0.01, 100000.0
-    for _ in range(50):                      # find the reference gain first
+    lo, hi = 0.01, 1e9
+    for _ in range(60):                      # find the reference gain first
         mid = math.sqrt(lo * hi)
         v = float(lum(to_srgb(agx(LIN[ref] * mid * EXPOSURE))).mean())
         if v < target: lo = mid
         else: hi = mid
     base = math.sqrt(lo * hi)
-    print(f"  reference {ref} -> {base:.3f}  (alone at full reads {target})\n")
+    print(f"  exposure {EXPOSURE}, reference {ref} -> {base:.3f}  (alone at full reads {target})\n")
     for l in lumens:
         g = base * (mean[ref] * lumens[l] / lumens[ref]) / max(mean[l], 1e-12)
         print(f"  {l:14s} {g:12.3f}   lumens {lumens[l]:7d}   plate mean {mean[l]:.5f}")
+
+
+def still(state_path: str, out_dir: str):
+    """Write `still_hd.jpg` and `still_sd.jpg` for one settled room state."""
+    st = json.loads(pathlib.Path(state_path).read_text())
+    out = ROOT / out_dir
+    # `--dir` is always the *open* set, even when the still being written is
+    # the closed one: the curtain position in the state decides which plates
+    # `render` reaches for, and pointing it at `room_closed` would send it
+    # looking for `room_closed_closed`.
+    if PLATES.name.endswith("_closed"):
+        sys.exit(f"--dir should be the open plate set, not {PLATES.name}")
+    targets = st["states"]
+    clock = st["clockMin"]
+    mix = st.get("daylightMix")
+    curtain = st.get("curtain", 0.0)
+    for tier, w, h in (("hd", MAN["width"], MAN["height"]), ("sd", *MAN["sd"])):
+        img = render(targets, clock, mix=mix, tier=tier, curtain=curtain)
+        L = lum(img)
+        arr = np.clip(img * 255.0 + 0.5, 0, 255).astype(np.uint8)
+        pic = Image.fromarray(arr)
+        if pic.size != (w, h):
+            pic = pic.resize((w, h), Image.LANCZOS)
+        dest = out / f"still_{tier}.jpg"
+        pic.save(dest, quality=92, subsampling=0, optimize=True)
+        print(f"  {dest.relative_to(ROOT)}  {pic.size[0]}x{pic.size[1]}  mean {L.mean():.3f}"
+              f"  p99 {np.percentile(L, 99):.3f}  clipped {float((img.max(-1) >= 0.999).mean() * 100):.2f}%")
+        _CACHE.clear()
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(parents=[_ap])
     ap.add_argument("--solve", action="store_true")
     ap.add_argument("--gains", metavar="JSON",
-                    help="path to a {layer: lumens} map, or '-' for the showroom default")
+                    help="path to a {layer: lumens} map")
     ap.add_argument("--ref", default=None, help="anchor layer for --gains")
+    ap.add_argument("--target", type=float, default=0.25, help="mean the anchor reads alone at full")
+    ap.add_argument("--still", metavar="JSON", help="state from scripts/dump-state.mts")
+    ap.add_argument("--out", default=None, help="plate directory the still is written to")
     a = ap.parse_args()
-    if a.gains:
+    if a.still:
+        still(a.still, a.out or _known.dir)
+    elif a.gains:
         lm = json.loads(pathlib.Path(a.gains).read_text())
-        derive(lm, a.ref or next(iter(lm)))
+        derive(lm, a.ref or next(iter(lm)), a.target)
     elif a.solve:
         solve()
     else:

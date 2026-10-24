@@ -35,7 +35,7 @@ const DOORS: { segment: Segment; title: string; lead: string; blurb: string }[] 
     title: "Commercial",
     lead: "Hospitality, retail and public spaces",
     blurb:
-      "A hotel restaurant, a hotel lobby and a luxury car showroom — the rooms a business is judged on in the first ten seconds, with the lighting layers that do the judging on separate circuits.",
+      "A hotel restaurant, a hotel lobby, a guest room and a luxury car showroom — the rooms a business is judged on in the first ten seconds, with the lighting layers that do the judging on separate circuits.",
   },
 ];
 

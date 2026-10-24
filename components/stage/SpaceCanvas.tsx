@@ -203,6 +203,7 @@ export function SpaceCanvas({ controlsOpen = false }: { controlsOpen?: boolean }
           <PlateStage
             dir={space.plates.dir}
             profile={space.plates.profile}
+            curtain={space.plates.curtain}
             controlsOpen={controlsOpen}
           />
         ) : (

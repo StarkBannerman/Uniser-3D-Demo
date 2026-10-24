@@ -245,7 +245,13 @@ export interface ShadeState {
   blackout: number;
 }
 
-export type ClimateMode = "cool" | "heat" | "fan" | "dry";
+/**
+ * `auto` lets the unit choose between heating and cooling against the
+ * setpoint, which is what the mode selector on a real fan-coil controller
+ * offers and what the hotel room's panel exposes. `dry` is the
+ * dehumidification mode the residential units carry.
+ */
+export type ClimateMode = "cool" | "heat" | "fan" | "dry" | "auto";
 
 export interface ClimateState {
   on: boolean;
@@ -640,6 +646,23 @@ export interface Space {
     /** Names the calibration in `components/stage/plates/profiles`. */
     profile: string;
     /**
+     * A second plate set the first crossfades to, and the motor that drives
+     * the crossfade.
+     *
+     * A curtain is the one thing in a room that light cannot be summed
+     * around. Every other control changes how much a fixture contributes;
+     * a curtain changes what the room *is*, because it occludes the window
+     * and so alters every other circuit's plate as well as the view. The
+     * honest answer is two complete renders of the same camera — drawn back
+     * and shut — composited `mix(open, closed, position)` with one set of
+     * weights.
+     *
+     * `deviceId` names a shade whose `blackout` position, 0 to 100, is that
+     * mix. The second set must have the same layer names as the first; its
+     * own `manifest.json` supplies its own per-layer scales.
+     */
+    curtain?: { dir: string; deviceId: string };
+    /**
      * Hotspots that are not named after a device, and what they mean.
      *
      * The offline renderer projects points of interest as well as circuits,
@@ -689,6 +712,20 @@ export interface Space {
   schedule?: { atMin: number; sceneId: string }[];
   /** Fall-back dimming when the room is empty. See `SpaceAutoDim`. */
   autoDim?: SpaceAutoDim;
+  /**
+   * Sets of circuits of which at most one may be lit.
+   *
+   * The hotel room's door panel is the case: do not disturb and make up the
+   * room are two latching buttons that physically cannot both be in, and a
+   * demo that lights both is showing a room nobody would ship. Declaring it
+   * here rather than wiring it into a panel means the engine holds the
+   * interlock on every path into the state — a scene, a slider, the app —
+   * and the automation tab gets its card from the same line.
+   *
+   * Lights only. The rule is "turning one on turns the others off", which
+   * needs an `on` to act on.
+   */
+  exclusive?: { label: string; deviceIds: string[] }[];
   environment: SpaceEnvironment;
   baseline: SpaceBaseline;
   /** Electricity tariff in local currency per kWh. */

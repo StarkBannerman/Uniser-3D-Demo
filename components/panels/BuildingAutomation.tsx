@@ -16,9 +16,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSim } from "@/lib/sim/store";
-import type { AvState, ClimateState, LightState } from "@/lib/sim/types";
+import type {
+  AvState,
+  ClimateMode,
+  ClimateState,
+  LightState,
+  ShadeDevice,
+  ShadeState,
+} from "@/lib/sim/types";
 import { formatClock } from "@/lib/sim/clock";
-import { SectionLabel, Slider, Toggle } from "@/components/ui/Primitives";
+import {
+  SectionLabel,
+  Segmented,
+  Slider,
+  Stepper,
+  Toggle,
+} from "@/components/ui/Primitives";
 
 /* ------------------------------------------------------------------ */
 
@@ -200,8 +213,8 @@ function Occupancy() {
       note={`after ${Math.round(cfg.afterMs / 1000)} s`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-[11px] text-shell-400">Lobby occupied</span>
-        <Toggle on={occupied} onChange={setOccupancy} label="Lobby occupied" />
+        <span className="text-[11px] text-shell-400">{space.name} occupied</span>
+        <Toggle on={occupied} onChange={setOccupancy} label={`${space.name} occupied`} />
       </div>
       <button
         type="button"
@@ -209,7 +222,7 @@ function Occupancy() {
         disabled={!occupied}
         className="w-full rounded-lg border border-shell-800 px-2 py-1.5 text-[11px] text-shell-300 transition-colors hover:text-shell-100 disabled:opacity-40"
       >
-        Simulate: guests leave
+        Simulate: the room empties
       </button>
       <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
         {reduced
@@ -219,6 +232,166 @@ function Occupancy() {
             : `${names} fall back to ${held30}% when the floor is empty.`}
       </p>
     </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Curtains                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One track, three presets and a slider.
+ *
+ * The position is the shade's `blackout` layer, 0 drawn back to 100 shut,
+ * and Sheer is the halfway point of it rather than a second fabric — this
+ * window has one track and the plates were rendered at its two ends, so half
+ * is what half looks like.
+ *
+ * Every button goes through `patch`, which hands the move to the motor model:
+ * the travel time is the track's, scaled by how far it has to go, and the
+ * control locks itself until it arrives. A curtain that answered instantly
+ * would be the one obviously fake thing in the room.
+ */
+function Curtains() {
+  const space = useSim((s) => s.space);
+  const states = useSim((s) => s.states);
+  const patch = useSim((s) => s.patch);
+  const busyDevices = useSim((s) => s.busyDevices);
+  const shade = space?.devices.find((d): d is ShadeDevice => d.kind === "shade");
+  const st = shade ? (states[shade.id] as ShadeState | undefined) : undefined;
+  if (!shade || !st) return null;
+
+  const position = Math.round(st.blackout);
+  const moving = busyDevices.includes(shade.id);
+  const travel = Math.round(shade.travelMs / 1000);
+  const where =
+    position <= 2 ? "open" : position >= 98 ? "blackout" : position > 45 && position < 55 ? "sheer" : `${position}% closed`;
+
+  const PRESETS: { label: string; to: number; hint: string }[] = [
+    { label: "Open", to: 0, hint: "Drawn fully back" },
+    { label: "Sheer", to: 50, hint: "Half across — daylight, no view in" },
+    { label: "Close", to: 100, hint: "Blackout" },
+  ];
+
+  return (
+    <Card title={shade.name} note={moving ? "travelling…" : where}>
+      <div className="mb-2 flex gap-1">
+        {PRESETS.map((preset) => {
+          const here = Math.abs(position - preset.to) <= 2;
+          return (
+            <button
+              key={preset.label}
+              type="button"
+              title={preset.hint}
+              disabled={moving}
+              onClick={() => patch(shade.id, { blackout: preset.to })}
+              aria-pressed={here}
+              className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] transition-colors disabled:opacity-40 ${
+                here
+                  ? "border-brass-700 bg-shell-800 text-brass-300"
+                  : "border-shell-800 text-shell-300 hover:text-shell-100"
+              }`}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+      </div>
+      <Slider
+        value={position}
+        min={0}
+        max={100}
+        label="Curtain position"
+        disabled={moving}
+        onChange={(blackout) => patch(shade.id, { blackout })}
+      />
+      <button
+        type="button"
+        disabled={moving || position >= 98}
+        onClick={() => patch(shade.id, { blackout: 100 })}
+        className="mt-2 w-full rounded-lg border border-shell-800 px-2 py-1.5 text-[11px] text-shell-300 transition-colors hover:text-shell-100 disabled:opacity-40"
+      >
+        Blackout
+      </button>
+      <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
+        {moving
+          ? "Motor running. The control is held until the track arrives — the same lock a wall switch would have."
+          : `${travel} s end to end, and proportional: asked for the last fifth, it takes a fifth of that.`}
+      </p>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Interlocked indicators — the door panel                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The circuits of which at most one may be lit, from `Space.exclusive`.
+ *
+ * The interlock itself is in the store, not here: pressing either toggle is
+ * an ordinary `patch`, and the engine puts the other one out. That matters
+ * because the same thing has to happen when a scene lights one — Night
+ * raises Do Not Disturb without mentioning Make Up Room — and a rule
+ * enforced in a panel would only hold while somebody was looking at the
+ * panel.
+ */
+function Indicators() {
+  const space = useSim((s) => s.space);
+  const states = useSim((s) => s.states);
+  const patch = useSim((s) => s.patch);
+  if (!space?.exclusive?.length) return null;
+
+  return (
+    <>
+      {space.exclusive.map((group) => {
+        const lit = group.deviceIds.find(
+          (id) => (states[id] as LightState | undefined)?.on,
+        );
+        const name = (id: string) =>
+          space.devices.find((d) => d.id === id)?.name ?? id;
+        return (
+          <Card
+            key={group.label}
+            title={group.label}
+            note={lit ? name(lit) : "clear"}
+          >
+            <div className="space-y-1.5">
+              {group.deviceIds.map((id) => {
+                const on = Boolean((states[id] as LightState | undefined)?.on);
+                return (
+                  <div key={id} className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-[11px] text-shell-400">
+                      <span
+                        aria-hidden
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          on
+                            ? id.includes("dnd")
+                              ? "bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.9)]"
+                              : "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]"
+                            : "bg-shell-700"
+                        }`}
+                      />
+                      {name(id)}
+                    </span>
+                    <Toggle
+                      on={on}
+                      onChange={(next) => patch(id, { on: next, level: 100 })}
+                      label={name(id)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
+              Mutually exclusive, in the engine rather than in this panel —
+              switching one on puts the other out wherever the press came
+              from, including a scene.
+            </p>
+          </Card>
+        );
+      })}
+    </>
   );
 }
 
@@ -260,6 +433,27 @@ function Hvac() {
   if (!climate || !space || !st) return null;
   const settled = Math.abs(measured - setpoint) < 0.1;
 
+  /**
+   * Fan speed as four named positions, not a 0-5 slider.
+   *
+   * `ClimateState.fan` has carried "0 = auto, 1..3 = low/med/high" since the
+   * type was written, and the slider was showing the integer. The client's
+   * list asks for Low / Med / High / Auto by name, which is both what the
+   * state already means and what is printed on every fan-coil controller.
+   */
+  const FAN: { value: number; label: string }[] = [
+    { value: 0, label: "Auto" },
+    { value: 1, label: "Low" },
+    { value: 2, label: "Med" },
+    { value: 3, label: "High" },
+  ];
+  const MODES: { value: ClimateMode; label: string }[] = [
+    { value: "cool", label: "Cool" },
+    { value: "heat", label: "Heat" },
+    { value: "auto", label: "Auto" },
+    { value: "fan", label: "Fan" },
+  ];
+
   return (
     <Card title="HVAC" note={st.on ? st.mode : "off"}>
       <div className="mb-2 grid grid-cols-2 gap-2">
@@ -276,17 +470,35 @@ function Hvac() {
           </div>
         </div>
       </div>
-      <div className="mb-1 flex items-center justify-between text-[10px] text-shell-500">
-        <span>Fan</span>
-        <span className="tabular-nums text-shell-300">{st.fan}</span>
+      <div className="mb-2">
+        <Stepper
+          value={setpoint}
+          min={climate.minC}
+          max={climate.maxC}
+          onChange={(setpointC) => patch(climate.id, { on: true, setpointC })}
+          format={(v) => `${v}°C`}
+          label="Setpoint"
+        />
       </div>
-      <Slider
+      <div className="mb-2">
+        <Segmented
+          value={st.mode}
+          options={MODES}
+          onChange={(mode) => patch(climate.id, { on: true, mode })}
+          label="Mode"
+        />
+      </div>
+      <Segmented
         value={st.fan}
-        min={0}
-        max={5}
+        options={FAN}
+        onChange={(fan) => patch(climate.id, { on: true, fan })}
         label="Fan speed"
-        onChange={(fan) => patch(climate.id, { fan })}
       />
+      <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
+        The measured temperature moves a tenth of a degree a second toward the
+        setpoint — real seconds, so it answers while you watch rather than
+        waiting for the clock to be scrubbed.
+      </p>
     </Card>
   );
 }
@@ -435,7 +647,10 @@ export function BuildingAutomation() {
   const has =
     Boolean(space.schedule?.length) ||
     Boolean(space.autoDim) ||
-    space.devices.some((d) => d.kind === "climate" || d.kind === "av");
+    Boolean(space.exclusive?.length) ||
+    space.devices.some(
+      (d) => d.kind === "climate" || d.kind === "av" || d.kind === "shade",
+    );
   if (!has) {
     return (
       <p className="px-1 text-[11px] text-shell-500">
@@ -447,8 +662,10 @@ export function BuildingAutomation() {
     <div className="space-y-2">
       <SectionLabel>Building automation</SectionLabel>
       <Schedule />
+      <Curtains />
       <Occupancy />
       <Hvac />
+      <Indicators />
       <Music />
     </div>
   );

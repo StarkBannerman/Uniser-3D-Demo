@@ -28,8 +28,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSim } from "@/lib/sim/store";
-import type { LightState } from "@/lib/sim/types";
-import { detectRenderPath } from "@/lib/device";
+import type { LightState, ShadeState } from "@/lib/sim/types";
+import { classifyRenderer, detectRenderPath, rendererString } from "@/lib/device";
 import {
   DAY_ORDER,
   deviceIdOf,
@@ -64,14 +64,23 @@ function param(name: string): string | null {
  * a dense-pixel touch device takes it because four times the fill on a
  * phone GPU buys nothing a phone screen can show. A software rasteriser
  * takes it unconditionally.
+ *
+ * `sets` is how many plate sets this room holds, which is two for a room
+ * with curtains. That doubles the texture memory — sixteen HD layers is
+ * about 175 MB with mipmaps, and thirty-two is 350 — so a machine the
+ * renderer string puts in the low tier takes SD for a two-set room even
+ * where it would have had HD for a one-set one. It is the same Intel
+ * integrated part `lib/device.ts` was written for, sharing system RAM, and
+ * 350 MB of plates is not a reasonable thing to ask of it.
  */
-function pickTier(): PlateTier {
+function pickTier(sets = 1): PlateTier {
   const forced = param("tier");
   if (forced === "hd" || forced === "sd") return forced;
   if (detectRenderPath() === "software") return "sd";
   if (window.innerWidth < 1200) return "sd";
   const coarse = window.matchMedia?.("(pointer: coarse)").matches ?? false;
   if (coarse && (window.devicePixelRatio || 1) > 2) return "sd";
+  if (sets > 1 && classifyRenderer(rendererString()) === "low") return "sd";
   return "hd";
 }
 
@@ -99,6 +108,9 @@ function loadOrder(
   states: Record<string, unknown>,
   clockMin: number,
 ): { needed: string[]; rest: string[] } {
+  // `rest` is still returned because it is the other half of the statement
+  // this function is making, and the caller builds its waves from both the
+  // layer split and the plate-set split rather than from this list alone.
   const lit = dayness(clockMin);
   const needed: string[] = [];
   const rest: string[] = [];
@@ -143,11 +155,19 @@ async function loadImage(url: string): Promise<ImageBitmap | HTMLImageElement> {
 export function PlateStage({
   dir,
   profile: profileName,
+  curtain,
   controlsOpen = false,
 }: {
   dir: string;
   /** Names the calibration in `plates/profiles`. */
   profile?: string;
+  /**
+   * A second plate set to crossfade to, and the shade that drives it.
+   *
+   * See `Space.plates.curtain`. Absent for the three rooms with no curtain,
+   * which take the single-pass path unchanged.
+   */
+  curtain?: { dir: string; deviceId: string };
   /** Controls tab is showing, so the room should say where each circuit is. */
   controlsOpen?: boolean;
 }) {
@@ -157,6 +177,10 @@ export function PlateStage({
   const [hotspots, setHotspots] = useState<HotspotFile | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  // Destructured so the effect depends on two strings rather than on an
+  // object literal the space file rebuilds on every render.
+  const closedDir = curtain?.dir;
+  const curtainId = curtain?.deviceId;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -171,15 +195,20 @@ export function PlateStage({
 
     (async () => {
       let manifest: PlateManifest;
+      let closed: PlateManifest | null = null;
       let chosen: PlateTier;
       try {
-        const [m, h] = await Promise.all([
+        const [m, h, c] = await Promise.all([
           fetch(`${dir}/manifest.json`).then((r) => r.json() as Promise<PlateManifest>),
           fetch(`${dir}/hotspots.json`).then((r) => r.json() as Promise<HotspotFile>),
+          closedDir
+            ? fetch(`${closedDir}/manifest.json`).then((r) => r.json() as Promise<PlateManifest>)
+            : Promise.resolve(null),
         ]);
         if (cancelled) return;
         manifest = m;
-        chosen = pickTier();
+        closed = c;
+        chosen = pickTier(closed ? 2 : 1);
         setTier(chosen);
         setHotspots(h);
       } catch (e) {
@@ -191,12 +220,28 @@ export function PlateStage({
       const plateW = chosen === "hd" ? manifest.width : manifest.sd[0];
       const plateH = chosen === "hd" ? manifest.height : manifest.sd[1];
 
+      /**
+       * The second set must describe the same circuits as the first.
+       *
+       * The layer list and the sampler order come from the open manifest, so
+       * a second set that renamed or dropped a layer would quietly composite
+       * one circuit's plate under another's weight. Better to fall back to
+       * the single set and say so than to show a wrong room.
+       */
+      if (closed && layers.some((l) => closed!.layers[l] === undefined)) {
+        console.error(
+          `plates: ${closedDir} does not have every layer ${dir} has — ignoring the second set`,
+        );
+        closed = null;
+      }
+
       try {
         renderer = new PlateRenderer(
           canvas,
           manifest.gamma,
           layers.map((l) => manifest.layers[l].scale),
           toneCurve(),
+          closed ? layers.map((l) => closed!.layers[l].scale) : undefined,
         );
       } catch (e) {
         if (!cancelled) {
@@ -268,19 +313,48 @@ export function PlateStage({
           const moved = easeClockLayers(now);
           if (dirty || moved) {
             dirty = false;
-            renderer.draw(shown, exposure);
+            renderer.draw(shown, exposure, curtainPos);
           }
           if (tweening) schedule();
         });
       };
 
+      /**
+       * Where the curtain is, 0 drawn back to 1 shut.
+       *
+       * Outside `target` because it is not a layer weight — it mixes the two
+       * plate sets rather than scaling one of them, so it reaches the GPU as
+       * its own uniform and has to be watched for change separately.
+       */
+      let curtainPos = closed && curtainId
+        ? Math.min(Math.max(((useSim.getState().states[curtainId] as ShadeState | undefined)?.blackout ?? 0) / 100, 0), 1)
+        : 0;
+
       const refresh = () => {
         const { space, states, clockMin, daylightMix } = useSim.getState();
         if (!space) return;
-        if (
-          !computeWeights(target, layers, space, states, clockMin, profile, daylightMix)
-        )
-          return;
+        const weightsMoved = computeWeights(
+          target,
+          layers,
+          space,
+          states,
+          clockMin,
+          profile,
+          daylightMix,
+        );
+        let curtainMoved = false;
+        if (closed && curtainId) {
+          const shade = states[curtainId] as ShadeState | undefined;
+          const next = Math.min(Math.max((shade?.blackout ?? 0) / 100, 0), 1);
+          // The same deadband `computeWeights` uses, and for the same
+          // reason: the travel tween lands a hair off its target and the
+          // room must not redraw for ever chasing the last thousandth.
+          if (Math.abs(next - curtainPos) > 1e-4) {
+            curtainPos = next;
+            curtainMoved = true;
+          }
+        }
+        if (!weightsMoved && !curtainMoved) return;
 
         // Circuits pass straight through; the clock layers start a tween from
         // wherever they currently are, so a scene that moves the clock slides
@@ -326,7 +400,7 @@ export function PlateStage({
       observer.observe(container);
 
       const { states, clockMin } = useSim.getState();
-      const { needed, rest } = loadOrder(layers, states, clockMin);
+      const { needed } = loadOrder(layers, states, clockMin);
 
       refresh();
       // The first frame has nothing to slide from, so land it rather than
@@ -336,11 +410,12 @@ export function PlateStage({
       tweening = false;
       unsubscribe = useSim.subscribe(refresh);
 
-      const fetchLayer = async (layer: string) => {
+      const fetchLayer = async (layer: string, fromClosed: boolean) => {
         try {
-          const image = await loadImage(plateUrl(dir, chosen, layer));
+          const from = fromClosed ? closedDir! : dir;
+          const image = await loadImage(plateUrl(from, chosen, layer));
           if (cancelled || !renderer) return;
-          renderer.setLayer(layers.indexOf(layer), image);
+          renderer.setLayer(layers.indexOf(layer), image, fromClosed);
           if ("close" in image) image.close();
           dirty = true;
           schedule();
@@ -350,13 +425,36 @@ export function PlateStage({
         }
       };
 
+      /**
+       * Which plate sets the opening frame is actually showing.
+       *
+       * A curtain sits at one end or the other almost always, and the set at
+       * the other end contributes nothing until it moves — so with the
+       * curtain open the whole closed set is second-wave, and with it shut
+       * the whole open set is. Only a scene that opens on sheer needs both
+       * before the room can be shown.
+       */
+      const first: (() => Promise<void>)[] = [];
+      const later: (() => Promise<void>)[] = [];
+      const plan = closed
+        ? [
+            { fromClosed: false, showing: curtainPos < 1 },
+            { fromClosed: true, showing: curtainPos > 0 },
+          ]
+        : [{ fromClosed: false, showing: true }];
+      for (const set of plan) {
+        for (const layer of layers) {
+          const urgent = set.showing && needed.includes(layer);
+          (urgent ? first : later).push(() => fetchLayer(layer, set.fromClosed));
+        }
+      }
       // Two waves, each in parallel. Over HTTP/2 the expensive part of a
       // small file is the round trip, so awaiting thirteen in a row turns one
       // 300 ms penalty into thirteen.
-      await Promise.all(needed.map(fetchLayer));
+      await Promise.all(first.map((run) => run()));
       if (cancelled) return;
       setReady(true);
-      await Promise.all(rest.map(fetchLayer));
+      await Promise.all(later.map((run) => run()));
     })();
 
     return () => {
@@ -370,7 +468,7 @@ export function PlateStage({
       renderer?.dispose();
       useSim.getState().setStageStatic(false);
     };
-  }, [dir, profileName]);
+  }, [dir, profileName, closedDir, curtainId]);
 
   const space = useSim((s) => s.space);
   const select = useSim((s) => s.select);

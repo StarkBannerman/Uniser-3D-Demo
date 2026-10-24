@@ -368,9 +368,46 @@ function applyTargetMap(
       nextStates[deviceId] = next;
       touched.add(device.productId);
     }
+
+    /**
+     * Put out whatever this one excludes — unless the scene says otherwise.
+     *
+     * A scene that names both sides of an interlock has already decided, and
+     * the order its keys happen to be written in must not change the answer.
+     * So the interlock only reaches circuits this target map is silent
+     * about, which is exactly the case it exists for: Night lights Do Not
+     * Disturb and says nothing about Make Up Room.
+     */
+    for (const victim of exclusiveVictims(space, deviceId, patchInput)) {
+      if (victim in targets) continue;
+      const other = space.devices.find((d) => d.id === victim);
+      const was = nextStates[victim];
+      if (!other || !was) continue;
+      const off = applyPatchToState(other, was, { on: false }, fade);
+      if (off) nextStates[victim] = off;
+    }
   }
 
   return nextStates;
+}
+
+/**
+ * The other circuits a newly-lit one has to put out.
+ *
+ * `Space.exclusive` declares sets of which at most one may be on — the hotel
+ * room's two door indicators, which are latching buttons on a physical panel
+ * and cannot both be in. Returns the ids to switch off, or an empty array
+ * when this patch is not turning anything on or the device is in no group.
+ *
+ * Switching *off* releases nothing: a panel with neither button in is a
+ * perfectly good state, and it is the one a guest leaves behind.
+ */
+function exclusiveVictims(space: Space, deviceId: string, patch: StatePatch): string[] {
+  if (!space.exclusive?.length) return [];
+  if (!("on" in patch) || !patch.on) return [];
+  const group = space.exclusive.find((g) => g.deviceIds.includes(deviceId));
+  if (!group) return [];
+  return group.deviceIds.filter((id) => id !== deviceId);
 }
 
 /* ------------------------------------------------------------------ */
@@ -641,7 +678,9 @@ export const useSim = create<SimStore>((set, get) => ({
     const { space, states } = get();
     const device = space?.devices.find((d) => d.id === deviceId);
     const current = states[deviceId];
-    if (!device || !current) return;
+    // `space` is narrowed here as well as `device`, because the interlock
+    // below needs the space and a device cannot have been found without one.
+    if (!space || !device || !current) return;
 
     const commandedLevel = commandedLevelFor(device, current, patchInput);
     // Touching a colour slider by hand takes that fixture off circadian tuning,
@@ -660,8 +699,23 @@ export const useSim = create<SimStore>((set, get) => ({
     busyUntil = 0;
     const locked = physicallyTravels(device) && holdDevice(deviceId, duration);
 
+    /**
+     * And the same interlock on the manual path.
+     *
+     * `applyTargetMap` holds it for scenes; this holds it for a hand on the
+     * switch, which is the path the automation tab's two toggles take.
+     */
+    const victims: Record<string, DeviceState> = {};
+    for (const victim of exclusiveVictims(space, deviceId, patchInput)) {
+      const other = space.devices.find((d) => d.id === victim);
+      const was = states[victim];
+      if (!other || !was) continue;
+      const off = applyPatchToState(other, was, { on: false }, fadeMs);
+      if (off) victims[victim] = off;
+    }
+
     set((s) => ({
-      states: { ...s.states, [deviceId]: next },
+      states: { ...s.states, ...victims, [deviceId]: next },
       // The room no longer matches the scene the moment anything is touched by
       // hand — leaving the scene highlighted would be a lie.
       activeSceneId: null,
@@ -733,16 +787,21 @@ export const useSim = create<SimStore>((set, get) => ({
          */
         fireAt:
           tweenNow() +
-          (Object.entries(scene.targets).every(([deviceId, raw]) => {
-            const current = states[deviceId];
-            if (!current) return true;
-            const { fadeMs: _perDevice, ...rest } = raw as StatePatch & {
-              fadeMs?: number;
-            };
-            return patchIsNoop(current, rest as StatePatch);
-          })
-            ? 0
-            : paceHold(first.holdMs ?? 900)),
+          Math.max(
+            Object.entries(scene.targets).every(([deviceId, raw]) => {
+              const current = states[deviceId];
+              if (!current) return true;
+              const { fadeMs: _perDevice, ...rest } = raw as StatePatch & {
+                fadeMs?: number;
+              };
+              return patchIsNoop(current, rest as StatePatch);
+            })
+              ? 0
+              : paceHold(first.holdMs ?? 900),
+            // Whatever stage zero set travelling has to arrive before the
+            // first beat can honestly describe the room. See `motorTravelMs`.
+            motorTravelMs(space, states, scene.targets, scene.fadeMs),
+          ),
         fadeMs: scene.fadeMs,
       };
       sequenceView = {
@@ -1300,6 +1359,50 @@ function patchDurationMs(
 }
 
 /**
+ * How long the motors in one target map need, ignoring everything else.
+ *
+ * A staged scene schedules its first beat off `steps[0].holdMs`, which is a
+ * number an author wrote to pace a caption. That is the right clock for a
+ * light fade and the wrong one for a curtain: the hotel room's Guest Arrival
+ * starts from a dark room with the blackout *shut*, so pressing it with the
+ * curtain open sets a four-second motor going — and the second beat, which
+ * asks for that curtain to open, used to fire a second and a half later and
+ * reverse it mid-travel.
+ *
+ * So the first beat also waits for whatever stage zero set physically
+ * moving. Only motors: a scene whose opening state includes a three-second
+ * dimmer ramp or a volume change should still start narrating straight
+ * away, because nothing it says next contradicts those.
+ */
+function motorTravelMs(
+  space: Space,
+  states: Record<string, DeviceState>,
+  targets: Record<string, StatePatch & { fadeMs?: number }>,
+  defaultFadeMs: number,
+): number {
+  let longest = 0;
+  for (const [deviceId, raw] of Object.entries(targets)) {
+    const device = space.devices.find((d) => d.id === deviceId);
+    const current = states[deviceId];
+    if (!device || !current || !physicallyTravels(device)) continue;
+    const { fadeMs: perDevice, ...rest } = raw as StatePatch & { fadeMs?: number };
+    // `patchDurationMs` returns a light's paced ramp for an `on` key too, so
+    // the props are filtered to the ones a motor actually travels on.
+    const motorOnly: StatePatch = {};
+    for (const [k, v] of Object.entries(rest)) {
+      if (typeof v === "number" && (device.kind === "shade" || k === "screen")) {
+        motorOnly[k] = v;
+      }
+    }
+    longest = Math.max(
+      longest,
+      patchDurationMs(device, current, motorOnly, perDevice ?? defaultFadeMs),
+    );
+  }
+  return longest;
+}
+
+/**
  * Milliseconds until a whole scene has finished, stages and all.
  *
  * Walked ahead rather than watched: the rule engine starts fades of its own
@@ -1395,11 +1498,17 @@ export function sceneDurationMs(
   let total = first.longest;
   let offset = 0;
   let previousWasNoop = first.noop;
+  // Stage zero's motors delay the first beat, so the settle time has to know
+  // about them too — otherwise the lock releases and the progress bar
+  // finishes while the room is still opening a curtain. Same figure
+  // `applyScene` arms the sequence with.
+  let floor = motorTravelMs(space, states, scene.targets, scene.fadeMs);
   for (const step of scene.steps ?? []) {
     // A stage that changes nothing is not waited for — see `patchIsNoop`. The
     // hold belongs to the stage before it, so it is that one's emptiness that
     // decides whether this pause happens at all.
-    offset += previousWasNoop ? 0 : paceHold(step.holdMs ?? 900);
+    offset += Math.max(previousWasNoop ? 0 : paceHold(step.holdMs ?? 900), floor);
+    floor = 0;
     const s = stage(step.targets);
     total = Math.max(total, offset + s.longest);
     previousWasNoop = s.noop;
