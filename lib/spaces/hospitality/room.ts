@@ -462,7 +462,7 @@ export const room: Space = {
       id: "relax",
       clockMin: 20 * 60 + 30,
       name: "Relax",
-      icon: "☾",
+      icon: "◎",
       blurb:
         "Curtains to sheer and everything down to about a quarter. The downlights go to 2700 K and stay there — a room you are sitting in rather than moving through wants the ceiling almost out of it, with the cove and the lamps doing the work.",
       fadeMs: 2200,
@@ -563,7 +563,7 @@ export const room: Space = {
       id: "good-night",
       clockMin: 23 * 60 + 30,
       name: "Good Night",
-      icon: "✦",
+      icon: "⏻",
       blurb:
         "Everything off but the path. The under-bed glow at 40% is the whole of the lighting in the room — enough to find the bathroom, not enough to read the time by — with the fan-coil on low and the door flagged.",
       fadeMs: 3000,

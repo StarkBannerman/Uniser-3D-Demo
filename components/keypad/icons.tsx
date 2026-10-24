@@ -158,47 +158,4 @@ export function Icon({ name }: { name: IconName }) {
   return <Svg>{PATHS[name]}</Svg>;
 }
 
-/**
- * Map a scene to an icon.
- *
- * Keyed off the scene's own `icon` character first, so a space can pick an icon
- * without knowing this file exists, and off the id as a fallback for scenes
- * named the same way across rooms.
- */
-export function sceneIcon(scene: { id: string; icon: string }): IconName {
-  const byChar: Record<string, IconName> = {
-    "☀": "sun",
-    "☼": "sunrise",
-    "◐": "dim",
-    "◑": "dusk",
-    "❑": "book",
-    "☾": "moon",
-    "⏻": "power",
-    "▶": "dusk",
-    // Glyphs the hospitality and commercial rooms use. Without these they
-    // all fell through to the default and four scenes in a row showed the
-    // same half-moon, which makes a scene pad that cannot be read at a
-    // glance — the one thing a scene pad is for.
-    "◈": "bulb",
-    "✦": "sparkle",
-    "✸": "glass",
-    "✚": "broom",
-    "◎": "dim",
-    "🔑": "key",
-    "☕": "book",
-    "🍴": "book",
-  };
-  if (byChar[scene.icon]) return byChar[scene.icon];
-
-  const byId: Record<string, IconName> = {
-    morning: "sun",
-    bright: "sun",
-    relax: "dim",
-    reading: "book",
-    evening: "dusk",
-    night: "moon",
-    goodnight: "power",
-    off: "power",
-  };
-  return byId[scene.id] ?? "dim";
-}
+export { sceneIcon } from "./sceneIcon";

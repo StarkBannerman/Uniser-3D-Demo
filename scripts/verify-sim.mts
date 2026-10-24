@@ -38,6 +38,7 @@ import { masterBedroom } from "../lib/spaces/residential/master-bedroom";
 import { bladeRadPerSec, MAX_BLADE_STEP_RAD } from "../lib/sim/fan";
 import { paceFade, paceHold } from "../lib/sim/pace";
 import { classifyRenderer, isSoftware } from "../lib/device";
+import { sceneIcon } from "../components/keypad/sceneIcon";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail: string) {
@@ -407,6 +408,24 @@ for (const space of spaces) {
   }
   if (space.openingSceneId && !space.scenes.some((sc) => sc.id === space.openingSceneId)) {
     bad.push(`openingSceneId "${space.openingSceneId}" has no scene`);
+  }
+
+  /**
+   * No two scenes may wear the same icon on the pad.
+   *
+   * This has gone wrong in three rooms now, and always the same way: the
+   * scene's `icon` is a glyph the author chose, `sceneIcon` maps it to one
+   * of eighteen drawings, and a glyph nobody added to that map falls
+   * through to "dim". Two scenes then look identical on a pad whose whole
+   * job is to be read at a glance, and nothing anywhere complains. A scene
+   * pad with a duplicate on it is a broken scene pad, so it is a failure.
+   */
+  const icons = new Map<string, string>();
+  for (const scene of space.scenes) {
+    const drawn = sceneIcon(scene);
+    const already = icons.get(drawn);
+    if (already) bad.push(`scenes "${already}" and "${scene.id}" both draw "${drawn}"`);
+    else icons.set(drawn, scene.id);
   }
 
   check(
