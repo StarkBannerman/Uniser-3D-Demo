@@ -63,6 +63,26 @@ export function dayness(clockMin: number): number {
 /* Colour                                                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * `#5b6f9e` to a linear multiplier at unit luminance.
+ *
+ * Unit luminance for the same reason the circuit tints are: a colour here
+ * should say what the light looks like, not how much of it there is. The
+ * level is the scene's business.
+ */
+export function hexToLinear(hex: string | null): [number, number, number] {
+  if (!hex) return [1, 1, 1];
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return [1, 1, 1];
+  const n = parseInt(m[1], 16);
+  const rgb: [number, number, number] = [
+    srgbToLinear(((n >> 16) & 255) / 255),
+    srgbToLinear(((n >> 8) & 255) / 255),
+    srgbToLinear((n & 255) / 255),
+  ];
+  return unitLuminance(rgb);
+}
+
 /** sRGB 0..1 to linear. The piecewise curve, not the 2.2 shortcut. */
 function srgbToLinear(c: number): number {
   return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
@@ -228,6 +248,13 @@ export function computeWeights(
    * did before scenes could name an hour of their own.
    */
   mix: Record<string, number> | null,
+  /**
+   * A colour for the exterior layers, as a hex string, or null for the
+   * plate's own. See `Scene.daylightTint`: a view plate at 8% reads as an
+   * overcast afternoon rather than as night, and the only honest fix for
+   * a set with one sky render is to tint it.
+   */
+  skyTint: string | null = null,
 ): boolean {
   let changed = false;
   /**
@@ -255,6 +282,9 @@ export function computeWeights(
 
   const night = 1 - dayness(clockMin);
   const day = dayWeights(daylightAmount(space, clockMin), dayFraction(space, clockMin));
+  /** True when the set has one view plate rather than a day/night pair. */
+  const soleView = !layers.some((l) => layerRole(l) === "skyDay");
+  const tint = hexToLinear(skyTint);
 
   // The colour bus, if the profile has one and it is running colour at all.
   // In a room with no RGBW circuits, or a scene with the colour off, this is
@@ -292,19 +322,31 @@ export function computeWeights(
       case "day": {
         const w =
           (mix ? (mix[layer] ?? 0) / 100 : (day[DAY_ORDER.indexOf(layer)] ?? 0)) * gain;
-        return put(i, w, w, w);
+        return put(i, w * tint[0], w * tint[1], w * tint[2]);
       }
-      // The two views are a crossfade, not two independent layers: under the
-      // clock their shares always sum to one, so the glazing never goes
-      // empty between them — which is exactly what fading the night view to
-      // nothing did. A scene that names them is trusted to balance itself.
+      /**
+       * The two views are a crossfade, not two independent layers: under
+       * the clock their shares always sum to one, so the glazing never
+       * goes empty between them — which is exactly what fading the night
+       * view to nothing did. A scene that names them is trusted to
+       * balance itself.
+       *
+       * Unless there is only one. A set rendered with a single view plate
+       * has nothing to cross-fade *to*, and giving it the night share
+       * would black its windows out at noon and light them at midnight —
+       * backwards, because a lone view plate is always the daylight one.
+       * It follows the day instead, with a floor: there is no night
+       * render, so after dark the same glass runs at 8% and a scene tints
+       * it, which is what the office's curtain wall does.
+       */
       case "sky": {
-        const w = (mix ? (mix[layer] ?? 0) / 100 : night) * gain;
-        return put(i, w, w, w);
+        const share = soleView ? Math.max(0.08, 1 - night) : night;
+        const w = (mix ? (mix[layer] ?? 0) / 100 : share) * gain;
+        return put(i, w * tint[0], w * tint[1], w * tint[2]);
       }
       case "skyDay": {
         const w = (mix ? (mix[layer] ?? 0) / 100 : 1 - night) * gain;
-        return put(i, w, w, w);
+        return put(i, w * tint[0], w * tint[1], w * tint[2]);
       }
     }
   });

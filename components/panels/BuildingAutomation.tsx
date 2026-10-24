@@ -20,10 +20,13 @@ import type {
   AvState,
   ClimateMode,
   ClimateState,
+  FanDevice,
+  FanState,
   LightState,
   ShadeDevice,
   ShadeState,
 } from "@/lib/sim/types";
+import { interiorDaylightLux } from "@/lib/sim/daylight";
 import { formatClock } from "@/lib/sim/clock";
 import {
   SectionLabel,
@@ -518,50 +521,274 @@ function Hvac() {
  *
  * Every client list in this project names the fan separately from the air
  * conditioning, and they are right to: the setpoint is a decision about
- * comfort and the fan speed is a decision about noise, and in a cabin
- * where somebody is on a call those are not the same conversation.
+ * comfort and the fan speed is a decision about noise, and in a room where
+ * somebody is on a call those are not the same conversation.
  *
- * Four named positions rather than a 0-5 slider. `ClimateState.fan` has
- * carried "0 = auto, 1..3 = low/med/high" since the type was written, and
- * the slider was showing the integer — which is both less than the state
- * already means and less than is printed on every fan-coil controller.
+ * It drives a real `fan` device where the space has one — the office floor
+ * has a BLDC fan over the lounge with blades you can watch — and otherwise
+ * the fan speed on the fan coil, which is what a cabin with a concealed
+ * diffuser and no ceiling fan actually has. Four named positions either
+ * way, because that is what is printed on both kinds of controller.
  */
 function Fan() {
   const space = useSim((s) => s.space);
   const states = useSim((s) => s.states);
   const patch = useSim((s) => s.patch);
+  const ceiling = space?.devices.find((d): d is FanDevice => d.kind === "fan");
   const climate = space?.devices.find((d) => d.kind === "climate");
-  const st = climate ? (states[climate.id] as ClimateState | undefined) : undefined;
-  if (!climate || !st) return null;
+  const fanSt = ceiling ? (states[ceiling.id] as FanState | undefined) : undefined;
+  const acSt = climate ? (states[climate.id] as ClimateState | undefined) : undefined;
 
-  const SPEEDS: { value: number; label: string }[] = [
-    { value: 0, label: "Auto" },
+  if (ceiling && !fanSt) return null;
+  if (!ceiling && !acSt) return null;
+
+  const SPEEDS = [
+    { value: 0, label: ceiling ? "Off" : "Auto" },
     { value: 1, label: "Low" },
     { value: 2, label: "Med" },
     { value: 3, label: "High" },
   ];
-  const name = SPEEDS.find((f) => f.value === st.fan)?.label ?? `${st.fan}`;
+  // A ceiling fan's "off" is the device off rather than speed zero, so it
+  // keeps the speed it was on and restarts where it left off.
+  const value = ceiling
+    ? fanSt!.on
+      ? Math.min(fanSt!.speed, 3)
+      : 0
+    : Math.min(acSt!.fan, 3);
+  const name = SPEEDS.find((f) => f.value === value)?.label ?? String(value);
+
+  const choose = (next: number) => {
+    if (ceiling) patch(ceiling.id, next === 0 ? { on: false } : { on: true, speed: next });
+    else patch(climate!.id, { on: true, fan: next });
+  };
 
   return (
-    <Card title="Fan" note={st.on ? name.toLowerCase() : "off"}>
-      <Segmented
-        value={Math.min(st.fan, 3)}
-        options={SPEEDS}
-        onChange={(fan) => patch(climate.id, { on: true, fan })}
-        label="Fan speed"
-      />
+    <Card title={ceiling?.name ?? "Fan"} note={name.toLowerCase()}>
+      <Segmented value={value} options={SPEEDS} onChange={choose} label="Fan speed" />
       <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
-        A concealed fan coil, not a ceiling fan — the speed is how much air
-        the diffuser moves, and it is the control somebody on a call reaches
-        for before they touch the setpoint.
+        {ceiling
+          ? `About ${ceiling.ratedWatts} W at the top speed, and the reason the setpoint on this floor can sit two degrees higher than it otherwise would.`
+          : "A concealed fan coil, not a ceiling fan — the speed is how much air the diffuser moves, and it is the control somebody on a call reaches for before they touch the setpoint."}
       </p>
     </Card>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* 5. Music                                                            */
+/* Daylight response                                                   */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Give back what the glazing is already supplying, and show the sum.
+ *
+ * Distinct from the `daylight` *rule*, which models the real thing against
+ * a design illuminance in simulated minutes. This is the panel version and
+ * it exists to be watched: one toggle, a straight `1 - strength x daylight`
+ * on the named circuits, and a read-out saying what it is doing right now.
+ * Drop the blinds and the number falls and the ceiling comes up to meet
+ * it, in front of the client — which is a thing no amount of explaining
+ * the rule achieves.
+ *
+ * It reads `interiorDaylightLux`, the same function the lux sensor and the
+ * rule use, so the three cannot disagree about how much light is coming in.
+ */
+function DaylightResponse() {
+  const space = useSim((s) => s.space);
+  const states = useSim((s) => s.states);
+  const clockMin = useSim((s) => s.clockMin);
+  const patch = useSim((s) => s.patch);
+  const cfg = space?.daylightResponse;
+  const [on, setOn] = useState(true);
+  /** What each circuit was asked for before any trim, so it can be undone. */
+  const base = useRef<Record<string, number>>({});
+  const applied = useRef(-1);
+
+  const peak = space
+    ? space.environment.outdoorPeakLux * space.environment.windowFactor
+    : 1;
+  const share = space
+    ? Math.min(1, Math.max(0, interiorDaylightLux(space, states, clockMin) / Math.max(peak, 1e-6)))
+    : 0;
+  const factor = cfg ? 1 - cfg.strength * share : 1;
+
+  useEffect(() => {
+    if (!cfg) return;
+    const now = useSim.getState().states;
+    if (!on) {
+      for (const [id, level] of Object.entries(base.current)) {
+        patch(id, { on: true, level }, cfg.easeMs);
+      }
+      base.current = {};
+      applied.current = -1;
+      return;
+    }
+    // Only act when the trim has actually moved, or this fights every
+    // scene change and every rule pass for control of the same circuits.
+    if (Math.abs(applied.current - factor) < 0.01) return;
+    const previous = applied.current;
+    for (const id of cfg.deviceIds) {
+      const st = now[id] as LightState | undefined;
+      if (!st?.on) continue;
+      if (base.current[id] === undefined) {
+        base.current[id] = previous < 0 ? st.level : st.level / Math.max(previous, 0.01);
+      }
+      patch(id, { on: true, level: Math.round(base.current[id] * factor) }, cfg.easeMs);
+    }
+    applied.current = factor;
+  }, [cfg, on, factor, patch]);
+
+  if (!cfg || !space) return null;
+  const names = cfg.deviceIds
+    .map((id) => space.devices.find((d) => d.id === id)?.name ?? id)
+    .join(" and ");
+  const first = states[cfg.deviceIds[0]] as LightState | undefined;
+
+  return (
+    <Card title="Daylight response" note={on ? `${Math.round(share * 100)}% daylight` : "off"}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-shell-400">Trim against the glazing</span>
+        <Toggle on={on} onChange={setOn} label="Daylight response" />
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-shell-850">
+        <div
+          className="h-full rounded-full bg-brass-500/70 transition-[width] duration-700"
+          style={{ width: `${Math.round(share * 100)}%` }}
+        />
+      </div>
+      <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
+        {on
+          ? `Daylight ${Math.round(share * 100)}% → ${names.toLowerCase()} trimmed to ${Math.round(factor * 100)}%${first?.on ? `, now at ${Math.round(first.level)}%.` : "."}`
+          : `${names} run at whatever the scene asked for. Switch it on and move the blinds to watch them answer.`}
+      </p>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Zoned occupancy                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Two zones that can disagree, which is the only reason to zone at all.
+ *
+ * `Occupancy` above is the one-group card and stays for the rooms that
+ * make the point once. This is for a floor: a button per zone, each taking
+ * out its own task circuit, and a shared layer that only falls back when
+ * every zone has gone — because light over an occupied row is not a
+ * saving, it is the job.
+ *
+ * The Auto switch walks the floor on its own for a screen left running,
+ * and pauses while a staged scene is playing: a demonstration being
+ * narrated should not have a sensor changing the room underneath it.
+ */
+function OccupancyZones() {
+  const space = useSim((s) => s.space);
+  const patch = useSim((s) => s.patch);
+  const sequence = useSim((s) => s.sequence);
+  const cfg = space?.occupancyZones;
+  const [vacant, setVacant] = useState<Record<string, boolean>>({});
+  const [auto, setAuto] = useState(false);
+  /** Levels captured when a circuit was put out, to put back. */
+  const held = useRef<Record<string, number>>({});
+
+  const setZone = useCallback(
+    (id: string, isVacant: boolean) => {
+      if (!cfg) return;
+      const zone = cfg.zones.find((z) => z.id === id);
+      if (!zone) return;
+      const now = useSim.getState().states;
+      for (const deviceId of zone.deviceIds) {
+        const st = now[deviceId] as LightState | undefined;
+        if (isVacant) {
+          if (st?.on) held.current[deviceId] = st.level;
+          patch(deviceId, { on: false }, cfg.afterMs);
+        } else {
+          patch(deviceId, { on: true, level: held.current[deviceId] ?? 60 }, cfg.restoreMs);
+        }
+      }
+      setVacant((v) => ({ ...v, [id]: isVacant }));
+    },
+    [cfg, patch],
+  );
+
+  // The shared layer answers to the whole floor rather than to one zone.
+  useEffect(() => {
+    const all = cfg?.whenAllVacant;
+    if (!all || !cfg) return;
+    const everyoneGone = cfg.zones.every((z) => vacant[z.id]);
+    const now = useSim.getState().states;
+    for (const deviceId of all.deviceIds) {
+      const st = now[deviceId] as LightState | undefined;
+      if (!st) continue;
+      if (everyoneGone) {
+        if (held.current[deviceId] === undefined && st.on) held.current[deviceId] = st.level;
+        const to = Math.round((held.current[deviceId] ?? st.level) * all.toFraction);
+        patch(deviceId, { on: true, level: to }, cfg.afterMs);
+      } else if (held.current[deviceId] !== undefined) {
+        patch(deviceId, { on: true, level: held.current[deviceId] }, cfg.restoreMs);
+        delete held.current[deviceId];
+      }
+    }
+  }, [cfg, vacant, patch]);
+
+  // Simulated foot traffic, paused while a demonstration is narrating.
+  useEffect(() => {
+    if (!auto || !cfg?.auto || sequence) return;
+    const { minMs, maxMs } = cfg.auto;
+    const t = setTimeout(
+      () => {
+        const zone = cfg.zones[Math.floor(Math.random() * cfg.zones.length)];
+        setZone(zone.id, !vacant[zone.id]);
+      },
+      minMs + Math.random() * Math.max(0, maxMs - minMs),
+    );
+    return () => clearTimeout(t);
+  }, [auto, cfg, sequence, vacant, setZone]);
+
+  if (!cfg || !space) return null;
+  const empty = cfg.zones.filter((z) => vacant[z.id]).length;
+  const shared = (cfg.whenAllVacant?.deviceIds ?? [])
+    .map((id) => space.devices.find((d) => d.id === id)?.name ?? id)
+    .join(", ");
+
+  return (
+    <Card
+      title="Occupancy"
+      note={
+        empty === 0
+          ? "all occupied"
+          : empty === cfg.zones.length
+            ? "floor empty"
+            : `${empty} zone empty`
+      }
+    >
+      <div className="space-y-1.5">
+        {cfg.zones.map((zone) => (
+          <div key={zone.id} className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-shell-400">{zone.name}</span>
+            <Toggle
+              on={!vacant[zone.id]}
+              onChange={(occupied) => setZone(zone.id, !occupied)}
+              label={`${zone.name} occupied`}
+            />
+          </div>
+        ))}
+        <div className="flex items-center justify-between gap-2 border-t border-shell-800 pt-1.5">
+          <span className="text-[11px] text-shell-400">
+            Auto{sequence && auto ? " — paused for the demonstration" : ""}
+          </span>
+          <Toggle on={auto} onChange={setAuto} label="Simulate foot traffic" />
+        </div>
+      </div>
+      <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
+        {empty === cfg.zones.length && shared
+          ? `Floor empty — task light out in every zone and ${shared.toLowerCase()} down to ${Math.round((cfg.whenAllVacant?.toFraction ?? 0) * 100)}%.`
+          : `Each zone takes out only its own task circuit. ${shared} follows the whole floor, not one half of it.`}
+      </p>
+    </Card>
+  );
+}
+
 
 /**
  * A soft ambient pad, synthesised.
@@ -703,9 +930,12 @@ export function BuildingAutomation() {
   const has =
     Boolean(space.schedule?.length) ||
     Boolean(space.autoDim) ||
+    Boolean(space.occupancyZones) ||
+    Boolean(space.daylightResponse) ||
     Boolean(space.exclusive?.length) ||
     space.devices.some(
-      (d) => d.kind === "climate" || d.kind === "av" || d.kind === "shade",
+      (d) =>
+        d.kind === "climate" || d.kind === "av" || d.kind === "shade" || d.kind === "fan",
     );
   if (!has) {
     return (
@@ -719,7 +949,9 @@ export function BuildingAutomation() {
       <SectionLabel>Building automation</SectionLabel>
       <Schedule />
       <Curtains />
+      <DaylightResponse />
       <Occupancy />
+      <OccupancyZones />
       <Hvac />
       <Fan />
       <Indicators />

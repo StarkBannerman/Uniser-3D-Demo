@@ -1,0 +1,87 @@
+{
+  "camera": "hero",
+  "points": {
+    "ow-general": {
+      "u": 0.5466,
+      "v": 0.2393,
+      "visible": true
+    },
+    "ow-linear": {
+      "u": 0.0324,
+      "v": 0.3226,
+      "visible": true
+    },
+    "ow-task-a": {
+      "u": 0.207,
+      "v": 0.6113,
+      "visible": true
+    },
+    "ow-task-b": {
+      "u": 0.3385,
+      "v": 0.603,
+      "visible": true
+    },
+    "ow-cove": {
+      "u": 0.8028,
+      "v": 0.2904,
+      "visible": true
+    },
+    "ow-meeting": {
+      "u": 0.6345,
+      "v": 0.4533,
+      "visible": true
+    },
+    "ow-break": {
+      "u": 0.8712,
+      "v": 0.5012,
+      "visible": true
+    },
+    "ow-accent": {
+      "u": 0.7437,
+      "v": 0.5651,
+      "visible": true
+    },
+    "ow-display": {
+      "u": 0.6233,
+      "v": 0.516,
+      "visible": true
+    },
+    "blinds": {
+      "u": 0.1372,
+      "v": 0.3936,
+      "visible": true
+    },
+    "hvac": {
+      "u": 0.9055,
+      "v": 0.3395,
+      "visible": true
+    },
+    "fan": {
+      "u": 1.2654,
+      "v": 0.2132,
+      "visible": false
+    },
+    "occupancy": {
+      "u": 0.147,
+      "v": 0.2435,
+      "visible": true
+    },
+    "music": {
+      "u": 0.2741,
+      "v": 0.3265,
+      "visible": true
+    },
+    "keypad": {
+      "u": 0.8541,
+      "v": 0.5634,
+      "visible": true
+    }
+  },
+  "fan_rect": [
+    1.1018,
+    0,
+    1,
+    0.2976
+  ],
+  "fan_rect_order": "u0, v0, u1, v1 (v down)"
+}

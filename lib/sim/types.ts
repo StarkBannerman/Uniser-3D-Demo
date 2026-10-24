@@ -349,6 +349,8 @@ export interface SceneStep {
   targets: Record<string, StatePatch & { fadeMs?: number }>;
   /** Exterior layer weights for this stage, exactly as `Scene.daylight`. */
   daylight?: Record<string, number>;
+  /** Exterior tint for this stage, exactly as `Scene.daylightTint`. */
+  daylightTint?: string;
   /**
    * Wall-clock pause before this stage is applied, measured from the previous
    * stage.
@@ -469,6 +471,19 @@ export interface Scene {
    * and go through `targets` like everything else.
    */
   daylight?: Record<string, number>;
+  /**
+   * A colour for the exterior layers, as a hex string.
+   *
+   * The sky plate is one render of one sky, and a scene set after dark
+   * needs it dim and blue rather than dim and the same daylight colour —
+   * a view plate at 8% reads as an overcast afternoon, not as night. This
+   * multiplies the exterior layers only; the circuits have their own
+   * colour and are not touched.
+   *
+   * Omitted means the plate's own colour, which is what every space did
+   * before a room had to show the same window at noon and at nine.
+   */
+  daylightTint?: string;
   /**
    * Ordered stages that run after `targets` is applied.
    *
@@ -706,6 +721,23 @@ export interface Space {
       };
     };
     /**
+     * A plate set composited *over* the room rather than summed into it.
+     *
+     * Spinning fan blades are not a lighting circuit. They are the same
+     * room with one object in a different state, so inside their own
+     * rectangle they replace the base image rather than adding to it —
+     * `final = mix(base, overlay, opacity)` — and outside it they do
+     * nothing at all.
+     *
+     * `rect` names a `[u0, v0, u1, v1]` in `hotspots.json` (v down).
+     * `deviceId` is the fan whose speed sets the opacity. Both the set
+     * and the rectangle are optional at runtime: the stage probes for the
+     * directory and validates the rectangle, and falls back to marking
+     * the hotspot when either is missing, so the real blur appears the
+     * moment the render does.
+     */
+    overlay?: { dir: string; deviceId: string; rect: string };
+    /**
      * Hotspots that are not named after a device, and what they mean.
      *
      * The offline renderer projects points of interest as well as circuits,
@@ -755,6 +787,65 @@ export interface Space {
   schedule?: { atMin: number; sceneId: string }[];
   /** Fall-back dimming when the room is empty. See `SpaceAutoDim`. */
   autoDim?: SpaceAutoDim;
+  /**
+   * Proportional trim against the daylight the glazing is supplying.
+   *
+   * Distinct from the `daylight` *rule*, which models the real thing in
+   * simulated minutes against a design illuminance. This is the panel
+   * version: one toggle, a read-out of what it is doing right now, and a
+   * straight `1 - strength x daylight` on the named circuits, so a client
+   * can drop the blinds and watch the ceiling come up to meet them.
+   */
+  daylightResponse?: {
+    deviceIds: string[];
+    /** How much of the circuit the full sun is allowed to take, 0..1. */
+    strength: number;
+    /** Real milliseconds to ease a change over. */
+    easeMs: number;
+  };
+  /**
+   * Zoned presence, for the automation tab's occupancy demonstration.
+   *
+   * `SpaceAutoDim` is the one-group version and stays for the rooms that
+   * only ever make the point once. This is for a floor where the point is
+   * that the zones *disagree*: half the desks going home should take half
+   * the task light with it and leave the other half alone, which a single
+   * group cannot show.
+   *
+   * Real seconds and a button per zone, like `SpaceAutoDim` and for the
+   * same reason — the honest sensor model is the `occupancy` rule, and
+   * this is the showable one.
+   */
+  occupancyZones?: {
+    /** Real milliseconds of vacancy before a zone falls back. */
+    afterMs: number;
+    /** Real milliseconds to come back over. */
+    restoreMs: number;
+    zones: {
+      id: string;
+      name: string;
+      /** Circuits that go out when this zone alone is empty. */
+      deviceIds: string[];
+      /** The sensor this zone would be wired to, for the marker. */
+      sensorId?: string;
+    }[];
+    /**
+     * Circuits that fall back only when every zone is empty, and how far.
+     *
+     * The shared layer, which is the interesting case: one zone leaving
+     * should not touch the light over the other one's heads, and both
+     * leaving should.
+     */
+    whenAllVacant?: { deviceIds: string[]; toFraction: number };
+    /**
+     * Simulated foot traffic: one zone flips every `minMs`..`maxMs`.
+     *
+     * For leaving the tab running on a screen. It pauses while a staged
+     * scene is playing, because a demonstration being narrated should not
+     * have a sensor changing the room underneath it.
+     */
+    auto?: { minMs: number; maxMs: number };
+  };
   /**
    * Sets of circuits of which at most one may be lit.
    *

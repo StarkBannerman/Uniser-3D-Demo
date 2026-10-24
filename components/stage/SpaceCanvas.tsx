@@ -204,6 +204,7 @@ export function SpaceCanvas({ controlsOpen = false }: { controlsOpen?: boolean }
             dir={space.plates.dir}
             profile={space.plates.profile}
             curtain={space.plates.curtain}
+            overlay={space.plates.overlay}
             controlsOpen={controlsOpen}
           />
         ) : (

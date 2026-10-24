@@ -162,6 +162,9 @@ uniform vec2 uSoft;      // edge softness in (t, s), about four pixels
 uniform float uPad;
 uniform float uHasWindow;
 uniform float uDrop;     // 1 for a blind down the glass, 0 for panels along the track
+uniform vec4 uOverlayRect;   // u0, v0, u1, v1 — where an overlay set may show
+uniform vec2 uOverlaySoft;   // feathered edge, in uv
+uniform float uOverlayMix;   // 0 when there is no overlay, or it is off
 uniform int uSet;        // 0 open, 1 sheer, 2 closed
 
 /** 1 well inside [0,1] expanded by pad, 0 well outside, soft across. */
@@ -217,6 +220,21 @@ float coverAt(float p, float t, float s) {
              + smoothstep(1.0 - reach - h, 1.0 - reach + h, t), 0.0, 1.0);
 }
 
+/**
+ * How much of this pixel the overlay set owns.
+ *
+ * Zero everywhere outside its rectangle, and never anything at all when
+ * the set is absent or its device is off — \`uOverlayMix\` carries both.
+ * The edge is feathered rather than hard because a rectangle drawn over a
+ * photograph with a clean edge is a rectangle somebody can see.
+ */
+float overlayShare() {
+  if (uOverlayMix <= 0.0) return 0.0;
+  vec2 lo = smoothstep(uOverlayRect.xy - uOverlaySoft, uOverlayRect.xy + uOverlaySoft, vUv);
+  vec2 hi = smoothstep(uOverlayRect.zw + uOverlaySoft, uOverlayRect.zw - uOverlaySoft, vUv);
+  return uOverlayMix * lo.x * lo.y * hi.x * hi.y;
+}
+
 float curtainCoef() {
   float t = 0.0;
   float s = 0.0;
@@ -233,9 +251,21 @@ float curtainCoef() {
   }
   float m1 = mix(uCurtain.x, coverAt(uCurtain.x, t, s), inside);
   float m2 = mix(uCurtain.y, coverAt(uCurtain.y, t, s), inside);
-  if (uSet == 0) return (1.0 - m1) * (1.0 - m2);
-  if (uSet == 1) return m1 * (1.0 - m2);
-  return m2;
+  /**
+   * The overlay replaces; the covering sets add up to what is left.
+   *
+   * \`mix(base, overlay, f)\` expands to \`(1-f)·base + f·overlay\`, and
+   * \`base\` is itself the three covering shares — so every pass is still
+   * one weighted add into the same buffer and the sum is still exactly
+   * one. The fan is not a light; it is the same room with one object in
+   * a different state, which is why it comes off the top rather than on.
+   */
+  float f = overlayShare();
+  if (uSet == 3) return f;
+  float rest = 1.0 - f;
+  if (uSet == 0) return (1.0 - m1) * (1.0 - m2) * rest;
+  if (uSet == 1) return m1 * (1.0 - m2) * rest;
+  return m2 * rest;
 }
 `;
 
@@ -377,6 +407,7 @@ export class PlateRenderer {
   /* Curtain uniforms, looked up once. */
   private uSet: WebGLUniformLocation | null = null;
   private uCurtain: WebGLUniformLocation | null = null;
+  private uOverlayMix: WebGLUniformLocation | null = null;
   private scratch: Float32Array | null = null;
 
   /**
@@ -410,6 +441,11 @@ export class PlateRenderer {
     scales: number[][],
     tone: ToneCurve,
     private window: CurtainWindow | null = null,
+    /**
+     * A final set composited over the room inside a rectangle, rather
+     * than summed into it. `[u0, v0, u1, v1]`, v down.
+     */
+    private overlay: [number, number, number, number] | null = null,
   ) {
     const gl = canvas.getContext("webgl2", {
       alpha: false,
@@ -424,10 +460,17 @@ export class PlateRenderer {
     if (!gl) throw new Error("plates: no WebGL2 context");
     this.gl = gl;
     this.sets = scales.length;
-    if (this.sets < 1 || this.sets > 3) {
-      throw new Error(`plates: expected one to three plate sets, got ${this.sets}`);
+    if (this.sets < 1 || this.sets > 4) {
+      throw new Error(`plates: expected one to four plate sets, got ${this.sets}`);
     }
-    this.roles = this.sets === 3 ? [0, 1, 2] : this.sets === 2 ? [0, 2] : [0];
+    /**
+     * Which blend role each set plays. The overlay, when there is one, is
+     * always last and always role 3 — it is composited over whatever the
+     * covering sets add up to rather than being one of them.
+     */
+    const covering = overlay ? this.sets - 1 : this.sets;
+    this.roles = covering === 3 ? [0, 1, 2] : covering === 2 ? [0, 2] : [0];
+    if (overlay) this.roles.push(3);
     this.n = scales[0].length;
     if (scales.some((set) => set.length !== this.n)) {
       throw new Error("plates: the plate sets do not have the same layers");
@@ -451,6 +494,7 @@ export class PlateRenderer {
      * bandwidth of a full float at every read and write.
      */
     const blending = this.sets > 1;
+    this.uOverlayMix = null;
     if (blending) {
       const float = gl.getExtension("EXT_color_buffer_float");
       const half = float ? null : gl.getExtension("EXT_color_buffer_half_float");
@@ -509,6 +553,17 @@ export class PlateRenderer {
     if (blending) {
       this.uSet = gl.getUniformLocation(program, "uSet");
       this.uCurtain = gl.getUniformLocation(program, "uCurtain");
+      this.uOverlayMix = gl.getUniformLocation(program, "uOverlayMix");
+      if (overlay) {
+        gl.uniform4fv(gl.getUniformLocation(program, "uOverlayRect"), overlay);
+        // Six pixels, as the brief asks, in the plate's own uv.
+        const px = 6;
+        gl.uniform2f(
+          gl.getUniformLocation(program, "uOverlaySoft"),
+          px / Math.max(1, canvas.width || 1920),
+          px / Math.max(1, canvas.height || 1080),
+        );
+      }
       gl.uniform1f(gl.getUniformLocation(program, "uHasWindow"), window ? 1 : 0);
       if (window) {
         // Column-major for GLSL, transposed here rather than by the driver:
@@ -669,7 +724,13 @@ export class PlateRenderer {
    * a room sitting at any of the three rest positions costs one pass and a
    * blit, and only a track actually in motion costs two or three.
    */
-  draw(weights: Float32Array, exposure: number, curtain: [number, number] = [0, 0]): void {
+  draw(
+    weights: Float32Array,
+    exposure: number,
+    curtain: [number, number] = [0, 0],
+    /** How strongly the overlay set shows, 0..1. */
+    overlayMix = 0,
+  ): void {
     const gl = this.gl;
     if (this.lost) return;
     gl.useProgram(this.program);
@@ -698,10 +759,12 @@ export class PlateRenderer {
      * track across and the second not, and the shut set needs the second
      * to have started. Every rest position leaves exactly one.
      */
+    const fan = this.overlay ? Math.min(Math.max(overlayMix, 0), 1) : 0;
     const byRole = [
-      sheer < 1 && blackout < 1,
-      sheer > 0 && blackout < 1,
-      blackout > 0,
+      sheer < 1 && blackout < 1 && fan < 1,
+      sheer > 0 && blackout < 1 && fan < 1,
+      blackout > 0 && fan < 1,
+      fan > 0,
     ];
 
     this.sizeHdr();
@@ -709,6 +772,7 @@ export class PlateRenderer {
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.disable(gl.BLEND);
     gl.uniform2f(this.uCurtain, sheer, blackout);
+    gl.uniform1f(this.uOverlayMix, fan);
 
     let first = true;
     for (let set = 0; set < this.sets; set++) {

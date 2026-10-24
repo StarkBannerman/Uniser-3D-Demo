@@ -1,0 +1,59 @@
+{
+  "gamma": 5.0,
+  "width": 1536,
+  "height": 1064,
+  "sd": [
+    768,
+    532
+  ],
+  "layers": {
+    "ow_accent": {
+      "scale": 0.094098,
+      "clipped_pct": 0.004
+    },
+    "ow_break": {
+      "scale": 35.71172,
+      "clipped_pct": 0.0
+    },
+    "ow_display": {
+      "scale": 5.60625,
+      "clipped_pct": 0.0
+    },
+    "ow_general": {
+      "scale": 30.243752,
+      "clipped_pct": 0.0
+    },
+    "ow_linear": {
+      "scale": 36.693752,
+      "clipped_pct": 0.0
+    },
+    "ow_meeting": {
+      "scale": 36.569534,
+      "clipped_pct": 0.0
+    },
+    "ow_task_a": {
+      "scale": 36.28125,
+      "clipped_pct": 0.0
+    },
+    "ow_task_b": {
+      "scale": 34.127346,
+      "clipped_pct": 0.0
+    },
+    "sky": {
+      "scale": 0.892603,
+      "clipped_pct": 0.0
+    },
+    "day_morning": {
+      "scale": 0.466113,
+      "clipped_pct": 0.001
+    },
+    "day_midday": {
+      "scale": 0.46355,
+      "clipped_pct": 0.002
+    },
+    "day_evening": {
+      "scale": 0.597437,
+      "clipped_pct": 0.003
+    }
+  }
+}

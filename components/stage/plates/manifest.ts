@@ -56,6 +56,43 @@ export interface HotspotFile {
     travel?: string;
     pad?: number;
   };
+  /**
+   * Named screen-space rectangles the offline renderer projected, such as
+   * `fan_rect`: `[u0, v0, u1, v1]` with v down.
+   *
+   * Looked up by name rather than declared one by one, because the set
+   * decides what it has projected and a space only says which one it
+   * wants. See `rectNamed`.
+   */
+  [named: string]: unknown;
+}
+
+/**
+ * One of the hotspot file's named rectangles, normalised, or null.
+ *
+ * Null for anything unusable, which is a working outcome rather than a
+ * failure — a caller falls back to not compositing. Unusable covers more
+ * than absent: the office set shipped `fan_rect` as
+ * `[1.1018, 0, 1, 0.2976]`, which is inverted *and* entirely off the right
+ * edge of the frame, and a rectangle that cannot contain a pixel is the
+ * same thing as no rectangle at all.
+ */
+export function rectNamed(
+  file: HotspotFile | null,
+  name: string,
+): [number, number, number, number] | null {
+  const raw = file ? (file as Record<string, unknown>)[name] : null;
+  if (!Array.isArray(raw) || raw.length !== 4 || !raw.every((n) => typeof n === "number" && Number.isFinite(n))) {
+    return null;
+  }
+  const [a, b, c, d] = raw as number[];
+  const u0 = Math.max(0, Math.min(a, c));
+  const u1 = Math.min(1, Math.max(a, c));
+  const v0 = Math.max(0, Math.min(b, d));
+  const v1 = Math.min(1, Math.max(b, d));
+  // A rectangle clipped to the frame has to still have some frame in it.
+  if (u1 - u0 < 1e-3 || v1 - v0 < 1e-3) return null;
+  return [u0, v0, u1, v1];
 }
 
 export interface Hotspot {

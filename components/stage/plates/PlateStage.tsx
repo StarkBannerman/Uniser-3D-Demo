@@ -28,7 +28,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSim } from "@/lib/sim/store";
-import type { LightState, ShadeState } from "@/lib/sim/types";
+import type { FanState, LightState, ShadeState } from "@/lib/sim/types";
 import { curtainWindow } from "./window";
 import { classifyRenderer, detectRenderPath, rendererString } from "@/lib/device";
 import {
@@ -37,6 +37,7 @@ import {
   layerRole,
   layersOf,
   plateUrl,
+  rectNamed,
   stillUrl,
   type HotspotFile,
   type PlateManifest,
@@ -166,6 +167,7 @@ export function PlateStage({
   dir,
   profile: profileName,
   curtain,
+  overlay,
   controlsOpen = false,
 }: {
   dir: string;
@@ -183,6 +185,8 @@ export function PlateStage({
     deviceId: string;
     window?: { quad: [number, number][]; pad?: number; travel?: string };
   };
+  /** A set composited over the room inside a named rect. See `Space.plates.overlay`. */
+  overlay?: { dir: string; deviceId: string; rect: string };
   /** Controls tab is showing, so the room should say where each circuit is. */
   controlsOpen?: boolean;
 }) {
@@ -192,10 +196,21 @@ export function PlateStage({
   const [hotspots, setHotspots] = useState<HotspotFile | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  /**
+   * Whether the overlay set is actually compositing.
+   *
+   * False until a set and a usable rectangle have both turned up, and
+   * read by the hotspot layer: with no blur to show, the fan's own
+   * marker spins instead, so the control still has something to point at.
+   */
+  const [overlayLive, setOverlayLive] = useState(false);
   // Destructured so the effect depends on two strings rather than on an
   // object literal the space file rebuilds on every render.
   const sheerDir = curtain?.sheerDir;
   const declaredWindow = curtain?.window;
+  const overlayDir = overlay?.dir;
+  const overlayRect = overlay?.rect;
+  const overlayId = overlay?.deviceId;
   const closedDir = curtain?.closedDir;
   const curtainId = curtain?.deviceId;
 
@@ -212,24 +227,48 @@ export function PlateStage({
 
     (async () => {
       let manifest: PlateManifest;
-      /** The two curtain sets, in shader order: sheer drawn, then shut. */
+      /** The further sets, in shader order: sheer, shut, then the overlay. */
       let extra: PlateManifest[] = [];
+      /** Whether the overlay set was actually there to load. */
+      let overlayLoaded = Boolean(overlayDir);
+      /** Every set's directory, in shader order. Filled with the manifests. */
+      let setDirs: string[] = [dir];
       let hotspotFile: HotspotFile;
       let chosen: PlateTier;
       try {
-        // In shader order: the middle state, if there is one, then shut.
+        /**
+         * In shader order: the middle state if there is one, then shut,
+         * then the overlay.
+         *
+         * The overlay is *probed* rather than declared-and-trusted. A
+         * space can name a set the render has not produced yet — the
+         * office names its fan before the blur exists — and the honest
+         * behaviour is to find out, not to hard-code the absence. A 404
+         * here simply means no overlay this load.
+         */
         const dirs = closedDir ? [...(sheerDir ? [sheerDir] : []), closedDir] : [];
+        if (overlayDir) dirs.push(overlayDir);
+        setDirs = [dir, ...dirs];
         const [m, h, ...rest] = await Promise.all([
           fetch(`${dir}/manifest.json`).then((r) => r.json() as Promise<PlateManifest>),
           fetch(`${dir}/hotspots.json`).then((r) => r.json() as Promise<HotspotFile>),
           ...dirs.map((d) =>
-            fetch(`${d}/manifest.json`).then((r) => r.json() as Promise<PlateManifest>),
+            fetch(`${d}/manifest.json`)
+              .then((r) => (r.ok ? (r.json() as Promise<PlateManifest>) : null))
+              .catch(() => null),
           ),
         ]);
         if (cancelled) return;
         manifest = m;
         hotspotFile = h;
-        extra = rest;
+        // A covering set that will not load is a broken plate set and is
+        // reported below; an overlay that will not load is routine.
+        if (overlayDir && rest.length && rest[rest.length - 1] === null) {
+          rest.pop();
+          setDirs.pop();
+          overlayLoaded = false;
+        }
+        extra = rest.filter((x): x is PlateManifest => x !== null);
         chosen = pickTier(1 + extra.length);
         setTier(chosen);
         setHotspots(h);
@@ -243,18 +282,46 @@ export function PlateStage({
       const plateH = chosen === "hd" ? manifest.height : manifest.sd[1];
 
       /**
-       * The curtain sets must describe the same circuits as the first.
+       * The overlay's rectangle, validated rather than trusted.
        *
-       * The layer list and the sampler order come from the open manifest, so
-       * a set that renamed or dropped a layer would quietly composite one
-       * circuit's plate under another's weight. Better to fall back to the
-       * single set and say so than to show a wrong room.
+       * `rectNamed` rejects anything that cannot contain a pixel, which
+       * covers more than absence: the office set shipped `fan_rect` as
+       * `[1.1018, 0, 1, 0.2976]` — inverted, and entirely off the right
+       * edge of the frame. Compositing into that would show nothing at
+       * best, so it counts as not having one.
        */
-      if (extra.some((e) => layers.some((l) => e.layers[l] === undefined))) {
-        console.error(
-          `plates: ${sheerDir} / ${closedDir} do not have every layer ${dir} has — ignoring the curtain`,
+      const overlayBox = overlayLoaded ? rectNamed(hotspotFile, overlayRect ?? "") : null;
+      if (overlayLoaded && !overlayBox) {
+        console.warn(
+          `plates: ${dir} has no usable "${overlayRect}" rectangle — the overlay set will not be composited`,
         );
-        extra = [];
+        extra.pop();
+        setDirs.pop();
+        overlayLoaded = false;
+      }
+      // The hotspot marks the fan itself while there is no blur to show.
+      setOverlayLive(overlayLoaded);
+
+      /**
+       * A layer the base set has and a later set does not falls back to
+       * the base set's own plate.
+       *
+       * The sampler order comes from the base manifest, so nothing is
+       * matched positionally — a set that *renamed* a layer would still
+       * be caught, because the name would simply not be found. But a set
+       * that does not have one at all is ordinary and should not cost
+       * the room its blinds: the office's closed render has no `ow_cove`,
+       * a cove inside a dropped ceiling that lowering a blind has no
+       * bearing on. Pointing that layer at the base plate in every set
+       * makes `mix(a, a, t)` return `a` whatever the position, which is
+       * exactly the statement "this circuit does not change".
+       */
+      const fallback = extra.map((e) => layers.filter((l) => e.layers[l] === undefined));
+      const absent = [...new Set(fallback.flat())];
+      if (absent.length) {
+        console.warn(
+          `plates: ${absent.join(", ")} is missing from a covering set of ${dir} — using the base plate, so it does not change as the covering moves`,
+        );
       }
 
       /**
@@ -283,9 +350,13 @@ export function PlateStage({
         renderer = new PlateRenderer(
           canvas,
           manifest.gamma,
-          [manifest, ...extra].map((m) => layers.map((l) => m.layers[l].scale)),
+          // A set without a layer borrows the base set's scale with its plate.
+          [manifest, ...extra].map((m) =>
+            layers.map((l) => (m.layers[l] ?? manifest.layers[l]).scale),
+          ),
           toneCurve(),
           glass,
+          overlayBox,
         );
       } catch (e) {
         if (!cancelled) {
@@ -357,7 +428,7 @@ export function PlateStage({
           const moved = easeClockLayers(now);
           if (dirty || moved) {
             dirty = false;
-            renderer.draw(shown, exposure, curtainPos);
+            renderer.draw(shown, exposure, curtainPos, overlayMix);
           }
           if (tweening) schedule();
         });
@@ -370,18 +441,45 @@ export function PlateStage({
        * plate sets rather than scaling one of them, so it reaches the GPU as
        * its own uniform and has to be watched for change separately.
        */
+      /**
+       * How many of the sets are *coverings* rather than the overlay.
+       *
+       * Declared here because everything downstream needs it — which
+       * track positions to read, which roles to bind, which sets the
+       * opening frame is showing — and it has to exist before the first
+       * of those runs.
+       */
+      const covering = overlayLoaded ? extra.length - 1 : extra.length;
+
       const trackPositions = (): [number, number] => {
-        if (!extra.length || !curtainId) return [0, 0];
+        if (!curtainId) return [0, 0];
         const st = useSim.getState().states[curtainId] as ShadeState | undefined;
         const clamp = (v: number) => Math.min(Math.max(v / 100, 0), 1);
         // A one-covering window reports no middle track, so its shade's
         // unused `sheer` never reaches the shader as a position.
-        return [extra.length === 2 ? clamp(st?.sheer ?? 0) : 0, clamp(st?.blackout ?? 0)];
+        return [covering === 2 ? clamp(st?.sheer ?? 0) : 0, clamp(st?.blackout ?? 0)];
       };
       let curtainPos: [number, number] = trackPositions();
 
+      /**
+       * How strongly the overlay set shows, from the fan's speed.
+       *
+       * The client's figures: off, then 0.6, 0.85 and 1.0. A blurred
+       * blade at low speed is still a blade, so the lowest setting is
+       * more than half rather than a tenth — the thing being signalled is
+       * "running", and only then how fast.
+       */
+      const OVERLAY_BY_SPEED = [0, 0.6, 0.85, 1];
+      const overlayStrength = (): number => {
+        if (!overlayLoaded || !overlayId) return 0;
+        const st = useSim.getState().states[overlayId] as FanState | undefined;
+        if (!st?.on) return 0;
+        return OVERLAY_BY_SPEED[Math.min(Math.max(st.speed, 0), 3)] ?? 1;
+      };
+      let overlayMix = overlayStrength();
+
       const refresh = () => {
-        const { space, states, clockMin, daylightMix } = useSim.getState();
+        const { space, states, clockMin, daylightMix, daylightTint } = useSim.getState();
         if (!space) return;
         const weightsMoved = computeWeights(
           target,
@@ -391,13 +489,14 @@ export function PlateStage({
           clockMin,
           profile,
           daylightMix,
+          daylightTint,
         );
         let curtainMoved = false;
-        if (extra.length && curtainId) {
+        if (covering && curtainId) {
           const shade = states[curtainId] as ShadeState | undefined;
           const clamp = (v: number) => Math.min(Math.max(v / 100, 0), 1);
           const next: [number, number] = [
-            extra.length === 2 ? clamp(shade?.sheer ?? 0) : 0,
+            covering === 2 ? clamp(shade?.sheer ?? 0) : 0,
             clamp(shade?.blackout ?? 0),
           ];
           /**
@@ -422,7 +521,10 @@ export function PlateStage({
             curtainMoved = true;
           }
         }
-        if (!weightsMoved && !curtainMoved) return;
+        const nextOverlay = overlayStrength();
+        const overlayMoved = nextOverlay !== overlayMix;
+        if (overlayMoved) overlayMix = nextOverlay;
+        if (!weightsMoved && !curtainMoved && !overlayMoved) return;
 
         // Circuits pass straight through; the clock layers start a tween from
         // wherever they currently are, so a scene that moves the clock slides
@@ -478,10 +580,12 @@ export function PlateStage({
       tweening = false;
       unsubscribe = useSim.subscribe(refresh);
 
-      const setDirs = [dir, ...(extra.length ? [...(sheerDir ? [sheerDir] : []), closedDir!] : [])];
       const fetchLayer = async (layer: string, set: number) => {
         try {
-          const image = await loadImage(plateUrl(setDirs[set], chosen, layer));
+          // Set 0 is the base; any later set missing this layer borrows it.
+          const from =
+            set > 0 && fallback[set - 1]?.includes(layer) ? setDirs[0] : setDirs[set];
+          const image = await loadImage(plateUrl(from, chosen, layer));
           if (cancelled || !renderer) return;
           renderer.setLayer(layers.indexOf(layer), image, set);
           if ("close" in image) image.close();
@@ -511,8 +615,10 @@ export function PlateStage({
         sheerNow < 1 && blackoutNow < 1,
         sheerNow > 0 && blackoutNow < 1,
         blackoutNow > 0,
+        true,
       ];
-      const roles = extra.length === 2 ? [0, 1, 2] : extra.length === 1 ? [0, 2] : [0];
+      const roles = covering === 2 ? [0, 1, 2] : covering === 1 ? [0, 2] : [0];
+      if (overlayLoaded) roles.push(3);
       const showing = roles.map((r) => byRole[r]);
       for (let set = 0; set < showing.length; set++) {
         for (const layer of layers) {
@@ -540,7 +646,7 @@ export function PlateStage({
       renderer?.dispose();
       useSim.getState().setStageStatic(false);
     };
-  }, [dir, profileName, sheerDir, closedDir, curtainId, declaredWindow]);
+  }, [dir, profileName, sheerDir, closedDir, curtainId, declaredWindow, overlayDir, overlayRect, overlayId]);
 
   const space = useSim((s) => s.space);
   const select = useSim((s) => s.select);
@@ -561,6 +667,8 @@ export function PlateStage({
    * are not.
    */
   const showHotspots = controlsOpen;
+  const states = useSim((s) => s.states);
+  const overlaySpinnerId = overlay?.deviceId;
 
   return (
     <div ref={containerRef} className="absolute inset-0">
@@ -613,7 +721,21 @@ export function PlateStage({
              * vehicles sit there quietly, and the chosen one wears its name.
              */
             const vehicle = Boolean(option);
-            const shown = showHotspots || hoveredDeviceId === deviceId || vehicle;
+            /**
+             * A fan with no blur to show marks itself instead.
+             *
+             * The overlay set is what makes the blades move, and until it
+             * exists the control has nothing to point at — so the marker
+             * spins, stays visible while the fan runs, and goes back to
+             * being an ordinary hotspot the moment the real composite
+             * takes over.
+             */
+            const spinning =
+              !overlayLive &&
+              deviceId === overlaySpinnerId &&
+              Boolean((states[deviceId] as FanState | undefined)?.on);
+            const shown =
+              showHotspots || hoveredDeviceId === deviceId || vehicle || spinning;
             return (
               <button
                 key={pointId}
@@ -635,6 +757,13 @@ export function PlateStage({
                   pointerEvents: shown ? "auto" : "none",
                 }}
               >
+                {spinning && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 animate-spin rounded-full border border-brass-300/70 border-t-transparent"
+                    style={{ animationDuration: "0.6s" }}
+                  />
+                )}
                 <span
                   className={`block rounded-full ring-1 ring-black/50 transition group-hover:scale-125 group-hover:bg-brass-300 ${
                     chosen

@@ -171,6 +171,13 @@ def linear(layer, tier="sd", plates=None):
     never ask for HD at all.
     """
     base = plates or PLATES
+    # A covering set without a layer borrows the base set's, exactly as
+    # `PlateStage` does: mix(a, a, t) is a, which is the statement "this
+    # circuit does not change as the covering moves". The office's closed
+    # render has no `ow_cove`, and a cove inside a dropped ceiling is not
+    # something a blind at the window reaches.
+    if base != PLATES and not (base / tier / f"{layer}.webp").exists():
+        base = PLATES
     key = (str(base), f"{tier}/{layer}")
     hit = _CACHE.get(key)
     if hit is None:
@@ -226,6 +233,10 @@ def glass_mask():
     there is no `sky_day` to find the glass with and nothing to measure.
     """
     day_view = "sky_day" if "sky_day" in LIN else ("day_sky" if "day_sky" in LIN else None)
+    if day_view is None:
+        # A set with one view plate still has glass; it just has to be
+        # found with the only sky render there is.
+        day_view = "sky" if "sky" in LIN else None
     if day_view is None:
         return None
     L = lum(LIN[day_view])
@@ -431,7 +442,18 @@ def curtain_shares(curtain, shape):
     return [by_role[r] for r in CURTAIN_ROLES]
 
 
-def layer_weight(layer, targets, clock, g, mix=None):
+def hex_to_linear(hex_s):
+    """`#5b6f9e` to a linear multiplier at unit luminance. Mirrors `weights.ts`."""
+    if not hex_s:
+        return np.array([1.0, 1.0, 1.0])
+    h = hex_s.strip().lstrip("#")
+    if len(h) != 6:
+        return np.array([1.0, 1.0, 1.0])
+    rgb = srgb_to_linear(np.array([int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]))
+    return unit(rgb)
+
+
+def layer_weight(layer, targets, clock, g, mix=None, tint_rgb=None):
     """One layer's RGB weight, exactly as `computeWeights` works it out.
 
     `mix` is a scene's `daylight` map, 0-100 per exterior layer; None means
@@ -439,6 +461,9 @@ def layer_weight(layer, targets, clock, g, mix=None):
     an hour of their own.
     """
     night = 1 - dayness(clock)
+    sky_tint = np.array([1.0, 1.0, 1.0]) if tint_rgb is None else tint_rgb
+    # One view plate and no night render: it follows the day with a floor.
+    sole_view = not any(l in LAYERS for l in ("sky_day", "day_sky"))
     if layer in CIRCUITS:
         st = targets.get(layer.replace("_", "-"))
         if not st or not st.get("on"):
@@ -457,17 +482,18 @@ def layer_weight(layer, targets, clock, g, mix=None):
              else tint(lit.get("cct", 2700), lit.get("hue", 0), lit.get("sat", 0)))
         return w * t
     if mix is not None:
-        return np.array([1.0, 1.0, 1.0]) * (mix.get(layer, 0) / 100) * g.get(layer, 1)
+        return sky_tint * (mix.get(layer, 0) / 100) * g.get(layer, 1)
     if layer == "sky":
-        return np.array([1.0, 1.0, 1.0]) * night * g.get(layer, 1)
+        share = max(0.08, 1 - night) if sole_view else night
+        return sky_tint * share * g.get(layer, 1)
     if layer in ("sky_day", "day_sky"):
-        return np.array([1.0, 1.0, 1.0]) * (1 - night) * g.get(layer, 1)
+        return sky_tint * (1 - night) * g.get(layer, 1)
     w = day_weights(clock, ENV)[DAY_ORDER.index(layer)]
-    return np.array([1.0, 1.0, 1.0]) * w * g.get(layer, 1)
+    return sky_tint * w * g.get(layer, 1)
 
 
 def render(targets, clock, gain=None, exposure=EXPOSURE, mix=None, tier="sd",
-           plates=None, curtain=(0.0, 0.0)):
+           plates=None, curtain=(0.0, 0.0), tint=None):
     """The composite, as the browser draws it.
 
     `curtain` is the two tracks, each 0 drawn back to 1 drawn across. The
@@ -494,7 +520,7 @@ def render(targets, clock, gain=None, exposure=EXPOSURE, mix=None, tier="sd",
             continue
         acc = None
         for l in LAYERS:
-            w = layer_weight(l, targets, clock, g, mix)
+            w = layer_weight(l, targets, clock, g, mix, hex_to_linear(tint))
             if w is None:
                 continue
             contrib = linear(l, tier, folder) * np.asarray(w, np.float32)
@@ -537,12 +563,35 @@ def check_window():
     return ok
 
 
+def declared_circuits():
+    """Light circuits a space declares that this plate set cannot draw.
+
+    Silent today and visible here: a device with no layer still gets a
+    slider, an energy figure and a place in every scene, and does exactly
+    nothing to the picture. Worth one line in the report rather than a
+    client finding it.
+    """
+    name = re.sub(r"_(sheer|closed|fan)$", "", PLATES.name)
+    for path in sorted((ROOT / "lib/spaces").rglob("*.ts")):
+        src = _strip_comments(path.read_text())
+        if f'dir: "/plates/{name}"' not in src:
+            continue
+        ids = re.findall(r'id:\s*"([a-z]{2}-[a-z-]+)",\s*\n\s*kind:\s*"light"', src)
+        missing = [i.replace("-", "_") for i in ids if i.replace("-", "_") not in MAN["layers"]]
+        if missing:
+            print(f"  NO circuit {', '.join(missing)} declared with no plate in this set"
+                  f" — the control works and the picture does not move")
+        return not missing
+    return True
+
+
 def report(gain=None):
+    circuits_ok = declared_circuits()
     window_ok = check_window()
     if GLASS is None:
         print("  this plate set has no sky layers, so there is nothing to check here.")
         print("  use --gains to derive the circuit table instead.")
-        return window_ok
+        return window_ok and circuits_ok
     night = lum(render(OFF, 60, gain))[GLASS]            # 01:00
     dayimg = render(OFF, 13 * 60, gain)                  # 13:00
     day = lum(dayimg)[GLASS]
@@ -558,7 +607,7 @@ def report(gain=None):
           f"   skyline p98 {np98:.3f} (target >=0.45)")
     print(f"  {ok(day_ok)}{dayname} gain {g.get(dayname, 1):>6}   13:00 glass mean   {dmean:.3f} (target 0.65-0.80)"
           f"   frame clipped {clip:.2f}%")
-    return sky_ok and day_ok and window_ok
+    return sky_ok and day_ok and window_ok and circuits_ok
 
 
 def solve():
@@ -583,7 +632,20 @@ def solve():
 
 
 def derive(lumens: dict, ref: str, target: float = 0.25):
-    """Lumen-proportional gains, anchored so `ref` alone at full hits `target`."""
+    """Lumen-proportional gains, anchored so `ref` alone at full hits `target`.
+
+    A circuit the space declares but the render does not have is reported
+    and skipped rather than crashing the tool. That is a real situation —
+    the office floor shipped with eight of its nine circuits — and the
+    useful response is the other eight's gains plus a line saying which one
+    is missing, not a stack trace.
+    """
+    absent = [l for l in lumens if l not in MAN["layers"]]
+    if absent:
+        print(f"  no plate for {', '.join(absent)} — skipped; re-run when the set has them\n")
+        lumens = {l: v for l, v in lumens.items() if l not in absent}
+    if ref not in lumens:
+        sys.exit(f"the anchor {ref} has no plate in {PLATES.name}")
     mean = {l: float(lum(LIN[l]).mean()) for l in lumens}
     lo, hi = 0.01, 1e9
     for _ in range(60):                      # find the reference gain first
@@ -612,8 +674,9 @@ def still(state_path: str, out_dir: str):
     clock = st["clockMin"]
     mix = st.get("daylightMix")
     curtain = st.get("curtain", [0.0, 0.0])
+    tint = st.get("daylightTint")
     for tier, w, h in (("hd", MAN["width"], MAN["height"]), ("sd", *MAN["sd"])):
-        img = render(targets, clock, mix=mix, tier=tier, curtain=curtain)
+        img = render(targets, clock, mix=mix, tier=tier, curtain=curtain, tint=tint)
         L = lum(img)
         arr = np.clip(img * 255.0 + 0.5, 0, 255).astype(np.uint8)
         pic = Image.fromarray(arr)

@@ -57,7 +57,7 @@ function dump(spaceId: string, sceneId: string) {
   useSim.getState().applyScene(sceneId);
   run(SETTLE_MS);
 
-  const { states, clockMin, daylightMix } = useSim.getState();
+  const { states, clockMin, daylightMix, daylightTint } = useSim.getState();
   const out: Record<string, unknown> = {};
   for (const device of space.devices) {
     if (device.kind !== "light") continue;
@@ -82,6 +82,7 @@ function dump(spaceId: string, sceneId: string) {
     scene: sceneId,
     clockMin: Math.round(clockMin),
     daylightMix: daylightMix ?? null,
+    daylightTint: daylightTint ?? null,
     curtain: shade ? [track(shade.sheer), track(shade.blackout)] : [0, 0],
     states: out,
   };

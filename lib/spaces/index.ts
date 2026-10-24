@@ -17,11 +17,12 @@ import { workspace } from "./commercial/workspace";
 import { restaurant } from "./commercial/restaurant";
 import { showroom } from "./commercial/showroom";
 import { cabin } from "./commercial/cabin";
+import { office } from "./commercial/office";
 import { hotelLobby } from "./hospitality/hotel-lobby";
 import { lobby } from "./hospitality/lobby";
 import { room } from "./hospitality/room";
 
-export const spaces: Space[] = [restaurant, showroom, lobby, room, cabin];
+export const spaces: Space[] = [restaurant, showroom, lobby, room, cabin, office];
 
 /**
  * Registered but not offered.
