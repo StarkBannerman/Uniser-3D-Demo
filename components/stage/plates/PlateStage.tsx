@@ -28,7 +28,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSim } from "@/lib/sim/store";
-import type { AvState, FanState, LightState, ShadeState } from "@/lib/sim/types";
+import type { AvState, ClimateState, FanState, LightState, ShadeState } from "@/lib/sim/types";
 import { curtainWindow } from "./window";
 import { classifyRenderer, detectRenderPath, rendererString } from "@/lib/device";
 import {
@@ -168,6 +168,7 @@ export function PlateStage({
   profile: profileName,
   curtain,
   overlay,
+  cues,
   controlsOpen = false,
 }: {
   dir: string;
@@ -183,7 +184,13 @@ export function PlateStage({
     sheerDir?: string;
     closedDir: string;
     deviceId: string;
-    window?: { quad: [number, number][]; pad?: number; travel?: string };
+    window?: {
+      quad: [number, number][];
+      pad?: number;
+      travel?: string;
+      split?: [number, number];
+      softPx?: number;
+    };
   };
   /** A set composited over the room inside a named rect. See `Space.plates.overlay`. */
   overlay?: {
@@ -193,6 +200,8 @@ export function PlateStage({
     travel?: "fade" | "drop";
     pinLayers?: string[];
   };
+  /** Soft overlays the space opts into. See `Space.plates.cues`. */
+  cues?: ("tv" | "airflow")[];
   /** Controls tab is showing, so the room should say where each circuit is. */
   controlsOpen?: boolean;
 }) {
@@ -706,6 +715,8 @@ export function PlateStage({
   const states = useSim((s) => s.states);
   const overlaySpinnerId = overlay?.deviceId;
   const sequence = useSim((s) => s.sequence);
+  const fireMomentary = useSim((s) => s.fireMomentary);
+  const momentaryId = space?.momentary?.deviceId;
   const cameraId = space?.avPanel?.cameraId;
 
   return (
@@ -728,6 +739,51 @@ export function PlateStage({
       )}
 
       {failed && <Fallback reason={failed} />}
+
+      {/**
+        * Two things the plates cannot show, drawn over them.
+        *
+        * A television's own screen and the air moving out of a diffuser
+        * are states no lighting circuit was rendered for — there is no
+        * plate with the TV awake and none with the air conditioning
+        * running. They are small, soft and positioned from the same
+        * hotspots the markers use, so they sit on the object rather
+        * than near it, and they are the only part of this stage that is
+        * not photometry.
+        */}
+      {ready && !failed && hotspots && space &&
+        (["tv", "hvac"] as const).map((key) => {
+          const wanted = key === "tv" ? "tv" : "airflow";
+          if (!cues?.includes(wanted)) return null;
+          const point = hotspots.points[key];
+          if (!point?.visible) return null;
+          const id = space.plates?.hotspotAliases?.[key]?.deviceId;
+          const st = id ? states[id] : undefined;
+          const on =
+            key === "tv"
+              ? Boolean((st as AvState | undefined)?.on)
+              : Boolean((st as ClimateState | undefined)?.on);
+          if (!on) return null;
+          const screen = key === "tv";
+          return (
+            <span
+              key={key}
+              aria-hidden
+              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
+              style={{
+                left: `${clampEdge(point.u) * 100}%`,
+                top: `${clampEdge(point.v) * 100}%`,
+                width: screen ? "17%" : "13%",
+                height: screen ? "13%" : "7%",
+                background: screen
+                  ? "radial-gradient(ellipse at center, rgba(130,180,255,0.30), rgba(130,180,255,0.10) 55%, transparent 75%)"
+                  : "linear-gradient(180deg, rgba(190,225,255,0.16), transparent 80%)",
+                filter: screen ? "blur(10px)" : "blur(7px)",
+                animation: screen ? undefined : "pulse 3.2s ease-in-out infinite",
+              }}
+            />
+          );
+        })}
 
       {ready && !failed && hotspots && space && (
         <div className="pointer-events-none absolute inset-0">
@@ -794,6 +850,9 @@ export function PlateStage({
                 onClick={() => {
                   select(deviceId);
                   if (option) setSelection(deviceId);
+                  // The wardrobe marker in the room *is* the door contact,
+                  // so tapping it is the same event the panel's button is.
+                  if (deviceId === momentaryId) fireMomentary();
                 }}
                 aria-pressed={option ? chosen : undefined}
                 aria-label={

@@ -36,6 +36,10 @@ export interface CurtainQuad {
   quad: [number, number][];
   /** How far past the opening the mask reaches, in quad-relative units. */
   pad?: number;
+  /** Panel reach for a `split`, as shares of the opening. Default half each. */
+  split?: [number, number];
+  /** Feathered edge in pixels. Default four. */
+  softPx?: number;
   /**
    * Which way the covering crosses. Defaults to `split`.
    *
@@ -63,6 +67,17 @@ export interface CurtainWindow {
   soft: [number, number];
   /** Which way the covering crosses its opening. */
   travel: CurtainTravel;
+  /**
+   * How far each panel of a `split` reaches at full travel, as a share
+   * of the opening.
+   *
+   * Half and half for a pair of curtains meeting in the middle, which is
+   * the default and what the hotel room does. A bedroom drape that stacks
+   * unevenly — more fabric on one side than the other — meets off
+   * centre, and the two numbers say where. They should sum to one, or
+   * the panels overlap or leave a gap at full travel.
+   */
+  split: [number, number];
 }
 
 /** Multiply out a 3x3, row-major. */
@@ -154,7 +169,7 @@ export function curtainWindow(
   const vs = spec.quad.map((p) => p[1]);
   const spanT = Math.max(1, (Math.max(...us) - Math.min(...us)) * plate.width);
   const spanS = Math.max(1, (Math.max(...vs) - Math.min(...vs)) * plate.height);
-  const SOFT_PX = 4;
+  const SOFT_PX = spec.softPx ?? 4;
 
   return {
     matrix: inverse,
@@ -164,5 +179,6 @@ export function curtainWindow(
     // that is not explicitly a drop is the curtain behaviour the room
     // already had.
     travel: spec.travel === "drop" ? "drop" : "split",
+    split: spec.split && spec.split.length === 2 ? spec.split : [0.5, 0.5],
   };
 }

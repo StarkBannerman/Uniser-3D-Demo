@@ -19,11 +19,21 @@ import { showroom } from "./commercial/showroom";
 import { cabin } from "./commercial/cabin";
 import { office } from "./commercial/office";
 import { boardroom as boardroomPlates } from "./commercial/boardroom";
+import { bedroom } from "./residential/bedroom";
 import { hotelLobby } from "./hospitality/hotel-lobby";
 import { lobby } from "./hospitality/lobby";
 import { room } from "./hospitality/room";
 
-export const spaces: Space[] = [restaurant, showroom, lobby, room, cabin, office, boardroomPlates];
+export const spaces: Space[] = [
+  restaurant,
+  showroom,
+  lobby,
+  room,
+  cabin,
+  office,
+  boardroomPlates,
+  bedroom,
+];
 
 /**
  * Registered but not offered.

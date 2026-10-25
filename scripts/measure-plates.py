@@ -327,10 +327,12 @@ def _declared_window(name: str):
             continue
         travel = re.search(r'travel:\s*"([^"]+)"', block)
         pad = re.search(r"pad:\s*([0-9.]+)", block)
+        split = re.findall(r"[0-9.]+", _block(block, "split"))
         return {
             "quad": [[float(a), float(b)] for a, b in quad],
             "pad": float(pad.group(1)) if pad else 0.02,
             "travel": travel.group(1) if travel else "split",
+            "split": [float(x) for x in split] if len(split) == 2 else [0.5, 0.5],
         }
     return None
 
@@ -473,10 +475,13 @@ def cover_at(p, t, s):
     if (CURTAIN or {}).get("travel") == "drop":
         hd = 0.008
         return smoothstep(1.0 - p - hd, 1.0 - p + hd, s)
-    reach = p * 0.5 + 0.01 * math.sin(math.pi * p) * np.sin(s * 12.0)
+    split = (CURTAIN or {}).get("split") or [0.5, 0.5]
+    ripple = 0.01 * math.sin(math.pi * p) * np.sin(s * 12.0)
+    near = p * split[0] + ripple
+    far = 1.0 - (p * split[1] + ripple)
     h = 0.015
-    return np.clip((1.0 - smoothstep(reach - h, reach + h, t))
-                   + smoothstep(1.0 - reach - h, 1.0 - reach + h, t), 0, 1)
+    return np.clip((1.0 - smoothstep(near - h, near + h, t))
+                   + smoothstep(far - h, far + h, t), 0, 1)
 
 
 def curtain_shares(curtain, shape):

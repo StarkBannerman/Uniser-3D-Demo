@@ -498,6 +498,15 @@ export interface SimStore {
    */
   stageStatic: boolean;
   /**
+   * A counter the room bumps when a momentary control is touched.
+   *
+   * `Space.momentary` is a door contact, and the wardrobe marker in the
+   * room is that door. The behaviour lives in the panel, so the stage
+   * raises this and the panel answers — a number rather than a boolean
+   * so two taps in a row are two events.
+   */
+  momentaryTick: number;
+  /**
    * Which member of `space.selection` the presenter has picked.
    *
    * Null until they choose, which the expansion reads as the group's
@@ -597,6 +606,8 @@ export interface SimStore {
   select: (deviceId: string | null) => void;
   hover: (deviceId: string | null) => void;
   setStageStatic: (isStatic: boolean) => void;
+  /** Fire the space's momentary control — see `momentaryTick`. */
+  fireMomentary: () => void;
   setSelection: (deviceId: string) => void;
   tick: (dtRealMs: number) => void;
 }
@@ -615,6 +626,7 @@ export const useSim = create<SimStore>((set, get) => ({
   selectedDeviceId: null,
   hoveredDeviceId: null,
   stageStatic: false,
+  momentaryTick: 0,
   selectionId: null,
   daylightMix: null,
   daylightTint: null,
@@ -895,6 +907,7 @@ export const useSim = create<SimStore>((set, get) => ({
     set((s) => (s.hoveredDeviceId === deviceId ? s : { hoveredDeviceId: deviceId })),
   setStageStatic: (isStatic) =>
     set((s) => (s.stageStatic === isStatic ? s : { stageStatic: isStatic })),
+  fireMomentary: () => set((s) => ({ momentaryTick: s.momentaryTick + 1 })),
 
   /**
    * Pick a member of the selection group.

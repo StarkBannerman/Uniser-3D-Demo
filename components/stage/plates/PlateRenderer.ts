@@ -162,6 +162,7 @@ uniform vec2 uSoft;      // edge softness in (t, s), about four pixels
 uniform float uPad;
 uniform float uHasWindow;
 uniform float uDrop;     // 1 for a blind down the glass, 0 for panels along the track
+uniform vec2 uSplit;     // how far each panel of a split reaches at full travel
 uniform vec4 uOverlayRect;   // u0, v0, u1, v1 — where an overlay set may show
 uniform vec2 uOverlaySoft;   // feathered edge, in uv
 uniform float uOverlayMix;   // how far the overlay is on, 0..1
@@ -214,11 +215,20 @@ float coverAt(float p, float t, float s) {
     const float hd = 0.008;
     return smoothstep(1.0 - p - hd, 1.0 - p + hd, s);
   }
-  // Not \`half\`, which GLSL ES reserves.
-  float reach = p * 0.5 + 0.01 * sin(3.14159265 * p) * sin(s * 12.0);
+  /**
+   * Two panels, each reaching its own share of the opening.
+   *
+   * Half and half for curtains that meet in the middle; a drape that
+   * stacks unevenly meets off centre and the two shares say where. The
+   * edges stay complementary either way — one falls where the other
+   * rises — which is what keeps the seam closed at full travel.
+   */
+  float ripple = 0.01 * sin(3.14159265 * p) * sin(s * 12.0);
+  float fromNear = p * uSplit.x + ripple;
+  float fromFar = 1.0 - (p * uSplit.y + ripple);
   const float h = 0.015;
-  return clamp((1.0 - smoothstep(reach - h, reach + h, t))
-             + smoothstep(1.0 - reach - h, 1.0 - reach + h, t), 0.0, 1.0);
+  return clamp((1.0 - smoothstep(fromNear - h, fromNear + h, t))
+             + smoothstep(fromFar - h, fromFar + h, t), 0.0, 1.0);
 }
 
 /**
@@ -605,6 +615,7 @@ export class PlateRenderer {
           gl.getUniformLocation(program, "uDrop"),
           window.travel === "drop" ? 1 : 0,
         );
+        gl.uniform2fv(gl.getUniformLocation(program, "uSplit"), window.split);
       }
 
       const rvs = compile(gl, gl.VERTEX_SHADER, VERT_BLIT);

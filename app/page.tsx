@@ -50,6 +50,12 @@ const DOORS: {
     blurb:
       "The rooms a company works in and is seen working in. An executive cabin lit like hospitality rather than like an office, with the workspace and the boardroom alongside it.",
   },
+  {
+    segment: "residential",
+    lead: "Homes and private residences",
+    blurb:
+      "The rooms people live in rather than work in, where the argument is not running cost but whether one press at the bedside does what a person would expect it to.",
+  },
 ];
 
 /** A room's holding image, which is the first frame its stage will show. */

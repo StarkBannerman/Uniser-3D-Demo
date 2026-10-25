@@ -1,0 +1,72 @@
+{
+  "camera": "hero",
+  "points": {
+    "br-general": {
+      "u": 0.5456,
+      "v": 0.3166,
+      "visible": true
+    },
+    "br-cove": {
+      "u": 0.5501,
+      "v": 0.2727,
+      "visible": true
+    },
+    "br-bedside-l": {
+      "u": 0.3308,
+      "v": 0.5782,
+      "visible": true
+    },
+    "br-bedside-r": {
+      "u": 0.0616,
+      "v": 0.6323,
+      "visible": true
+    },
+    "br-reading": {
+      "u": 0.3214,
+      "v": 0.5223,
+      "visible": true
+    },
+    "br-wardrobe": {
+      "u": 0.5363,
+      "v": 0.493,
+      "visible": true
+    },
+    "br-path": {
+      "u": 0.3822,
+      "v": 0.7938,
+      "visible": true
+    },
+    "curtains": {
+      "u": 0.8237,
+      "v": 0.4752,
+      "visible": true
+    },
+    "hvac": {
+      "u": 0.6393,
+      "v": 0.298,
+      "visible": true
+    },
+    "fan": {
+      "u": 0.4734,
+      "v": 0.2103,
+      "visible": true
+    },
+    "keypad": {
+      "u": 0.4732,
+      "v": 0.5292,
+      "visible": true
+    },
+    "tv": {
+      "u": 0.9891,
+      "v": 0.511,
+      "visible": true
+    }
+  },
+  "fan_rect": [
+    0.3603,
+    0,
+    0.5835,
+    0.2918
+  ],
+  "fan_rect_order": "u0, v0, u1, v1 (v down)"
+}

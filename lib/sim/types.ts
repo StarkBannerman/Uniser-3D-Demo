@@ -138,6 +138,16 @@ export interface ClimateDevice extends DeviceBase {
   kind: "climate";
   minC: number;
   maxC: number;
+  /**
+   * The modes this unit's controller actually offers.
+   *
+   * A commercial cassette shows Cool / Heat / Auto / Fan; a bedroom
+   * split shows Cool / Dry / Auto / Sleep. Same engine, different
+   * printing on the handset — which is a property of the unit rather
+   * than of the panel, so it is declared here. Omitted gives the
+   * commercial four.
+   */
+  modes?: ClimateMode[];
   /** Compressor + fan draw at full load. */
   ratedWatts: number;
 }
@@ -260,9 +270,11 @@ export interface ShadeState {
  * `auto` lets the unit choose between heating and cooling against the
  * setpoint, which is what the mode selector on a real fan-coil controller
  * offers and what the hotel room's panel exposes. `dry` is the
- * dehumidification mode the residential units carry.
+ * dehumidification mode the residential units carry, and `sleep` is the
+ * overnight programme that lets the setpoint drift up — the single
+ * biggest saving in a residence and the one a bedroom is sold on.
  */
-export type ClimateMode = "cool" | "heat" | "fan" | "dry" | "auto";
+export type ClimateMode = "cool" | "heat" | "fan" | "dry" | "auto" | "sleep";
 
 export interface ClimateState {
   on: boolean;
@@ -718,6 +730,16 @@ export interface Space {
         quad: [number, number][];
         pad?: number;
         travel?: "split" | "drop";
+        /**
+         * How far each panel of a `split` reaches at full travel.
+         *
+         * Half and half for curtains meeting in the middle. A bedroom
+         * drape that stacks unevenly meets off centre, and these two
+         * shares say where.
+         */
+        split?: [number, number];
+        /** Feathered edge in pixels. Default four. */
+        softPx?: number;
       };
     };
     /**
@@ -763,6 +785,17 @@ export interface Space {
        */
       pinLayers?: string[];
     };
+    /**
+     * Soft overlays drawn on top of the composite, by name.
+     *
+     * Things no plate was rendered for: a television's own screen, the
+     * air moving out of a diffuser. They are opt-in rather than
+     * automatic because they are not photometry — every other room in
+     * this project shows exactly what was path-traced, and a room that
+     * starts shimmering because it happens to have an `hvac` marker is
+     * a room that changed without anybody asking.
+     */
+    cues?: ("tv" | "airflow")[];
     /**
      * Hotspots that are not named after a device, and what they mean.
      *
@@ -813,6 +846,24 @@ export interface Space {
   schedule?: { atMin: number; sceneId: string }[];
   /** Fall-back dimming when the room is empty. See `SpaceAutoDim`. */
   autoDim?: SpaceAutoDim;
+  /**
+   * A circuit that lights itself for a while and then falls back.
+   *
+   * A wardrobe on a door contact: open it, it comes to full, and twenty
+   * seconds later it goes back to whatever the scene asked for. Declared
+   * rather than wired into a panel so that the hotspot and the card do
+   * the same thing — tapping the wardrobe in the room *is* opening the
+   * door, and it should not matter which one you press.
+   */
+  momentary?: {
+    deviceId: string;
+    label: string;
+    /** Where it goes while it is held. */
+    level: number;
+    riseMs: number;
+    holdMs: number;
+    fallMs: number;
+  };
   /**
    * One card for a room's audio-visual system.
    *

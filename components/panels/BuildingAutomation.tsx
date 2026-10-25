@@ -19,6 +19,7 @@ import { useSim } from "@/lib/sim/store";
 import type {
   AvDevice,
   AvState,
+  ClimateDevice,
   ClimateMode,
   ClimateState,
   FanDevice,
@@ -435,7 +436,7 @@ function Hvac() {
   const space = useSim((s) => s.space);
   const states = useSim((s) => s.states);
   const patch = useSim((s) => s.patch);
-  const climate = space?.devices.find((d) => d.kind === "climate");
+  const climate = space?.devices.find((d): d is ClimateDevice => d.kind === "climate");
   const st = climate ? (states[climate.id] as ClimateState | undefined) : undefined;
   const setpoint = st?.setpointC ?? 22;
 
@@ -465,12 +466,18 @@ function Hvac() {
   if (!climate || !space || !st) return null;
   const settled = Math.abs(measured - setpoint) < 0.1;
 
-  const MODES: { value: ClimateMode; label: string }[] = [
-    { value: "cool", label: "Cool" },
-    { value: "heat", label: "Heat" },
-    { value: "auto", label: "Auto" },
-    { value: "fan", label: "Fan" },
-  ];
+  const LABEL: Record<ClimateMode, string> = {
+    cool: "Cool",
+    heat: "Heat",
+    auto: "Auto",
+    fan: "Fan",
+    dry: "Dry",
+    sleep: "Sleep",
+  };
+  const MODES = (climate.modes ?? ["cool", "heat", "auto", "fan"]).map((value) => ({
+    value,
+    label: LABEL[value],
+  }));
 
   return (
     <Card title="HVAC" note={st.on ? st.mode : "off"}>
@@ -854,6 +861,152 @@ function AvSystem() {
 }
 
 /* ------------------------------------------------------------------ */
+/* A circuit on a door contact                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The wardrobe: open the door and it lights, then falls back.
+ *
+ * Twenty seconds is a real door contact's hold — long enough to pick
+ * something out, short enough that an open door does not light the room
+ * all evening. Auto is on by default and the whole point; the toggle is
+ * there because the one thing worse than a light that does not come on
+ * is a light that will not stay off.
+ *
+ * Touching the dimmer by hand switches Auto off, for the same reason
+ * touching a colour slider takes a fixture off circadian tuning: a hand
+ * on the control is the person saying they are driving now.
+ */
+function Momentary() {
+  const space = useSim((s) => s.space);
+  const states = useSim((s) => s.states);
+  const patch = useSim((s) => s.patch);
+  const cfg = space?.momentary;
+  const [auto, setAuto] = useState(true);
+  const [open, setOpen] = useState(false);
+  /** The level to come back to, captured before the door opened. */
+  const restore = useRef<number | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fire = useCallback(() => {
+    if (!cfg) return;
+    const now = useSim.getState().states;
+    const st = now[cfg.deviceId] as LightState | undefined;
+    if (restore.current === null) restore.current = st?.on ? st.level : 0;
+    patch(cfg.deviceId, { on: true, level: cfg.level }, cfg.riseMs);
+    setOpen(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      const back = restore.current ?? 0;
+      patch(cfg.deviceId, back > 0 ? { on: true, level: back } : { on: false }, cfg.fallMs);
+      restore.current = null;
+      setOpen(false);
+    }, cfg.holdMs);
+  }, [cfg, patch]);
+
+  // The hotspot in the room is the same door. Firing from either is the
+  // same event, so the stage asks for it through the store rather than
+  // this card owning a behaviour the room cannot reach.
+  const doorEvent = useSim((s) => s.momentaryTick);
+  useEffect(() => {
+    if (doorEvent > 0 && auto) fire();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doorEvent]);
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  if (!cfg || !space) return null;
+  const st = states[cfg.deviceId] as LightState | undefined;
+  const name = space.devices.find((d) => d.id === cfg.deviceId)?.name ?? cfg.deviceId;
+
+  return (
+    <Card title={name} note={open ? "door open" : auto ? "auto" : "manual"}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-shell-400">{cfg.label}</span>
+        <Toggle on={auto} onChange={setAuto} label={`${cfg.label} auto`} />
+      </div>
+      <button
+        type="button"
+        disabled={!auto}
+        onClick={fire}
+        className="w-full rounded-lg border border-shell-800 px-2 py-1.5 text-[11px] text-shell-300 transition-colors hover:text-shell-100 disabled:opacity-40"
+      >
+        Simulate: door opened
+      </button>
+      <div className="mt-2 flex items-center justify-between text-[10px] text-shell-500">
+        <span>Level</span>
+        <span className="tabular-nums text-shell-300">{Math.round(st?.on ? st.level : 0)}%</span>
+      </div>
+      <Slider
+        value={Math.round(st?.on ? st.level : 0)}
+        min={0}
+        max={100}
+        label={`${name} level`}
+        onChange={(level) => {
+          setAuto(false);
+          restore.current = null;
+          patch(cfg.deviceId, level > 0 ? { on: true, level } : { on: false });
+        }}
+      />
+      <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
+        {open
+          ? `Door open — full for ${Math.round(cfg.holdMs / 1000)} s, then back to the scene level.`
+          : auto
+            ? `On the door contact: full in ${(cfg.riseMs / 1000).toFixed(1)} s, held ${Math.round(cfg.holdMs / 1000)} s, then back. Tapping it in the room does the same thing.`
+            : "Manual. Moving the dimmer switched the door contact out of the way."}
+      </p>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Television                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The one av device in a room that has no AV panel.
+ *
+ * Deliberately small: a bedroom television is on or off and has a
+ * volume, and a demo that puts a source picker and an EQ on it is
+ * selling the wrong thing. Spaces with a full `avPanel` render that
+ * instead — see `AvSystem`.
+ */
+function Television() {
+  const space = useSim((s) => s.space);
+  const states = useSim((s) => s.states);
+  const patch = useSim((s) => s.patch);
+  if (space?.avPanel) return null;
+  const tv = space?.devices.find((d) => d.kind === "av" && d.subsystem === "av" && d.id.endsWith("-tv"));
+  const st = tv ? (states[tv.id] as AvState | undefined) : undefined;
+  if (!tv || !st) return null;
+
+  return (
+    <Card title={tv.name} note={st.on ? st.source : "off"}>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-shell-400">Screen</span>
+        <Toggle on={st.on} onChange={(on) => patch(tv.id, { on })} label={tv.name} />
+      </div>
+      <div className="mb-1 flex items-center justify-between text-[10px] text-shell-500">
+        <span>Volume</span>
+        <span className="tabular-nums text-shell-300">{st.volume}</span>
+      </div>
+      <Slider
+        value={st.volume}
+        min={0}
+        max={100}
+        label="Television volume"
+        disabled={!st.on}
+        onChange={(volume) => patch(tv.id, { volume })}
+      />
+      <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
+        Off in every scene. A bedroom preset that switches a television on
+        is a preset nobody presses twice.
+      </p>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Zoned occupancy                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -1055,12 +1208,18 @@ function useAmbientPad() {
 
 function Music() {
   const space = useSim((s) => s.space);
-  // A room with its own AV card owns its speakers; this one would
-  // otherwise pick whichever `av` device happened to be declared first.
+  /**
+   * A room with its own AV card owns its speakers, and a television is
+   * not a music system.
+   *
+   * This card would otherwise take whichever `av` device happened to be
+   * declared first and offer to play a synthesised lobby pad through
+   * the bedroom's TV.
+   */
   const hasAvCard = Boolean(space?.avPanel);
   const states = useSim((s) => s.states);
   const patch = useSim((s) => s.patch);
-  const av = space?.devices.find((d) => d.kind === "av");
+  const av = space?.devices.find((d) => d.kind === "av" && !d.id.endsWith("-tv"));
   const pad = useAmbientPad();
   const [playing, setPlaying] = useState(false);
   const [blocked, setBlocked] = useState(false);
@@ -1124,6 +1283,7 @@ export function BuildingAutomation() {
     Boolean(space.autoDim) ||
     Boolean(space.occupancyZones) ||
     Boolean(space.avPanel) ||
+    Boolean(space.momentary) ||
     Boolean(space.daylightResponse) ||
     Boolean(space.exclusive?.length) ||
     space.devices.some(
@@ -1143,6 +1303,8 @@ export function BuildingAutomation() {
       <Schedule />
       <Curtains />
       <AvSystem />
+      <Television />
+      <Momentary />
       <DaylightResponse />
       <Occupancy />
       <OccupancyZones />
