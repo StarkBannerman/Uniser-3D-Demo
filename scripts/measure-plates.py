@@ -771,7 +771,14 @@ def still(state_path: str, out_dir: str):
             pic = pic.resize((w, h), Image.LANCZOS)
         dest = out / f"still_{tier}.jpg"
         pic.save(dest, quality=92, subsampling=0, optimize=True)
-        print(f"  {dest.relative_to(ROOT)}  {pic.size[0]}x{pic.size[1]}  mean {L.mean():.3f}"
+        # `--out` is allowed to point anywhere, including a scratch
+        # directory outside the repo, so the pretty relative name is a
+        # convenience rather than a guarantee.
+        try:
+            shown = dest.relative_to(ROOT)
+        except ValueError:
+            shown = dest
+        print(f"  {shown}  {pic.size[0]}x{pic.size[1]}  mean {L.mean():.3f}"
               f"  p99 {np.percentile(L, 99):.3f}  clipped {float((img.max(-1) >= 0.999).mean() * 100):.2f}%")
         _CACHE.clear()
 

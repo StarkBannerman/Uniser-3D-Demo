@@ -43,6 +43,10 @@ export function sceneIcon(scene: { id: string; icon: string }): IconName {
     "🔑": "key",
     "☕": "book",
     "🍴": "book",
+    // The living room needs one glyph the other rooms never used. "▣" is
+    // the screen going on, which in this room is the drapes drawing
+    // across first — so it wears the curtain.
+    "▣": "curtain",
   };
   if (byChar[scene.icon]) return byChar[scene.icon];
 

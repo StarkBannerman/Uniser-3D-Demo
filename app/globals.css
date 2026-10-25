@@ -166,3 +166,25 @@ input[type="range"].u-slider:disabled {
   0% { transform: translateX(-110%); }
   100% { transform: translateX(310%); }
 }
+
+/**
+ * A television that is on, in a room where no plate was rendered with it on.
+ *
+ * Two keyframes rather than one, because a screen is two things at once: a
+ * picture that moves and a colour that drifts. Panning the gradient and
+ * rotating the hue on different periods means the pair never visibly
+ * repeats, which is the whole job — a loop a client can count is worse than
+ * a still frame. Both are slow on purpose: this stands in for a picture
+ * behind glass at the far end of a room, not for the picture itself.
+ */
+@keyframes screen-drift {
+  0%   { transform: translate3d(-6%, -3%, 0) scale(1.18); }
+  50%  { transform: translate3d(6%, 3%, 0) scale(1.26); }
+  100% { transform: translate3d(-6%, -3%, 0) scale(1.18); }
+}
+
+@keyframes screen-tone {
+  0%   { filter: hue-rotate(-12deg) saturate(1); }
+  50%  { filter: hue-rotate(14deg) saturate(1.25); }
+  100% { filter: hue-rotate(-12deg) saturate(1); }
+}

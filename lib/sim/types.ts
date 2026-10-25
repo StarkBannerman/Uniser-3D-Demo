@@ -96,6 +96,21 @@ export interface LightDevice extends DeviceBase {
   tunable?: { minK: number; maxK: number };
   /** Present if the fixture can do saturated colour. */
   rgb?: boolean;
+  /**
+   * Named colours the control offers as one-tap swatches.
+   *
+   * Declared rather than global, because the useful eight are a property
+   * of the installation: a credenza shelf wants brand colours and a
+   * living room wants the warm half of the wheel plus whatever the
+   * client asked for. A circuit that declares none gets the hue and
+   * saturation sliders on their own, which is what every RGB circuit had
+   * before this and still the right answer for one nobody has thought
+   * about.
+   *
+   * `sat: 0` with a `cct` is a white preset — the one thing a hue slider
+   * cannot reach, and the one most people settle on.
+   */
+  swatches?: { label: string; hue: number; sat: number; cct?: number }[];
   /** Number of physical fixtures this control represents. */
   fixtures: number;
   wattsEach: number;
@@ -124,6 +139,17 @@ export interface ShadeDevice extends DeviceBase {
    * about yet.
    */
   presets?: { label: string; sheer?: number; blackout: number; hint?: string }[];
+  /**
+   * Whether the card offers Stop as well as the presets.
+   *
+   * Declared, like the presets, because only the space knows what is on
+   * the wall. A curtain track's plate has three buttons and the third
+   * one is this; a blind run from a preset controller has two, and
+   * showing a permanently greyed third on it would be inventing
+   * hardware. Stop is enabled only while the motor is actually running —
+   * see `stopDevice`, which is the only way to drop the travel lock.
+   */
+  stoppable?: boolean;
   /** Motor draw while travelling. Negligible, but honest. */
   watts: number;
   /** Full open -> fully closed travel time. */
@@ -155,6 +181,17 @@ export interface ClimateDevice extends DeviceBase {
 export interface AvDevice extends DeviceBase {
   kind: "av";
   sources: string[];
+  /**
+   * A scene this device's card offers as a button.
+   *
+   * For the one case where a preset is really an AV function rather than
+   * a lighting one: Movie mode draws the curtains, takes the room down
+   * to the bias light and starts the picture, and somebody looking for
+   * it looks at the television card rather than at the scene pad. The
+   * button runs the ordinary scene — there is no second code path, so it
+   * cannot drift from what the pad does.
+   */
+  sceneButton?: { sceneId: string; label: string };
   /** True if a motorized projector screen is part of the package. */
   hasScreen?: boolean;
   ratedWatts: number;
@@ -794,8 +831,15 @@ export interface Space {
      * this project shows exactly what was path-traced, and a room that
      * starts shimmering because it happens to have an `hvac` marker is
      * a room that changed without anybody asking.
+     *
+     * `tv` is a soft glow centred on the television's hotspot, for a set
+     * that projected a point and no rectangle. `screen` is the same idea
+     * for a set that projected `tv_rect`: a moving picture clipped to
+     * the glass, plus the cool spill it throws down onto the floor in
+     * front of it. A rectangle is the whole difference between a light
+     * near a television and a television that is on.
      */
-    cues?: ("tv" | "airflow")[];
+    cues?: ("tv" | "screen" | "airflow")[];
     /**
      * Hotspots that are not named after a device, and what they mean.
      *

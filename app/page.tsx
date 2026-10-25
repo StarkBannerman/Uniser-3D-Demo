@@ -54,7 +54,7 @@ const DOORS: {
     segment: "residential",
     lead: "Homes and private residences",
     blurb:
-      "The rooms people live in rather than work in, where the argument is not running cost but whether one press at the bedside does what a person would expect it to.",
+      "The rooms people live in rather than work in, where the argument is not running cost but whether one press does what a person would expect it to — the bedroom putting itself to bed, and the living room becoming a cinema.",
   },
 ];
 

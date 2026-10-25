@@ -1,0 +1,84 @@
+{
+  "camera": "hero",
+  "points": {
+    "lv-general": {
+      "u": 0.2532,
+      "v": 0.3156,
+      "visible": true
+    },
+    "lv-cove": {
+      "u": 0.4066,
+      "v": 0.2927,
+      "visible": true
+    },
+    "lv-deco": {
+      "u": 0.1921,
+      "v": 0.3439,
+      "visible": true
+    },
+    "lv-accent": {
+      "u": 0.6294,
+      "v": 0.4847,
+      "visible": true
+    },
+    "lv-tvwall": {
+      "u": 0.5115,
+      "v": 0.6553,
+      "visible": true
+    },
+    "lv-rgb": {
+      "u": 0.8286,
+      "v": 0.1969,
+      "visible": true
+    },
+    "curtains": {
+      "u": 0.6985,
+      "v": 0.4931,
+      "visible": true
+    },
+    "hvac": {
+      "u": 0.3584,
+      "v": 0.1878,
+      "visible": true
+    },
+    "fan": {
+      "u": 0.6286,
+      "v": 0.2136,
+      "visible": true
+    },
+    "tv": {
+      "u": 0.5068,
+      "v": 0.4854,
+      "visible": true
+    },
+    "music": {
+      "u": 0.6444,
+      "v": 0.5776,
+      "visible": true
+    },
+    "keypad": {
+      "u": 0.3563,
+      "v": 0.542,
+      "visible": true
+    }
+  },
+  "fan_rect": [
+    0.5228,
+    0,
+    0.7454,
+    0.2936
+  ],
+  "tv_rect": [
+    0.4471,
+    0.4212,
+    0.5626,
+    0.5471
+  ],
+  "curtain_rect": [
+    0.6526,
+    0,
+    1,
+    1
+  ],
+  "rect_order": "u0, v0, u1, v1 (v down)"
+}

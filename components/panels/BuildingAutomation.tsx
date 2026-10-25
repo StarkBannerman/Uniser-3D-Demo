@@ -266,6 +266,7 @@ function Curtains() {
   const states = useSim((s) => s.states);
   const patch = useSim((s) => s.patch);
   const busyDevices = useSim((s) => s.busyDevices);
+  const stopDevice = useSim((s) => s.stopDevice);
   const shade = space?.devices.find((d): d is ShadeDevice => d.kind === "shade");
   const st = shade ? (states[shade.id] as ShadeState | undefined) : undefined;
   if (!shade || !st) return null;
@@ -312,6 +313,25 @@ function Curtains() {
       }
     >
       <div className="mb-2 flex gap-1">
+        {/**
+          * Stop, for a track whose space says it has one.
+          *
+          * Enabled only mid-travel, because that is the only moment it
+          * means anything. It goes through `stopDevice` rather than a
+          * patch: patching a curtain to where it already is leaves the
+          * lock the original command armed, and the card stays dead for
+          * the rest of a travel that is no longer happening.
+          */}
+        {shade.stoppable && (
+          <button
+            type="button"
+            disabled={!moving}
+            onClick={() => stopDevice(shade.id)}
+            className="rounded-lg border border-shell-800 px-2.5 py-1.5 text-[11px] text-shell-300 transition-colors hover:text-shell-100 disabled:opacity-30"
+          >
+            Stop
+          </button>
+        )}
         {presets.map((preset) => (
           <button
             key={preset.label}
@@ -975,10 +995,29 @@ function Television() {
   const space = useSim((s) => s.space);
   const states = useSim((s) => s.states);
   const patch = useSim((s) => s.patch);
+  const applyScene = useSim((s) => s.applyScene);
+  const busy = useSim((s) => s.busy);
   if (space?.avPanel) return null;
   const tv = space?.devices.find((d) => d.kind === "av" && d.subsystem === "av" && d.id.endsWith("-tv"));
   const st = tv ? (states[tv.id] as AvState | undefined) : undefined;
   if (!tv || !st) return null;
+
+  /**
+   * Whether any preset in this room switches the thing on.
+   *
+   * The footnote below used to be about the bedroom, because the bedroom
+   * was the only room with a television card. It is a real distinction
+   * rather than copy: a set whose scenes all leave the screen off is
+   * making a point about restraint, and a room with a Movie scene is
+   * making the opposite one.
+   *
+   * It gates the source picker as well as the wording, which is why this
+   * is a condition rather than two strings. A television nothing ever
+   * switches on does not need Netflix offering from it, and the bedroom
+   * card is exactly as it was before this room existed.
+   */
+  const inScenes = space?.scenes.some((sc) => sc.targets[tv.id]?.on) ?? false;
+  const button = (tv as AvDevice).sceneButton;
 
   return (
     <Card title={tv.name} note={st.on ? st.source : "off"}>
@@ -986,6 +1025,17 @@ function Television() {
         <span className="text-[11px] text-shell-400">Screen</span>
         <Toggle on={st.on} onChange={(on) => patch(tv.id, { on })} label={tv.name} />
       </div>
+      {inScenes && tv.kind === "av" && tv.sources.length > 1 && (
+        <div className="mb-2">
+          <Segmented
+            label="Source"
+            value={st.source}
+            disabled={!st.on}
+            options={tv.sources.map((s) => ({ value: s, label: s }))}
+            onChange={(source) => patch(tv.id, { source })}
+          />
+        </div>
+      )}
       <div className="mb-1 flex items-center justify-between text-[10px] text-shell-500">
         <span>Volume</span>
         <span className="tabular-nums text-shell-300">{st.volume}</span>
@@ -998,9 +1048,20 @@ function Television() {
         disabled={!st.on}
         onChange={(volume) => patch(tv.id, { volume })}
       />
+      {button && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => applyScene(button.sceneId)}
+          className="mt-2 w-full rounded-lg border border-brass-700 px-2 py-1.5 text-[11px] text-brass-300 transition-colors hover:bg-shell-800 disabled:opacity-40"
+        >
+          {button.label}
+        </button>
+      )}
       <p className="mt-1.5 text-[10px] leading-relaxed text-shell-500">
-        Off in every scene. A bedroom preset that switches a television on
-        is a preset nobody presses twice.
+        {inScenes
+          ? "The glow is drawn over the composite rather than rendered into it — there is no plate of this room with the television awake, and pretending otherwise would be the one thing on this stage that is not photometry."
+          : "Off in every scene. A bedroom preset that switches a television on is a preset nobody presses twice."}
       </p>
     </Card>
   );

@@ -3,6 +3,7 @@ import { NEUTRAL_PROFILE } from "../profile";
 import { CABIN_PROFILE } from "./cabin";
 import { BEDROOM_PROFILE } from "./bedroom";
 import { BOARDROOM_PROFILE } from "./boardroom";
+import { LIVING_PROFILE } from "./living";
 import { LOBBY_PROFILE } from "./lobby";
 import { OFFICE_PROFILE } from "./office";
 import { RESTAURANT_PROFILE } from "./restaurant";
@@ -20,6 +21,7 @@ const PROFILES: Record<string, PlateProfile> = {
   cabin: CABIN_PROFILE,
   bedroom: BEDROOM_PROFILE,
   boardroom: BOARDROOM_PROFILE,
+  living: LIVING_PROFILE,
   lobby: LOBBY_PROFILE,
   office: OFFICE_PROFILE,
   restaurant: RESTAURANT_PROFILE,

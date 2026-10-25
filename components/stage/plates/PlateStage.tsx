@@ -201,7 +201,7 @@ export function PlateStage({
     pinLayers?: string[];
   };
   /** Soft overlays the space opts into. See `Space.plates.cues`. */
-  cues?: ("tv" | "airflow")[];
+  cues?: ("tv" | "screen" | "airflow")[];
   /** Controls tab is showing, so the room should say where each circuit is. */
   controlsOpen?: boolean;
 }) {
@@ -718,6 +718,22 @@ export function PlateStage({
   const fireMomentary = useSim((s) => s.fireMomentary);
   const momentaryId = space?.momentary?.deviceId;
   const cameraId = space?.avPanel?.cameraId;
+  /**
+   * The television's glass, and whether anything is on it.
+   *
+   * Both null unless the space opted into the `screen` cue *and* the set
+   * projected a usable `tv_rect` — `rectNamed` rejects a rectangle that
+   * cannot contain a pixel, so a re-render that loses the screen falls
+   * back to showing the glass as it was path-traced rather than to
+   * painting a gradient over the middle of the room.
+   */
+  const screenRect = cues?.includes("screen")
+    ? rectNamed(hotspots, "tv_rect")
+    : null;
+  const screenDeviceId = space?.plates?.hotspotAliases?.tv?.deviceId;
+  const screenOn = Boolean(
+    screenDeviceId && (states[screenDeviceId] as AvState | undefined)?.on,
+  );
 
   return (
     <div ref={containerRef} className="absolute inset-0">
@@ -784,6 +800,63 @@ export function PlateStage({
             />
           );
         })}
+
+      {/**
+        * The same job again, for a set that projected the glass.
+        *
+        * `tv` above is a soft glow centred on a point, which is all a
+        * set without a rectangle can honestly do. `screen` is for a set
+        * that projected `tv_rect`: the picture is clipped to the actual
+        * panel, so its edge is the edge of the television rather than a
+        * blurred ellipse near it, and the spill is drawn separately
+        * below because a screen lights the floor in front of it and not
+        * the wall it is hung on.
+        *
+        * Two slow animations on different periods — a pan and a hue
+        * drift — because a loop a client can count is worse than a
+        * still frame. Neither is photometry and neither pretends to be;
+        * they are the one object in this room that no plate was
+        * rendered for.
+        */}
+      {ready && !failed && screenRect && screenOn && (
+        <>
+          <span
+            aria-hidden
+            className="pointer-events-none absolute overflow-hidden"
+            style={{
+              left: `${screenRect[0] * 100}%`,
+              top: `${screenRect[1] * 100}%`,
+              width: `${(screenRect[2] - screenRect[0]) * 100}%`,
+              height: `${(screenRect[3] - screenRect[1]) * 100}%`,
+              opacity: 0.85,
+              animation: "screen-tone 17s ease-in-out infinite",
+            }}
+          >
+            <span
+              aria-hidden
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(120% 90% at 28% 30%, #74d8ff 0%, #2f84dc 38%, #10306c 72%, #06142e 100%)",
+                animation: "screen-drift 23s ease-in-out infinite",
+              }}
+            />
+          </span>
+          <span
+            aria-hidden
+            className="pointer-events-none absolute"
+            style={{
+              left: `${(screenRect[0] - (screenRect[2] - screenRect[0]) * 0.8) * 100}%`,
+              top: `${screenRect[3] * 100}%`,
+              width: `${(screenRect[2] - screenRect[0]) * 2.6 * 100}%`,
+              height: `${(screenRect[3] - screenRect[1]) * 1.7 * 100}%`,
+              background:
+                "radial-gradient(ellipse at top center, rgba(120,180,255,0.22), rgba(120,180,255,0.07) 45%, transparent 72%)",
+              filter: "blur(12px)",
+            }}
+          />
+        </>
+      )}
 
       {ready && !failed && hotspots && space && (
         <div className="pointer-events-none absolute inset-0">

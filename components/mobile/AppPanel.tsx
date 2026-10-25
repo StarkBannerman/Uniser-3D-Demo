@@ -30,11 +30,13 @@ import type {
 import { formatClock } from "@/lib/sim/clock";
 import {
   cctGradient,
+  HUE_GRADIENT,
   RampButtons,
   Segmented,
   Stepper,
   Toggle,
 } from "@/components/ui/Primitives";
+import { cctToRgb, hsvToRgb, rgbToCss } from "@/lib/sim/photometry";
 import { usePredicted } from "@/components/ui/usePredicted";
 import { Icon, sceneIcon, type IconName } from "@/components/keypad/icons";
 import { BuildingAutomation } from "@/components/panels/BuildingAutomation";
@@ -213,12 +215,28 @@ function Row({
  * to its colour-temperature control, and it gets its own chip so that the
  * way out of colour is as obvious as the way in.
  */
-const COLOUR_SWATCHES: { label: string; hex: string; hue: number; sat: number }[] = [
+const COLOUR_SWATCHES: { label: string; hex?: string; hue: number; sat: number; cct?: number }[] = [
   { label: "Amber", hex: "#ffb36b", hue: 29, sat: 58 },
   { label: "Deep blue", hex: "#3d5cff", hue: 230, sat: 76 },
   { label: "Teal", hex: "#2ad1c9", hue: 177, sat: 80 },
   { label: "Magenta", hex: "#d93aa8", hue: 319, sat: 73 },
 ];
+
+/**
+ * What colour a chip should be painted, when the space did not say.
+ *
+ * The four above carry a hex because they were picked as hex and their
+ * hue and saturation were measured back off it. A circuit that declares
+ * its own list gives hue and saturation only — those are what the
+ * renderer consumes — so the chip is derived the same way the shader
+ * derives the light: the pure hue at full value, or the blackbody colour
+ * when the preset is a white one.
+ */
+function swatchCss(sw: { hex?: string; hue: number; sat: number; cct?: number }): string {
+  if (sw.hex) return sw.hex;
+  if (sw.sat <= 0) return rgbToCss(cctToRgb(sw.cct ?? 2700));
+  return rgbToCss(hsvToRgb(sw.hue, Math.max(sw.sat, 45) / 100, 1));
+}
 
 function LightRow({
   device,
@@ -312,6 +330,16 @@ function LightRow({
       )}
       {device.rgb && (
         <ControlRow icon="bulb" hint="Colour">
+          {/**
+            * The circuit's own presets, or the house four.
+            *
+            * `swatches` on the device is a property of the installation
+            * rather than of this panel: a credenza shelf wants brand
+            * colours and a living room wants the warm half of the wheel.
+            * A circuit that declares none keeps the four that were here
+            * before, which is still right for one nobody has thought
+            * about.
+            */}
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -327,23 +355,34 @@ function LightRow({
             >
               White
             </button>
-            {COLOUR_SWATCHES.map((swatch) => {
+            {(device.swatches ?? COLOUR_SWATCHES).map((swatch) => {
               // Near enough counts: a scene fade passes through intermediate
               // hues, and a chip that only lights on an exact match would be
-              // off for most of every transition.
+              // off for most of every transition. A white preset is matched
+              // on its colour temperature instead, because at saturation
+              // zero the hue it carries is not what anybody is looking at.
               const chosen =
-                state.sat > 0 &&
-                Math.abs(((state.hue - swatch.hue + 540) % 360) - 180) > 174;
+                swatch.sat <= 0
+                  ? state.sat <= 0 &&
+                    Math.abs(state.cct - (swatch.cct ?? state.cct)) <= 80
+                  : state.sat > 0 &&
+                    Math.abs(((state.hue - swatch.hue + 540) % 360) - 180) > 174;
               return (
                 <button
                   key={swatch.label}
                   type="button"
                   disabled={roomBusy || !on}
-                  onClick={() => patch(device.id, { hue: swatch.hue, sat: swatch.sat })}
+                  onClick={() =>
+                    patch(device.id, {
+                      hue: swatch.hue,
+                      sat: swatch.sat,
+                      ...(swatch.cct === undefined ? {} : { cct: swatch.cct }),
+                    })
+                  }
                   aria-pressed={chosen}
                   aria-label={`${device.name} ${swatch.label.toLowerCase()}`}
                   title={swatch.label}
-                  style={{ backgroundColor: swatch.hex }}
+                  style={{ backgroundColor: swatchCss(swatch) }}
                   className={`h-5 w-5 rounded-full transition disabled:opacity-40 ${
                     chosen
                       ? "ring-2 ring-brass-300 ring-offset-1 ring-offset-shell-900"
@@ -353,6 +392,31 @@ function LightRow({
               );
             })}
           </div>
+        </ControlRow>
+      )}
+      {/**
+        * The hue itself, for a circuit whose space asked for the full
+        * control rather than four chips.
+        *
+        * Gated on `swatches` so the cabin's shelves and the restaurant's
+        * wash keep the card they have had all along. A room that declares
+        * its own eight presets is a room where the colour is the point,
+        * and in that one the chips are a shortcut rather than the whole
+        * control.
+        */}
+      {device.rgb && device.swatches && (
+        <ControlRow icon="bulb" hint="Hue">
+          <RampButtons
+            label={`${device.name} hue`}
+            value={state.hue}
+            min={0}
+            max={360}
+            tapStep={10}
+            rampPerSecond={90}
+            fill={HUE_GRADIENT}
+            disabled={roomBusy || !on || state.sat <= 0}
+            onChange={(hue) => patch(device.id, { hue })}
+          />
         </ControlRow>
       )}
     </Row>

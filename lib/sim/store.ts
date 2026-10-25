@@ -608,6 +608,8 @@ export interface SimStore {
   setStageStatic: (isStatic: boolean) => void;
   /** Fire the space's momentary control — see `momentaryTick`. */
   fireMomentary: () => void;
+  /** Halt a travelling motor where it has got to. See `stopDevice`. */
+  stopDevice: (deviceId: string) => void;
   setSelection: (deviceId: string) => void;
   tick: (dtRealMs: number) => void;
 }
@@ -908,6 +910,45 @@ export const useSim = create<SimStore>((set, get) => ({
   setStageStatic: (isStatic) =>
     set((s) => (s.stageStatic === isStatic ? s : { stageStatic: isStatic })),
   fireMomentary: () => set((s) => ({ momentaryTick: s.momentaryTick + 1 })),
+
+  /**
+   * Stop a motor where it is, which a `patch` cannot do.
+   *
+   * Patching a curtain to its current position looks like it should work
+   * and does not: `holdDevice` ignores a zero-distance move, so the lock
+   * the original command armed survives and the card stays disabled for
+   * the rest of a travel that is no longer happening. The lock has to be
+   * dropped explicitly, and the live tweened value written back as the
+   * state — otherwise the next frame finds no tween, reads the stale
+   * target and the curtain jumps the rest of the way.
+   *
+   * Every travelling property is cancelled rather than a named one,
+   * because Stop on a wall plate stops the motor and not one axis of it.
+   */
+  stopDevice: (deviceId) => {
+    const { space, states } = get();
+    const device = space?.devices.find((d) => d.id === deviceId);
+    const current = states[deviceId];
+    if (!space || !device || !current) return;
+
+    for (const prop of Object.keys(current)) {
+      if (typeof (current as unknown as Record<string, unknown>)[prop] === "number") {
+        cancelTween(deviceId, prop);
+      }
+    }
+    deviceBusyUntil.delete(deviceId);
+    cancelSequence();
+    busyUntil = 0;
+    set((s) => ({
+      // `states` already carries the position the tick last wrote, which
+      // is where the motor physically is.
+      states: { ...s.states, [deviceId]: { ...current } },
+      activeSceneId: null,
+      sequence: null,
+      busy: false,
+      busyDevices: [...deviceBusyUntil.keys()],
+    }));
+  },
 
   /**
    * Pick a member of the selection group.
