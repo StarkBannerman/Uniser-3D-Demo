@@ -1,0 +1,11 @@
+Model Information:
+* title:	Projector
+* source:	https://sketchfab.com/3d-models/projector-0f1c6b1fa0bd4d5bbe5ac10e9eee31de
+* author:	GokouFG (https://sketchfab.com/GokouFG)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Projector" (https://sketchfab.com/3d-models/projector-0f1c6b1fa0bd4d5bbe5ac10e9eee31de) by GokouFG (https://sketchfab.com/GokouFG) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

@@ -1,0 +1,11 @@
+Model Information:
+* title:	nightstand
+* source:	https://sketchfab.com/3d-models/nightstand-415990b9b8d7434099682efbc9993132
+* author:	Fenik (https://sketchfab.com/fenik0)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "nightstand" (https://sketchfab.com/3d-models/nightstand-415990b9b8d7434099682efbc9993132) by Fenik (https://sketchfab.com/fenik0) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

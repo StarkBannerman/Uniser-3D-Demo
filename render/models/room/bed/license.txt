@@ -1,0 +1,11 @@
+Model Information:
+* title:	Bed FORSSA
+* source:	https://sketchfab.com/3d-models/bed-forssa-0e4ec2bb5aff42d8a324b3f8ab9ac9de
+* author:	leonardgraylar (https://sketchfab.com/leonardgraylar)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Bed FORSSA" (https://sketchfab.com/3d-models/bed-forssa-0e4ec2bb5aff42d8a324b3f8ab9ac9de) by leonardgraylar (https://sketchfab.com/leonardgraylar) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

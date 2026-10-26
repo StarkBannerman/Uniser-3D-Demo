@@ -1,0 +1,11 @@
+Model Information:
+* title:	Figure 8 Sculpture
+* source:	https://sketchfab.com/3d-models/figure-8-sculpture-5d5dff084d854039aa38d5f272ba469a
+* author:	robgon-art (https://sketchfab.com/robgon-art)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Figure 8 Sculpture" (https://sketchfab.com/3d-models/figure-8-sculpture-5d5dff084d854039aa38d5f272ba469a) by robgon-art (https://sketchfab.com/robgon-art) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

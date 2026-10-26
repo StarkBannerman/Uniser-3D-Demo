@@ -1,0 +1,8 @@
+Model Information:
+* title:	Dining Armchair - Chair
+* source:	https://sketchfab.com/3d-models/dining-armchair-chair-157ee3cd379e4616a71dce0f228d89ff
+* author:	Micael Martins (https://sketchfab.com/micaelrmartins)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
