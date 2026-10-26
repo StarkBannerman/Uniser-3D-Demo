@@ -716,6 +716,7 @@ export function PlateStage({
   const overlaySpinnerId = overlay?.deviceId;
   const sequence = useSim((s) => s.sequence);
   const fireMomentary = useSim((s) => s.fireMomentary);
+  const applyScene = useSim((s) => s.applyScene);
   const momentaryId = space?.momentary?.deviceId;
   const cameraId = space?.avPanel?.cameraId;
   /**
@@ -926,6 +927,10 @@ export function PlateStage({
                   // The wardrobe marker in the room *is* the door contact,
                   // so tapping it is the same event the panel's button is.
                   if (deviceId === momentaryId) fireMomentary();
+                  // A marker that names a use of the room rather than a
+                  // fitting recalls the scene for that use — the den's
+                  // desk is "set the room up to work at this".
+                  if (alias?.sceneId) applyScene(alias.sceneId);
                 }}
                 aria-pressed={option ? chosen : undefined}
                 aria-label={

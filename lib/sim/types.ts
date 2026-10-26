@@ -111,6 +111,18 @@ export interface LightDevice extends DeviceBase {
    * cannot reach, and the one most people settle on.
    */
   swatches?: { label: string; hue: number; sat: number; cct?: number }[];
+  /**
+   * Present if the fixture has a white emitter alongside the colour one.
+   *
+   * RGBW is not a different colour model, it is a dilution: the white
+   * die fires with the colour ones and the result sits part way between
+   * the hue and the fixture's own white. That is exactly what `sat`
+   * already means to `tintLinear`, so the control is a toggle between
+   * two saturations rather than a new channel — see the W chip in
+   * `AppPanel`. Declaring it is how a space says the hardware has the
+   * fourth die; a plain RGB strip does not get the toggle.
+   */
+  rgbw?: boolean;
   /** Number of physical fixtures this control represents. */
   fixtures: number;
   wattsEach: number;
@@ -150,6 +162,17 @@ export interface ShadeDevice extends DeviceBase {
    * see `stopDevice`, which is the only way to drop the travel lock.
    */
   stoppable?: boolean;
+  /**
+   * The covering is mostly outside the camera, so the card has to say.
+   *
+   * Every other shade in this project is the biggest thing in its frame
+   * and the room itself reports its position. The den's drapes stack in
+   * a return at the right edge and are a quarter of the frame wide at
+   * full travel, so watching the room is not enough to tell whether
+   * they are moving. This adds the one thing that does: a bar that
+   * tracks the live position and a word for where it has got to.
+   */
+  offFrame?: boolean;
   /** Motor draw while travelling. Negligible, but honest. */
   watts: number;
   /** Full open -> fully closed travel time. */
@@ -181,6 +204,16 @@ export interface ClimateDevice extends DeviceBase {
 export interface AvDevice extends DeviceBase {
   kind: "av";
   sources: string[];
+  /**
+   * What to print under "Now playing", by source.
+   *
+   * A transport with a source picker and no title is a remote control;
+   * the title is what makes it read as a room playing something. The
+   * strings belong to the installation rather than to the panel, so a
+   * space that wants the line supplies it and one that does not gets
+   * the source name on its own.
+   */
+  nowPlaying?: Record<string, string>;
   /**
    * A scene this device's card offers as a button.
    *
@@ -849,7 +882,23 @@ export interface Space {
      * is overwritten by every re-render — the space says what the point is
      * for, and gets to name it in the room's own words.
      */
-    hotspotAliases?: Record<string, { deviceId: string; label: string }>;
+    hotspotAliases?: Record<
+      string,
+      {
+        deviceId: string;
+        label: string;
+        /**
+         * A scene the marker recalls as well as selecting the circuit.
+         *
+         * For a point of interest that names a *use* of the room rather
+         * than a fitting — the den's workstation marker is the desk, and
+         * what somebody wants from tapping the desk is the room set up
+         * to work at it. It runs the ordinary scene, so there is no
+         * second code path for it to drift from.
+         */
+        sceneId?: string;
+      }
+    >;
   };
   /**
    * Keep this space out of the space picker.
@@ -861,6 +910,17 @@ export interface Space {
   unlisted?: boolean;
   /** Base image and its aspect ratio when `renderer` is "photo". */
   photo?: { base: string; aspect: number };
+  /**
+   * No window in shot, so no time of day.
+   *
+   * The scrubber is the demo's spine in every other room because it
+   * moves circadian colour, daylight harvesting and the view at once. In
+   * a room whose camera sees no glazing and whose exterior plates are
+   * empty it moves nothing at all, and a slider that does nothing is
+   * worse than no slider — it is the one control a client will try
+   * first. The clock still runs underneath; only the control goes.
+   */
+  enclosed?: boolean;
   zones: Zone[];
   devices: Device[];
   scenes: Scene[];
@@ -926,6 +986,16 @@ export interface Space {
     projectorId?: string;
     /** An av device standing in for the conference camera and its mic. */
     cameraId?: string;
+    /**
+     * An av device standing in for media playback — the transport.
+     *
+     * Separate from `deviceId` because they are separate things in the
+     * rack and separate columns in a scene table: `deviceId` carries the
+     * screen position and the speakers, and this one carries what is
+     * playing and whether it is running. A room with a projector and no
+     * streamer leaves it out and the card loses the row.
+     */
+    mediaId?: string;
     /** The circuit the camera brings up when it starts, and to what. */
     cameraLight?: { deviceId: string; level: number };
   };

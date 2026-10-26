@@ -354,6 +354,31 @@ function Curtains() {
           </button>
         ))}
       </div>
+      {/**
+        * A travel bar, for a covering the room cannot show you.
+        *
+        * Driven straight off `states`, which the tick rewrites every
+        * frame while the motor runs — so the fill moves with the fabric
+        * rather than with a CSS guess at how long it should take.
+        */}
+      {shade.offFrame && (
+        <div className="mb-2">
+          <div className="mb-1 flex items-baseline justify-between">
+            <span className="text-[11px] font-medium text-shell-200">
+              {position <= 2 ? "Open" : position >= 98 ? "Closed" : `${position}% across`}
+            </span>
+            <span className="text-[10px] text-shell-500">
+              {moving ? "travelling" : "at rest"}
+            </span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-shell-800">
+            <div
+              className="h-full rounded-full bg-brass-500/80"
+              style={{ width: `${position}%` }}
+            />
+          </div>
+        </div>
+      )}
       <div className="mb-1 flex items-center justify-between text-[10px] text-shell-500">
         <span>{liveName}</span>
         <span className="tabular-nums text-shell-300">{position}%</span>
@@ -723,6 +748,8 @@ function AvSystem() {
     ? (states[cfg.projectorId] as LightState | undefined)
     : undefined;
   const camera = cfg?.cameraId ? (states[cfg.cameraId] as AvState | undefined) : undefined;
+  const mediaDev = space?.devices.find((d): d is AvDevice => d.id === cfg?.mediaId);
+  const media = mediaDev ? (states[mediaDev.id] as AvState | undefined) : undefined;
 
   if (!cfg || !space || !av || !avSt) return null;
 
@@ -822,7 +849,7 @@ function AvSystem() {
           />
         </Row>
       )}
-      {cfg.projectorId && (
+      {cfg.projectorId && !cfg.mediaId && (
         <div className="mb-1">
           <Segmented
             value={avSt.source}
@@ -845,6 +872,49 @@ function AvSystem() {
         disabled={!avSt.on}
         onChange={(volume) => patch(av.id, { volume })}
       />
+
+      {/**
+        * Media playback, for a rack that has a transport in it.
+        *
+        * A wrapping row of chips rather than a `Segmented`, because six
+        * sources at "Game console" length do not fit on one line of a
+        * phone — and the source is the row people actually press, so it
+        * is worth the space. The title under it is the difference
+        * between a remote control and a room playing something.
+        */}
+      {cfg.mediaId && mediaDev && media && (
+        <div className="mt-1.5 border-t border-shell-800 pt-1.5">
+          <Row label="Media">
+            <Toggle
+              on={media.on}
+              onChange={(on) => patch(mediaDev.id, { on })}
+              label="Media playback"
+            />
+          </Row>
+          <div className="mb-1.5 flex flex-wrap gap-1">
+            {mediaDev.sources.map((src) => (
+              <button
+                key={src}
+                type="button"
+                onClick={() => patch(mediaDev.id, { source: src, on: true })}
+                aria-pressed={media.source === src}
+                className={`grow basis-[30%] rounded-lg border px-2 py-1 text-[10px] transition-colors ${
+                  media.source === src
+                    ? "border-brass-700 bg-shell-800 text-brass-300"
+                    : "border-shell-800 text-shell-300 hover:text-shell-100"
+                }`}
+              >
+                {src}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-shell-500">
+            {media.on
+              ? `Now playing — ${mediaDev.nowPlaying?.[media.source] ?? media.source}`
+              : "Stopped"}
+          </p>
+        </div>
+      )}
 
       {cfg.cameraId && camera && (
         <div className="mt-1.5 border-t border-shell-800 pt-1">

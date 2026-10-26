@@ -391,6 +391,35 @@ function LightRow({
                 />
               );
             })}
+            {/**
+              * The fourth die, as the one control it really is.
+              *
+              * RGBW is not another colour channel to the renderer: the
+              * white emitter fires alongside the coloured ones and the
+              * result lands part way between the hue and the fixture's
+              * own white, which is exactly what `sat` already means to
+              * `tintLinear`. So the chip moves saturation between two
+              * values rather than inventing a channel — pressed, the
+              * colour is diluted with white; released, it is the pure
+              * hue. A plain RGB strip never shows it.
+              */}
+            {device.rgbw && (
+              <button
+                type="button"
+                disabled={roomBusy || !on || state.sat <= 0}
+                onClick={() => patch(device.id, { sat: state.sat <= 70 ? 95 : 60 }, 600)}
+                aria-pressed={state.sat > 0 && state.sat <= 70}
+                aria-label={`${device.name} white channel`}
+                title="Add the white emitter"
+                className={`h-5 rounded-md border px-1.5 text-[9px] font-semibold leading-[1.1rem] transition-colors disabled:opacity-30 ${
+                  state.sat > 0 && state.sat <= 70
+                    ? "border-brass-700 bg-shell-800 text-brass-300"
+                    : "border-shell-800 text-shell-400 hover:text-shell-200"
+                }`}
+              >
+                W
+              </button>
+            )}
           </div>
         </ControlRow>
       )}

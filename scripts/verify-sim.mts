@@ -1020,12 +1020,16 @@ console.log("\n18. Scenes settle inside the client's two to three seconds");
     // Five beats with the same five-second drape track inside them; the
     // brief asks for about twelve seconds end to end.
     living: 14000,
+    // Six beats with a five-second drape track *and* a six-second screen
+    // inside them, neither of which `PACE` compresses; eleven of the
+    // brief's sixteen seconds are motor travel.
+    den: 19500,
   };
   const budgetFor = (spaceId: string) => SPACE_BUDGET_MS[spaceId] ?? STAGED_BUDGET_MS;
   const HARDWARE_PACED = new Set([
     "master-bedroom/goodnight",
     "living-room/movie",
-    "den/movie",
+    "den-3d/movie",
     "workspace/focus-work",
     "boardroom/presentation",
   ]);

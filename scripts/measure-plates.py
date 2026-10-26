@@ -226,6 +226,13 @@ def to_srgb(c):
     return np.where(c <= 0.0031308, c * 12.92, 1.055 * c ** (1 / 2.4) - 0.055)
 
 
+# Linear light below which a "view" plate is render noise rather than a view.
+# A real one peaks near 1.0; the den's five exterior layers peak between 1e-6
+# and 2e-5, four orders of magnitude under anything the eye or the tone curve
+# can reach.
+VIEW_FLOOR = 1e-3
+
+
 def glass_mask():
     """The glazing, as the pixels the daytime view plate actually lights.
 
@@ -240,6 +247,14 @@ def glass_mask():
     if day_view is None:
         return None
     L = lum(LIN[day_view])
+    # An enclosed room still ships the five exterior layers; they are just
+    # empty. "Empty" out of a path tracer is not zero — the den's `day_sky`
+    # peaks at 2e-5 linear against a real view plate's 0.9 — so the test is
+    # whether there is enough light to mean anything rather than whether the
+    # buffer is all zeroes. Below this there is no glass to find, and the
+    # glass-based targets below would be measuring render noise.
+    if L.max() < VIEW_FLOOR:
+        return None
     return L > np.percentile(L, 99) * 0.15
 
 
@@ -627,6 +642,10 @@ def check_window():
     shut = CURTAIN_SETS[-1]
     view = "day_sky" if "day_sky" in LAYERS else "sky_day" if "sky_day" in LAYERS else "sky"
     delta = lum(linear(view, "sd", PLATES)) - lum(linear(view, "sd", shut))
+
+    if delta.max() < VIEW_FLOOR:
+        return _check_window_viewless(shut)
+
     moved = delta > delta.max() * 0.18
     ts = window_coords(delta.shape)
     inside = ts[2] > 0.5
@@ -636,6 +655,43 @@ def check_window():
     print(f"  {'ok ' if ok else 'NO '}window  travel {CURTAIN.get('travel', 'split'):5s}"
           f"  covers {caught:.1%} of where the covering actually changes the view"
           f"  (target >=80%), and {stray:.1%} of the quad is elsewhere")
+    return ok
+
+
+def _check_window_viewless(shut):
+    """The same question for a covering with no view behind it.
+
+    The check above compares the view plate with the covering back and
+    with it across, which is the sharpest signal there is — and it needs
+    a view plate. The den has none: it is an enclosed room whose window
+    is outside the camera, and all five exterior layers decode to zero
+    in every set. There the drapes are fabric in shot rather than
+    something over a view, so the reference has to be the whole
+    composite.
+
+    Measured that way the mask is the wrong tool. Closing a drape bounces
+    light back into the room, and the *brightest* changes are specular
+    edges metres away from the fabric — a pixel count thresholded on the
+    peak finds the shelf edges and not the curtain. So this scores the
+    share of the total change *energy* that falls inside the quad, which
+    is what "the quad is where the covering is" actually means. A camera
+    that has moved scores near zero on it, which is what the gate is for.
+    """
+    total = None
+    for layer in LAYERS:
+        d = abs(lum(linear(layer, "sd", PLATES)) - lum(linear(layer, "sd", shut)))
+        total = d if total is None else total + d
+    if total is None or total.sum() <= 0:
+        print("  ok  window  no light changes between the two sets - nothing to check")
+        return True
+    ts = window_coords(total.shape)
+    inside = ts[2] > 0.5
+    share = float(total[inside].sum() / total.sum())
+    stray = float((inside & (total <= total.max() * 0.02)).sum() / max(inside.sum(), 1))
+    ok = share >= 0.5
+    print(f"  {'ok ' if ok else 'NO '}window  travel {CURTAIN.get('travel', 'split'):5s}"
+          f"  holds {share:.1%} of the change energy (no view plate; target >=50%),"
+          f"  and {stray:.1%} of the quad barely moves")
     return ok
 
 

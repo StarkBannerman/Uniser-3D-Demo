@@ -1,32 +1,23 @@
-/**
- * Residence — Den / Media Room.
- *
- * Built to the client's den sheet and to Section 5 of the requirement
- * document, which agree: general, cove, accent and RGB/RGBW lighting, all
- * tunable white, with a projector, a motorised screen, speakers and motorised
- * curtains, and six scenes — Work, Relax, Gaming, Movie, Presentation, All Off.
- *
- * The document spells the Movie demonstration out step by step:
- *
- *   main lights OFF -> RGB/bias lighting ON -> curtains close
- *     -> screen descends -> projector ON -> speakers ON
- *
- * so Movie is a staged scene and those are its stages, in that order. The
- * screen's descent is real travel, not a scripted pause: `screenTravelMs` is a
- * property of the motor and the engine refuses to let a scene hurry it.
- *
- * This room is deliberately not the living room with a bigger television. It
- * has a work zone, it has no ceiling fan, and its RGB is a working layer rather
- * than an optional flourish — which is what separates a media room from a
- * lounge in the client's own material.
- *
- * Wattages and lumen figures remain the placeholders flagged in
- * `lib/catalog/products.ts`.
- */
-
 import type { Space } from "@/lib/sim/types";
 
-/** 7.6 x 9.5 m. */
+/**
+ * The den: a media room that also has to be an office.
+ *
+ * The third residential space, and the first enclosed one. Every other
+ * room in this project is sold partly on its window — the hotel room's
+ * curtains, the cabin's skyline, the living room's balcony. This one has
+ * no window in shot at all, and that is the point of it: a den is the
+ * room you build when you want to decide what time of day it is.
+ *
+ * So the circuits are split by *use* rather than by position. Work wants
+ * eighty per cent of a cool ceiling; Movie wants none of it and two
+ * colour circuits instead. The projector is on the lighting plan because
+ * in a room this dark it is the brightest source in it, and the one
+ * thing a media room is actually judged on is whether the screen, the
+ * curtains and the lights move in an order a person would recognise.
+ */
+
+/** 72 m² of den: a seating bank, a screen wall, shelving and a desk bay. */
 const AREA = 72;
 
 export const den: Space = {
@@ -35,17 +26,119 @@ export const den: Space = {
   segment: "residential",
   category: "Residence",
   blurb:
-    "A 72 m² media room in real-time 3D — general, cove, accent and RGB on a projector, a motorised screen, floorstanding speakers, curtains and a work zone.",
-  renderer: "3d",
-  model: "den",
+    "A 72 m² media room and home office — path-traced offline and relit live. Six circuits including two colour runs, a motorised screen and projector, drapes, and the one-button movie sequence the room is specified for.",
+  renderer: "plates",
+  /**
+   * No window in shot, so no scrubber.
+   *
+   * All five exterior layers decode to exactly 0.00000 in all three
+   * sets. The clock still runs; only the control that implies it does
+   * something goes. See `Space.enclosed`.
+   */
+  enclosed: true,
+  plates: {
+    dir: "/plates/den",
+    profile: "den",
+    /**
+     * The drapes, and a declared rectangle that is not them.
+     *
+     * `hotspots.json` ships `curtain_rect` as `[0, 0, 0.7802, 1]` — the
+     * left 78% of the frame. Measured, that rectangle holds 37.6% of
+     * where closing the drapes actually changes the picture and 97% of
+     * it is somewhere the drapes never reach, which is the generator
+     * describing the room *beside* the curtain rather than the curtain.
+     * The brief's own prose says so: "the curtains are mostly off-frame
+     * on the right edge", and its own rule — draw inside the rect from
+     * both sides — would wipe a pair of panels across the sofa.
+     *
+     * So the opening is measured here, as the bedroom's was: the band
+     * where the two sets differ is u 0.76 to the right edge, full
+     * height, and it holds 65% of the whole change with the rest being
+     * bounce off the fabric into the room. That bounce is a crossfade by
+     * construction, because it falls outside the quad.
+     *
+     * One panel, not two. The open set has the fabric stacked at the far
+     * right and the closed set has it drawn left across the band, so the
+     * reach is `[0, 1]`: nothing from the near edge, everything from the
+     * far one.
+     */
+    curtain: {
+      closedDir: "/plates/den_closed",
+      deviceId: "dn-curtain",
+      window: {
+        quad: [
+          [0.76, 1],
+          [1, 1],
+          [1, 0],
+          [0.76, 0],
+        ],
+        pad: 0.01,
+        travel: "split",
+        split: [0, 1],
+        softPx: 12,
+      },
+    },
+    /**
+     * The screen, which rolls — the boardroom's mechanism unchanged.
+     *
+     * `den_screen` is the room with the drapes closed *and* the screen
+     * down, so inside the screen's rectangle every row above the drop
+     * line comes from that set and the rest from the blended base.
+     *
+     * `dn_projection` is pinned because it is the one layer that exists
+     * in that set alone — exactly 0.00000 in the other two — and because
+     * the spill off a 3,500-lumen image belongs to the whole room rather
+     * than to the rectangle. In a den with the lights at five per cent
+     * that spill *is* the lighting.
+     */
+    overlay: {
+      dir: "/plates/den_screen",
+      deviceId: "dn-av",
+      rect: "screen_rect",
+      travel: "drop",
+      pinLayers: ["dn_projection"],
+    },
+    hotspotAliases: {
+      screen: { deviceId: "dn-av", label: "Projection screen" },
+      projector: { deviceId: "dn-projection", label: "Projector" },
+      speakers: { deviceId: "dn-av", label: "Tower speakers" },
+      media: { deviceId: "dn-media", label: "Media playback" },
+      curtains: { deviceId: "dn-curtain", label: "Motorised drapes" },
+      hvac: { deviceId: "dn-ac", label: "Air conditioning" },
+      /**
+       * The desk, which is a use of the room rather than a fitting.
+       *
+       * Tapping it recalls Work, because what anybody wants from
+       * pointing at the desk is the room set up to sit at it — and it
+       * still selects the circuit that lights it, so the marker behaves
+       * like every other marker as well.
+       */
+      workstation: {
+        deviceId: "dn-accent",
+        label: "Workstation · recall Work",
+        sceneId: "work",
+      },
+      keypad: { deviceId: "dn-general", label: "Wall keypad · scene recall" },
+    },
+  },
 
   keypad: {
     layout: "grid",
     finish: "graphite",
-    scenes: ["work", "relax", "movie", "off"],
+    scenes: ["work", "relax", "gaming", "movie"],
   },
 
   zones: [{ id: "dn-main", name: "Den", areaM2: AREA }],
+
+  avPanel: {
+    deviceId: "dn-av",
+    projectorId: "dn-projection",
+    mediaId: "dn-media",
+  },
+
+  /* ---------------------------------------------------------------- */
+  /* Devices                                                           */
+  /* ---------------------------------------------------------------- */
 
   devices: [
     {
@@ -56,13 +149,13 @@ export const den: Space = {
       productId: "proplus-downlight",
       subsystem: "lighting",
       pitch:
-        "Six recessed heads. In a media room this is the layer you spend most of the evening with switched off — which is exactly why it has to be there for Work and Presentation.",
+        "Eight bulkhead downlights, 2700 K to 5000 K. The circuit that is at eighty for the desk and at zero for everything else this room is for — which is the whole reason a media room cannot be run off one switch.",
       dimmable: true,
-      tunable: { minK: 2700, maxK: 5700 },
-      fixtures: 6,
-      wattsEach: 9,
-      lumensEach: 800,
-      baselineWattsEach: 60,
+      tunable: { minK: 2700, maxK: 5000 },
+      fixtures: 8,
+      wattsEach: 10,
+      lumensEach: 700,
+      baselineWattsEach: 40,
       glow: [],
     },
     {
@@ -73,12 +166,12 @@ export const den: Space = {
       productId: "connekt-profile",
       subsystem: "lighting",
       pitch:
-        "28 metres of tunable strip in the perimeter step. Soft indirect light that never lands on the screen.",
+        "Sixteen metres in the tray ceiling, 2700 K to 5000 K. No source anybody sitting down can see, which is why it is the circuit left at five per cent during a film — enough to find a glass by and not enough to grey the screen.",
       dimmable: true,
-      tunable: { minK: 2200, maxK: 6500 },
-      fixtures: 28, // metres of strip
-      wattsEach: 9,
-      lumensEach: 900,
+      tunable: { minK: 2700, maxK: 5000 },
+      fixtures: 16, // metres of run
+      wattsEach: 5,
+      lumensEach: 450,
       glow: [],
     },
     {
@@ -89,93 +182,163 @@ export const den: Space = {
       productId: "magneto-track",
       subsystem: "lighting",
       pitch:
-        "Strips in every shelf and a graze on the artwork. Switch it off mid-sentence and the whole wall of display goes flat — that is the fastest way to show what accent lighting buys.",
+        "Shelf lighting on the left wall, a spot on the poster, and the desk bay with its task light — fixed 3000 K. Thirty-five watts, and the only circuit in the room that is doing a job rather than setting a mood.",
       dimmable: true,
-      tunable: { minK: 2700, maxK: 4000 },
-      fixtures: 14,
+      fixtures: 7,
       wattsEach: 5,
-      lumensEach: 300,
+      lumensEach: 260,
       glow: [],
     },
     {
       id: "dn-rgb",
       kind: "light",
-      name: "Colour",
+      name: "Room RGB",
       zoneId: "dn-main",
       productId: "flexi-delta-rgb",
       subsystem: "lighting",
       pitch:
-        "Vertical RGBW battens on the walls, bias light behind the screen and a wash under the console. In a den this is a working layer, not a party trick — bias lighting is what stops a bright screen in a dark room being exhausting.",
+        "Eighteen metres of RGBW: the screen-niche edges, the tray strip and the curtain head. Eight presets, a hue slider and a white channel — and in Gaming it cycles the warm half of the wheel on its own, which is the one scene in a residence allowed to be a light show.",
       dimmable: true,
-      tunable: { minK: 2700, maxK: 6500 },
+      tunable: { minK: 2700, maxK: 5000 },
       rgb: true,
-      fixtures: 22, // metres
-      wattsEach: 12,
-      lumensEach: 700,
+      rgbw: true,
+      swatches: [
+        { label: "Warm white", hue: 35, sat: 0, cct: 2700 },
+        { label: "Amber", hue: 35, sat: 70 },
+        { label: "Magenta", hue: 320, sat: 85 },
+        { label: "Violet", hue: 275, sat: 85 },
+        { label: "Blue", hue: 220, sat: 85 },
+        { label: "Teal", hue: 180, sat: 80 },
+        { label: "Green", hue: 130, sat: 80 },
+        { label: "Red", hue: 0, sat: 90 },
+      ],
+      fixtures: 18, // metres of run
+      wattsEach: 8,
+      lumensEach: 100,
+      glow: [],
+    },
+    {
+      id: "dn-bias",
+      kind: "light",
+      name: "Bias light",
+      zoneId: "dn-main",
+      productId: "flexi-delta-rgb",
+      subsystem: "lighting",
+      pitch:
+        "The glow around the screen and under the console, on its own circuit because it is the one that stays on when everything else is out. Bias lighting is the single piece of lighting design with a clinical argument behind it: a bright picture against a black wall is what makes two hours of television tiring.",
+      dimmable: true,
+      tunable: { minK: 2700, maxK: 5000 },
+      rgb: true,
+      rgbw: true,
+      swatches: [
+        { label: "Warm white", hue: 35, sat: 0, cct: 2700 },
+        { label: "Neutral white", hue: 35, sat: 0, cct: 4000 },
+        { label: "Amber", hue: 35, sat: 70 },
+        { label: "Magenta", hue: 320, sat: 85 },
+        { label: "Violet", hue: 275, sat: 85 },
+        { label: "Blue", hue: 215, sat: 85 },
+        { label: "Teal", hue: 180, sat: 80 },
+        { label: "Red", hue: 0, sat: 90 },
+      ],
+      fixtures: 6, // metres of run
+      wattsEach: 6,
+      lumensEach: 110,
+      glow: [],
+    },
+    {
+      id: "dn-projection",
+      kind: "light",
+      name: "Projection",
+      zoneId: "dn-main",
+      productId: "smartspaces-av",
+      subsystem: "av",
+      /**
+       * The image, as a lighting circuit.
+       *
+       * It is on the plan because in a room finished this dark it is the
+       * brightest source in it — the spill off the screen reaches the
+       * ceiling and the seating, which is why its plate is pinned to the
+       * screen set rather than clipped to the rectangle.
+       */
+      pitch:
+        "A 3,500-lumen projector onto a 110-inch screen. Counted as a circuit because that is what it is: with the room at five per cent the picture is lighting the seating, and a scene that ignores it is a scene that has not looked at the room.",
+      dimmable: false,
+      fixtures: 1,
+      wattsEach: 280,
+      lumensEach: 3500,
       glow: [],
     },
 
     {
       id: "dn-curtain",
       kind: "shade",
-      name: "Curtains",
+      name: "Drapes",
       zoneId: "dn-main",
       productId: "uniser-curtain-track",
       subsystem: "shades",
-      pitch:
-        "Sheer for the daytime, blackout for the film. A media room lives or dies on the blackout.",
-      layers: ["sheer", "blackout"],
-      watts: 50,
-      travelMs: 8000,
-      window: { x: 0.62, y: 0.14, w: 0.34, h: 0.62 },
+      /** One position: the set is a pair, open and closed. */
+      layers: ["blackout"],
+      presets: [
+        { label: "Open", blackout: 0, hint: "Stacked at the right-hand return" },
+        { label: "Half", blackout: 50, hint: "Part way across" },
+        { label: "Close", blackout: 100, hint: "Drawn across the return" },
+      ],
+      stoppable: true,
+      /**
+       * A quarter of the frame at full travel, stacked in a return at
+       * the right edge. The room cannot show this one moving clearly
+       * enough, so the card carries a travel bar — see `offFrame`.
+       */
+      offFrame: true,
+      watts: 40,
+      travelMs: 5000,
+      window: { x: 0.76, y: 0, w: 0.24, h: 1 },
       draw: "both",
     },
-
     {
       id: "dn-av",
       kind: "av",
-      name: "Projector",
+      name: "AV System",
       zoneId: "dn-main",
       productId: "smartspaces-av",
       subsystem: "av",
+      /**
+       * One device for the screen and the speakers, as in the boardroom:
+       * `screen` is the motorised screen's position and drives the plate
+       * overlay, and `on` and `volume` are the tower speakers. What is
+       * *playing* is `dn-media`, because it is a separate box in the rack
+       * and a separate column in the scene table.
+       */
       pitch:
-        "One press drops the lights, closes the curtains, lowers the screen and fires the projector — in that order, because the screen takes seven seconds and starting the film early wastes the best part of the demonstration.",
-      sources: ["Streaming", "Console", "Blu-ray", "Laptop"],
+        "A six-second motorised screen in the ceiling slot and a pair of towers either side of it. The screen is the part people judge — one that jerks or stops short is the first thing anybody notices, and the last thing they forget.",
+      sources: ["Projector"],
       hasScreen: true,
-      // The motor's own travel. A scene cannot hurry it; see `resolveFade`.
-      screenTravelMs: 7000,
-      ratedWatts: 320,
+      screenTravelMs: 6000,
+      ratedWatts: 180,
       glow: [],
     },
     {
-      id: "dn-audio",
+      id: "dn-media",
       kind: "av",
-      name: "Speakers",
-      zoneId: "dn-main",
-      productId: "smartspaces-audio",
-      subsystem: "av",
-      pitch:
-        "Floorstanders either side of the screen. Watch the drivers move with the volume — the speakers are part of the scene, not a logo on a slide.",
-      sources: ["Projector", "Playlist", "Console", "Turntable"],
-      hasScreen: false,
-      ratedWatts: 320,
-      glow: [],
-    },
-    {
-      id: "dn-desk",
-      kind: "av",
-      name: "Workstation",
+      name: "Media",
       zoneId: "dn-main",
       productId: "smartspaces-av",
       subsystem: "av",
       pitch:
-        "The den is a work room before it is a cinema. Work wakes the desk and lifts the screen out of the way; Movie does the opposite.",
-      sources: ["Desktop", "Laptop", "Conference"],
-      hasScreen: false,
-      ratedWatts: 140,
+        "The streamer, the console and the laptop input, on one transport. The source is part of every scene here for the same reason the setpoint is: a room that comes up for a film and leaves the console on the screen has only done half of it.",
+      sources: ["Netflix", "Apple TV", "YouTube", "Game console", "HDMI laptop", "Music"],
+      /** What the card prints under "Now playing". */
+      nowPlaying: {
+        Netflix: "Episode 4 · Nightfall",
+        "Apple TV": "Feature · Coastline",
+        YouTube: "Live · the city at night",
+        "Game console": "Player one · lobby",
+        "HDMI laptop": "Laptop · Q3 review",
+        Music: "Evening playlist",
+      },
+      ratedWatts: 45,
       glow: [],
     },
-
     {
       id: "dn-ac",
       kind: "climate",
@@ -184,49 +347,13 @@ export const den: Space = {
       productId: "sensibo-airbend",
       subsystem: "climate",
       pitch:
-        "A projector and six people put real heat into a sealed room. This is the one comfort control a media room genuinely needs.",
+        "A cassette over the seating bank. An enclosed room with a projector in it gains about four hundred watts of heat the moment the film starts, which is the argument for putting the AC on the same scene as the screen.",
       minC: 16,
       maxC: 30,
-      ratedWatts: 1800,
+      modes: ["cool", "dry", "auto", "sleep"],
+      ratedWatts: 1500,
     },
 
-    {
-      id: "dn-solar",
-      kind: "solar",
-      name: "Rooftop Solar",
-      zoneId: "dn-main",
-      productId: "myminigrid",
-      subsystem: "energy",
-      kwp: 3,
-      batteryKwh: 5,
-    },
-
-    {
-      id: "dn-occ",
-      kind: "sensor",
-      name: "Occupancy",
-      zoneId: "dn-main",
-      productId: "smartspaces-multisensor",
-      subsystem: "sensors",
-      pitch: "Set this to Vacant and wait — that is the automation argument in one move.",
-      metric: "occupancy",
-      unit: "",
-      derived: false,
-      min: 0,
-      max: 1,
-    },
-    {
-      id: "dn-lux",
-      kind: "sensor",
-      name: "Ambient Light",
-      zoneId: "dn-main",
-      productId: "smartspaces-multisensor",
-      subsystem: "sensors",
-      metric: "lux",
-      unit: "lux",
-      derived: true,
-      min: 0,
-    },
     {
       id: "dn-temp",
       kind: "sensor",
@@ -234,6 +361,8 @@ export const den: Space = {
       zoneId: "dn-main",
       productId: "smartspaces-multisensor",
       subsystem: "sensors",
+      pitch:
+        "Air temperature at the seating. The one number in an enclosed media room that actually moves during a film, and the reason the cassette is on the scene rather than on a wall stat.",
       metric: "temperature",
       unit: "°C",
       derived: true,
@@ -241,292 +370,289 @@ export const den: Space = {
   ],
 
   /* ---------------------------------------------------------------- */
-  /* Scenes — the six on the client's sheet                            */
+  /* Scenes — the client's six                                         */
   /* ---------------------------------------------------------------- */
 
+  /**
+   * No `daylight` on any of them, and no circadian rule.
+   *
+   * Both would be theatre here. There is no exterior plate to weight and
+   * no window for a curve to follow, so the room's colour is whatever
+   * the scene says it is — which in a den is the honest answer anyway:
+   * Work is 4500 K because somebody is working, not because of the hour.
+   */
   scenes: [
     {
       id: "work",
+      clockMin: 10 * 60,
       name: "Work",
       icon: "❑",
-      blurb: "Screen up, desk awake, cool neutral light on the work zone, curtains open.",
-      fadeMs: 1400,
+      blurb:
+        "The desk bay, used as an office. Eighty on the ceiling at 4500 K with the accents up and every colour circuit out — the one scene in this room that looks like a room rather than like a cinema.",
+      fadeMs: 1800,
       targets: {
-        /**
-         * Colour pinned, where it used to be left to circadian tuning.
-         *
-         * Letting the hour own it is the better idea in a bedroom and the
-         * wrong one here: this is the scene somebody works in, the brief asks
-         * for neutral-cool, and a Work button that is amber at nine in the
-         * evening does not read as a work button whatever the theory says.
-         */
-        "dn-general": { on: true, level: 92, cct: 4600 },
-        "dn-cove": { on: true, level: 70, cct: 4000 },
-        "dn-accent": { on: true, level: 55, cct: 3500 },
+        "dn-general": { on: true, level: 80, cct: 4500, sat: 0 },
+        "dn-cove": { on: true, level: 50, cct: 4500, sat: 0 },
+        "dn-accent": { on: true, level: 70 },
         "dn-rgb": { on: false },
-        // Open, not merely unblacked. A work scene in a room with a window
-        // should be using the window.
-        /**
-         * Sheer across, blackout open.
-         *
-         * "Curtains open" on a work scene does not mean bare glass: a voile is
-         * what makes a desk beside a window usable, because it kills the glare
-         * without killing the daylight. The blackout is what opens.
-         */
-        "dn-curtain": { sheer: 100, blackout: 0 },
+        "dn-bias": { on: false },
+        "dn-curtain": { blackout: 0 },
         "dn-av": { on: false, screen: 0 },
-        "dn-audio": { on: false },
-        "dn-desk": { on: true, source: "Desktop" },
+        "dn-projection": { on: false },
+        "dn-media": { on: false },
         "dn-ac": { on: true, setpointC: 24, mode: "cool", fan: 1 },
       },
-      highlight: ["proplus-downlight"],
+      highlight: ["proplus-downlight", "magneto-track"],
     },
     {
       id: "relax",
+      clockMin: 19 * 60,
       name: "Relax",
-      icon: "◐",
-      blurb: "General out, cove down and warm, shelves lit, a little colour on the walls.",
-      fadeMs: 2400,
+      icon: "◎",
+      blurb:
+        "Sitting in it rather than watching anything. The ceiling drops to a fifth, the cove carries the room at 2700 K, the drapes come halfway and the colour run sits on a low amber with music on.",
+      fadeMs: 2600,
       targets: {
-        "dn-general": { on: false },
-        "dn-cove": { on: true, level: 55, cct: 2400 },
-        "dn-accent": { on: true, level: 75, cct: 2700 },
-        "dn-rgb": { on: true, level: 28, cct: 2700, sat: 0 },
-        // Sheer across, blackout half drawn — softer, and still a window.
-        "dn-curtain": { sheer: 100, blackout: 50 },
-        /**
-         * Screen up, which reverses the note that used to sit here.
-         *
-         * The argument for leaving it down was that a media room at rest with
-         * a blank wall is a wasted hero shot, and that is true. But Relax is
-         * the scene for the room *not* being a cinema — the cove and the shelf
-         * accents are the subject, and a lit screen takes the eye off every
-         * one of them. Movie is two buttons away and does it properly.
-         */
-        "dn-av": { on: false, screen: 0 },
-        "dn-audio": { on: true, source: "Streaming", volume: 18 },
-        "dn-desk": { on: false },
-        "dn-ac": { on: true, setpointC: 24, fan: 1 },
+        "dn-general": { on: true, level: 20, cct: 2700, sat: 0 },
+        "dn-cove": { on: true, level: 60, cct: 2700, sat: 0 },
+        "dn-accent": { on: true, level: 50 },
+        "dn-rgb": { on: true, level: 30, hue: 35, sat: 70 },
+        "dn-bias": { on: false },
+        "dn-curtain": { blackout: 50 },
+        "dn-av": { on: true, volume: 20, screen: 0 },
+        "dn-projection": { on: false },
+        "dn-media": { on: true, source: "Music" },
+        "dn-ac": { on: true, setpointC: 24, mode: "cool", fan: 1 },
       },
-      highlight: ["connekt-profile", "magneto-track"],
+      highlight: ["connekt-profile", "flexi-delta-rgb"],
     },
     {
       id: "gaming",
+      clockMin: 21 * 60,
       name: "Gaming",
-      icon: "✳",
-      blurb: "Saturated colour on the battens and behind the screen, white layers right back.",
-      fadeMs: 900,
+      icon: "✦",
+      blurb:
+        "Screen down, console up, white light almost gone. The room RGB cycles slowly from magenta round to cyan on its own and the bias light sits violet behind the screen — the scene this room gets bought for by anybody under thirty.",
+      fadeMs: 1600,
       targets: {
-        "dn-general": { on: false },
-        "dn-cove": { on: true, level: 12, cct: 2200 },
-        "dn-accent": { on: true, level: 25, cct: 2700 },
-        "dn-rgb": { on: true, level: 95, hue: 288, sat: 94 },
-        "dn-curtain": { sheer: 100, blackout: 100 },
-        "dn-av": { on: true, source: "Console", screen: 100, volume: 55 },
-        "dn-audio": { on: true, source: "Console", volume: 62 },
-        "dn-desk": { on: false },
-        "dn-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
+        "dn-general": { on: true, level: 10, cct: 3000, sat: 0 },
+        "dn-cove": { on: true, level: 20, cct: 3000, sat: 0 },
+        "dn-accent": { on: true, level: 30 },
+        "dn-rgb": { on: true, level: 70, hue: 300, sat: 90 },
+        "dn-bias": { on: true, level: 60, hue: 275, sat: 85 },
+        "dn-curtain": { blackout: 100 },
+        "dn-av": { on: true, volume: 60, screen: 100 },
+        "dn-projection": { on: true, level: 100 },
+        "dn-media": { on: true, source: "Game console" },
+        "dn-ac": { on: true, setpointC: 23, mode: "cool", fan: 2 },
       },
-      highlight: ["flexi-delta-rgb", "smartspaces-audio"],
+      /**
+       * Magenta round to cyan and back, once in fifteen seconds.
+       *
+       * The same restricted arc the restaurant and the living room use,
+       * for the same reason: a full trip round the wheel passes through
+       * green, and a room lit green reads as a fault rather than a mood.
+       */
+      drift: {
+        deviceId: "dn-rgb",
+        fromHue: 300,
+        toHue: 190,
+        periodMs: 15000,
+      },
+      highlight: ["flexi-delta-rgb", "smartspaces-av"],
     },
     {
-      /**
-       * The staged demonstration the requirement document specifies:
-       *
-       *   main lights OFF -> RGB/bias lighting ON -> curtains close
-       *     -> screen descends -> projector ON -> speakers ON
-       *
-       * The long hold is the curtains, which take eight seconds. The screen
-       * then takes seven more of its own, which is why the projector waits.
-       */
       id: "movie",
+      clockMin: 21 * 60 + 30,
       name: "Movie",
-      icon: "▶",
+      icon: "▣",
       blurb:
-        "Six stages: the main lights go out, bias lighting comes up, the curtains close, the screen descends, the projector fires and the speakers follow.",
-      fadeMs: 2400,
+        "One press and the room becomes a cinema: the white light goes, the bias lighting comes up blue, the drapes draw, the screen descends and the projector lands. Six stages, about eighteen seconds — eleven of which are two motors that cannot be hurried.",
+      fadeMs: 1200,
+      /**
+       * Stage zero is Work, which is where the client's wording starts.
+       *
+       * A staged scene applies `targets` before its first step and the
+       * runner skips a step that commands nothing new, so everything the
+       * six beats move is set here to what they move *from*.
+       */
       targets: {
-        "dn-general": { on: false },
-        "dn-cove": { on: true, level: 8, cct: 2200 },
-        "dn-accent": { on: true, level: 12, cct: 2700 },
-        "dn-desk": { on: false },
+        "dn-general": { on: true, level: 80, cct: 4500, sat: 0 },
+        "dn-cove": { on: true, level: 50, cct: 4500, sat: 0 },
+        "dn-accent": { on: true, level: 70 },
+        "dn-rgb": { on: false },
+        "dn-bias": { on: false },
+        "dn-curtain": { blackout: 0 },
+        "dn-av": { on: false, screen: 0 },
+        "dn-projection": { on: false },
+        "dn-media": { on: false, source: "Netflix" },
+        "dn-ac": { on: true, setpointC: 24, mode: "cool", fan: 1 },
       },
       steps: [
         {
+          label: "Main lights off",
+          holdMs: 5260,
+          targets: {
+            "dn-general": { on: false, fadeMs: 2000 },
+            "dn-cove": { on: true, level: 5, cct: 2700, sat: 0, fadeMs: 2000 },
+            "dn-accent": { on: true, level: 10, fadeMs: 2000 },
+          },
+        },
+        {
           label: "Bias lighting on",
-          holdMs: 1600,
-          targets: { "dn-rgb": { on: true, level: 42, hue: 224, sat: 68, fadeMs: 2200 } },
+          holdMs: 3950,
+          targets: {
+            "dn-rgb": { on: true, level: 20, hue: 225, sat: 90, fadeMs: 1500 },
+            "dn-bias": { on: true, level: 40, hue: 215, sat: 85, fadeMs: 1500 },
+          },
         },
         {
-          label: "Curtains close",
-          holdMs: 1400,
-          targets: { "dn-curtain": { sheer: 100, blackout: 100 } },
+          // No `fadeMs`: travel belongs to the motor. Five seconds, and
+          // the hold is sized to clear it before the next beat.
+          label: "Closing curtains",
+          holdMs: 13420,
+          targets: { "dn-curtain": { blackout: 100 } },
         },
         {
-          label: "Screen descends",
-          holdMs: 8400,
+          /** Six seconds of screen, likewise unpaced. */
+          label: "Screen lowering",
+          holdMs: 16050,
           targets: { "dn-av": { screen: 100 } },
         },
         {
           label: "Projector on",
-          holdMs: 7400,
-          targets: { "dn-av": { on: true, source: "Streaming", volume: 45 } },
-        },
-        {
-          label: "Speakers on",
-          holdMs: 1200,
+          holdMs: 3950,
           targets: {
-            "dn-audio": { on: true, source: "Projector", volume: 58 },
-            "dn-ac": { on: true, setpointC: 23, mode: "cool", fan: 1 },
+            "dn-projection": { on: true, level: 100, fadeMs: 1500 },
+            "dn-media": { on: true, source: "Netflix" },
           },
         },
+        {
+          label: "Speakers on. Enjoy the movie",
+          holdMs: 5260,
+          targets: { "dn-av": { on: true, volume: 50 } },
+        },
       ],
-      highlight: ["smartspaces-av", "uniser-curtain-track", "flexi-delta-rgb"],
+      highlight: ["uniser-curtain-track", "smartspaces-av", "flexi-delta-rgb"],
     },
     {
       id: "presentation",
+      clockMin: 15 * 60,
       name: "Presentation",
-      icon: "◑",
+      icon: "◈",
       blurb:
-        "Screen down and projector on, but the room stays lit enough to read a face — the opposite of Movie.",
-      fadeMs: 1600,
+        "The same screen used for work. Forty on the ceiling at 4000 K so the room can be written in, a white bias light behind the screen and the laptop on the projector — a den doing the job a meeting room would.",
+      fadeMs: 1800,
       targets: {
-        // Deliberately not a dark room. People have to see each other, and a
-        // presentation scene that kills the lights is the commonest mistake in
-        // a boardroom or a den.
-        "dn-general": { on: true, level: 45, cct: 4000 },
-        "dn-cove": { on: true, level: 35, cct: 3500 },
-        "dn-accent": { on: true, level: 30, cct: 3500 },
+        "dn-general": { on: true, level: 40, cct: 4000, sat: 0 },
+        "dn-cove": { on: true, level: 40, cct: 4000, sat: 0 },
+        "dn-accent": { on: true, level: 30 },
         "dn-rgb": { on: false },
-        "dn-curtain": { sheer: 100, blackout: 100 },
-        "dn-av": { on: true, source: "Laptop", screen: 100, volume: 30 },
-        "dn-audio": { on: true, source: "Projector", volume: 34 },
-        "dn-desk": { on: true, source: "Laptop" },
+        "dn-bias": { on: true, level: 30, cct: 4000, hue: 35, sat: 0 },
+        "dn-curtain": { blackout: 100 },
+        "dn-av": { on: true, volume: 40, screen: 100 },
+        "dn-projection": { on: true, level: 100 },
+        "dn-media": { on: true, source: "HDMI laptop" },
         "dn-ac": { on: true, setpointC: 23, mode: "cool", fan: 2 },
       },
-      highlight: ["smartspaces-av"],
+      highlight: ["smartspaces-av", "proplus-downlight"],
     },
     {
-      id: "off",
+      id: "all-off",
+      clockMin: 23 * 60 + 30,
       name: "All Off",
       icon: "⏻",
-      blurb: "Everything down over three seconds, and the screen back up into its case.",
+      blurb:
+        "Leaving the room, in the order the hardware needs. The picture goes first, then the screen goes up — a projector throwing three and a half thousand lumens at a screen on its way into the ceiling paints the slide across the slot — and only then do the lights fade and the rack switch off.",
       fadeMs: 3000,
+      /**
+       * The picture, first and on its own.
+       *
+       * The drapes are deliberately absent: "unchanged" in the client's
+       * table is an instruction, not an omission. Whether they were open
+       * or across is a decision somebody made, and leaving is not the
+       * moment to undo it.
+       */
       targets: {
-        "dn-general": { on: false },
-        /**
-         * Not quite off: three per cent of warm cove, as a way out of the room.
-         *
-         * Everything else goes. A media room with every circuit dead is a
-         * black rectangle, which demonstrates nothing and makes the next
-         * person reach for a wall switch — and a trace of cove is what a real
-         * installation leaves on for exactly that reason.
-         */
-        "dn-cove": { on: true, level: 3, cct: 2200 },
-        "dn-accent": { on: false },
-        "dn-rgb": { on: false },
-        "dn-av": { on: false, screen: 0 },
-        "dn-audio": { on: false },
-        "dn-desk": { on: false },
-        // Closed. A room left for the night closes its curtains.
-        "dn-curtain": { sheer: 100, blackout: 100 },
-        "dn-ac": { on: false },
+        "dn-projection": { on: false, fadeMs: 1200 },
       },
-    },
-  ],
-
-  rules: [
-    {
-      id: "dn-occupancy",
-      kind: "occupancy",
-      name: "Occupancy",
-      explain:
-        "Lights, projector, speakers and air conditioning shut down 20 minutes after the room empties. A projector left running is the most expensive thing in this room to forget.",
-      enabledByDefault: true,
-      sensorId: "dn-occ",
-      holdMin: 20,
-      onOccupied: {
-        "dn-cove": { on: true, level: 45, fadeMs: 1600 },
-        "dn-accent": { on: true, level: 50, fadeMs: 1600 },
-      },
-      onVacant: {
-        "dn-general": { on: false, fadeMs: 4000 },
-        "dn-cove": { on: false, fadeMs: 4000 },
-        "dn-accent": { on: false, fadeMs: 4000 },
-        "dn-rgb": { on: false, fadeMs: 3000 },
-        "dn-av": { on: false, screen: 0 },
-        "dn-audio": { on: false },
-        "dn-desk": { on: false },
-        "dn-ac": { on: false },
-      },
-    },
-    {
-      id: "dn-daylight",
-      kind: "daylight",
-      name: "Daylight Harvesting",
-      explain:
-        "With the curtains open the general lighting and the cove give back exactly the light the sun is already supplying. Switch this off at midday and watch them climb back to full.",
-      enabledByDefault: true,
-      deviceIds: ["dn-general", "dn-cove"],
-      targetLux: 300,
-      minLevel: 0,
-    },
-    {
-      id: "dn-circadian",
-      kind: "circadian",
-      name: "Circadian Tuning",
-      explain:
-        "Colour temperature follows the day. Run the clock and press Work at different hours — the same scene is cool in the morning and warm at night.",
-      enabledByDefault: true,
-      deviceIds: ["dn-general", "dn-cove"],
-      curve: [
-        { min: 0, cct: 2200 },
-        { min: 330, cct: 2300 },
-        { min: 450, cct: 3800 },
-        { min: 720, cct: 5200 },
-        { min: 1020, cct: 3800 },
-        { min: 1230, cct: 2700 },
-        { min: 1380, cct: 2200 },
+      steps: [
+        {
+          label: "Screen up",
+          // Six seconds of motor, unpaced, with the hold sized to clear it.
+          holdMs: 16050,
+          targets: { "dn-av": { screen: 0 } },
+        },
+        {
+          label: "Lights out",
+          holdMs: 8420,
+          targets: {
+            "dn-general": { on: false, fadeMs: 3000 },
+            "dn-cove": { on: false, fadeMs: 3000 },
+            "dn-accent": { on: false, fadeMs: 3000 },
+            "dn-rgb": { on: false, fadeMs: 3000 },
+            "dn-bias": { on: false, fadeMs: 3000 },
+          },
+        },
+        {
+          label: "AV and air conditioning off",
+          holdMs: 3950,
+          targets: {
+            "dn-av": { on: false },
+            "dn-media": { on: false },
+            "dn-ac": { on: false },
+          },
+        },
       ],
+      highlight: ["smartspaces-av"],
     },
   ],
 
-  defaults: {
-    "dn-occ": { value: 1 },
-    "dn-lux": { value: 0 },
-    "dn-temp": { value: 28 },
-    "dn-ac": { currentC: 28, setpointC: 24 },
-    "dn-curtain": { sheer: 100, blackout: 0 },
-    "dn-av": { screen: 0 },
-  },
-  openingSceneId: "relax",
-  // Evening. A media room is an evening room, and the RGB layer that makes it
-  // one is invisible at midday.
-  openingClockMin: 20 * 60 + 10,
+  rules: [],
 
-  // Mumbai.
+  /** A dark room with the drapes open and the screen up. */
+  defaults: {
+    "dn-general": { on: false, level: 0, cct: 4000, sat: 0 },
+    "dn-cove": { on: false, level: 0, cct: 4000, sat: 0 },
+    "dn-accent": { on: false, level: 0 },
+    "dn-rgb": { on: false, level: 0, cct: 2700, hue: 220, sat: 0 },
+    "dn-bias": { on: false, level: 0, cct: 2700, hue: 215, sat: 0 },
+    "dn-projection": { on: false, level: 0 },
+    "dn-curtain": { blackout: 0 },
+    "dn-av": { on: false, source: "Projector", volume: 40, screen: 0 },
+    "dn-media": { on: false, source: "Netflix" },
+    "dn-ac": { on: true, setpointC: 24, mode: "cool", fan: 1 },
+  },
+
+  openingSceneId: "work",
+  openingClockMin: 20 * 60,
+
+  /**
+   * Required by the type and all but inert here.
+   *
+   * `windowFactor` is zero because the camera sees no glazing, which
+   * makes the interior daylight term zero at every hour — the honest
+   * figure for a room whose exterior plates are empty.
+   */
   environment: {
     sunriseMin: 6 * 60 + 20,
     sunsetMin: 18 * 60 + 55,
     outdoorPeakLux: 95000,
-    windowFactor: 0.009,
-    // A den is designed to a lower working level than a living room, and the
-    // fill term is read against this. At 260 a perfectly reasonable 78 lux
-    // evening scene was being told it was a fifth as bright as intended.
-    designLux: 150,
+    windowFactor: 0,
+    designLux: 300,
     outdoorMinC: 26,
     outdoorMaxC: 34,
   },
 
   baseline: {
-    lightingWatts: 620,
-    hvacWatts: 2000,
-    operatingHours: { startMin: 18 * 60, endMin: 24 * 60 },
+    lightingWatts: 480,
+    hvacWatts: 1700,
+    operatingHours: { startMin: 17 * 60, endMin: 24 * 60 },
     hvacHours: { startMin: 18 * 60, endMin: 24 * 60 },
     note:
-      "Baseline is 10 × 60 W halogen downlights plus 2 × 10 W strip runs (620 W) from 6:00 PM to midnight, and a non-inverter 2 ton split at a fixed setpoint (2000 W) over the same hours. Correct to the client's installed load before quoting.",
+      "Twelve 40 W downlights on one switch, no cove, no accents and a 1.5 t split left at twenty-two all evening — a flat fitted out around 2014.",
   },
 
-  tariffPerKwh: 11,
+  tariffPerKwh: 11.5,
   currency: "₹",
 };

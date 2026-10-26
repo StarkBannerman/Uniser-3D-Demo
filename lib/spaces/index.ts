@@ -9,7 +9,7 @@ import type { Segment, Space } from "@/lib/sim/types";
 import { masterBedroom } from "./residential/master-bedroom";
 import { livingRoom } from "./residential/living-room";
 import { kitchen } from "./residential/kitchen";
-import { den } from "./residential/den";
+import { den3d } from "./residential/den-3d";
 import { livingRoomIllustrated } from "./residential/living-room-illustrated";
 import { boardroom } from "./commercial/boardroom";
 import { cxoCabin } from "./commercial/cxo-cabin";
@@ -21,6 +21,7 @@ import { office } from "./commercial/office";
 import { boardroom as boardroomPlates } from "./commercial/boardroom";
 import { bedroom } from "./residential/bedroom";
 import { living } from "./residential/living";
+import { den } from "./residential/den";
 import { hotelLobby } from "./hospitality/hotel-lobby";
 import { lobby } from "./hospitality/lobby";
 import { room } from "./hospitality/room";
@@ -35,6 +36,7 @@ export const spaces: Space[] = [
   boardroomPlates,
   bedroom,
   living,
+  den,
 ];
 
 /**
@@ -49,7 +51,7 @@ export const retired: Space[] = [
   hotelLobby,
   masterBedroom,
   livingRoom,
-  den,
+  den3d,
   kitchen,
   livingRoomIllustrated,
   workspace,

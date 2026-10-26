@@ -52,6 +52,33 @@ export function ClockScrubber() {
 
   const outdoorC = outdoorTemperature(clockMin, space.environment);
 
+  /**
+   * A room with no glazing in shot gets the clock and not the slider.
+   *
+   * Dragging it there moves nothing: every exterior plate in the den is
+   * empty, so there is no view to cross-fade and no daylight to harvest.
+   * A control that visibly does nothing is worse than an absent one,
+   * because it is the first thing a client reaches for. The clock itself
+   * stays, because a scene still names an hour.
+   */
+  if (space.enclosed) {
+    return (
+      <div className="flex flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <span className="font-mono text-sm text-shell-100">
+          {formatClock(clockMin)}
+        </span>
+        <button
+          type="button"
+          onClick={resetSpace}
+          title="Return the space to its opening state before the next client"
+          className="rounded-lg border border-shell-700 px-3 py-1.5 text-[11px] font-medium text-shell-300 transition-colors hover:border-shell-500 hover:text-shell-100"
+        >
+          Reset space
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-2">
       <div className="min-w-0 flex-1 basis-64">

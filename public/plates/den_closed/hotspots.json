@@ -1,0 +1,83 @@
+{
+  "camera": "hero",
+  "points": {
+    "dn-general": {
+      "u": 0.7354,
+      "v": 0.0145,
+      "visible": true
+    },
+    "dn-cove": {
+      "u": 0.4494,
+      "v": 0.1835,
+      "visible": true
+    },
+    "dn-accent": {
+      "u": 0.2269,
+      "v": 0.4349,
+      "visible": true
+    },
+    "workstation": {
+      "u": 0.3639,
+      "v": 0.4811,
+      "visible": true
+    },
+    "dn-rgb": {
+      "u": 0.7181,
+      "v": 0.433,
+      "visible": true
+    },
+    "dn-bias": {
+      "u": 0.5341,
+      "v": 0.6502,
+      "visible": true
+    },
+    "screen": {
+      "u": 0.5457,
+      "v": 0.2974,
+      "visible": true
+    },
+    "projector": {
+      "u": 0.3834,
+      "v": 0.1403,
+      "visible": true
+    },
+    "speakers": {
+      "u": 0.7399,
+      "v": 0.572,
+      "visible": true
+    },
+    "media": {
+      "u": 0.5033,
+      "v": 0.594,
+      "visible": true
+    },
+    "curtains": {
+      "u": 0.7965,
+      "v": 0.4229,
+      "visible": true
+    },
+    "hvac": {
+      "u": -0.3803,
+      "v": -2.7057,
+      "visible": false
+    },
+    "keypad": {
+      "u": 0.7642,
+      "v": 0.5093,
+      "visible": true
+    }
+  },
+  "screen_rect": [
+    0.439,
+    0.2883,
+    0.6811,
+    0.59
+  ],
+  "curtain_rect": [
+    0,
+    0,
+    0.7802,
+    1
+  ],
+  "rect_order": "u0, v0, u1, v1 (v down); screen drops from v0 to v1"
+}
