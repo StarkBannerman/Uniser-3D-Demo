@@ -1,0 +1,11 @@
+Model Information:
+* title:	Medieval style globe
+* source:	https://sketchfab.com/3d-models/medieval-style-globe-7358541e799e412d9be4a014b2269cf4
+* author:	chaschinkaa (https://sketchfab.com/chaschinkaa)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Medieval style globe" (https://sketchfab.com/3d-models/medieval-style-globe-7358541e799e412d9be4a014b2269cf4) by chaschinkaa (https://sketchfab.com/chaschinkaa) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

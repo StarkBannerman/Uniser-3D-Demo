@@ -1,0 +1,11 @@
+Model Information:
+* title:	SOFA-GRAY-L
+* source:	https://sketchfab.com/3d-models/sofa-gray-l-3a316137bf3d4b25acb57a06e9cc4e56
+* author:	CHANG747 (https://sketchfab.com/CHANG747)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "SOFA-GRAY-L" (https://sketchfab.com/3d-models/sofa-gray-l-3a316137bf3d4b25acb57a06e9cc4e56) by CHANG747 (https://sketchfab.com/CHANG747) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

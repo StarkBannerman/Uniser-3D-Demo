@@ -1,0 +1,11 @@
+Model Information:
+* title:	Metal sculpture
+* source:	https://sketchfab.com/3d-models/metal-sculpture-cb9c022d3ae34eaca1eb6e7259fb64c6
+* author:	FlowArtDesign (https://sketchfab.com/FlowArtDesign)
+
+Model License:
+* license type:	CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)
+* requirements:	Author must be credited. No commercial use.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Metal sculpture" (https://sketchfab.com/3d-models/metal-sculpture-cb9c022d3ae34eaca1eb6e7259fb64c6) by FlowArtDesign (https://sketchfab.com/FlowArtDesign) licensed under CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)

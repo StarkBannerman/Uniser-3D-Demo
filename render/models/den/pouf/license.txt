@@ -1,0 +1,11 @@
+Model Information:
+* title:	Bean Bag Blue
+* source:	https://sketchfab.com/3d-models/bean-bag-blue-262ff687572346a59a7a9ecc1a3a0e4f
+* author:	kanesk06 (https://sketchfab.com/kanesk06)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Bean Bag Blue" (https://sketchfab.com/3d-models/bean-bag-blue-262ff687572346a59a7a9ecc1a3a0e4f) by kanesk06 (https://sketchfab.com/kanesk06) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

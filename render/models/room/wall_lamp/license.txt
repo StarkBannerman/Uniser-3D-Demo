@@ -1,0 +1,11 @@
+Model Information:
+* title:	Gigi_Wall_Light
+* source:	https://sketchfab.com/3d-models/gigi-wall-light-849213a72fc24c7fbd73eb614f1b6209
+* author:	vasycrukov (https://sketchfab.com/vasycrukov)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Gigi_Wall_Light" (https://sketchfab.com/3d-models/gigi-wall-light-849213a72fc24c7fbd73eb614f1b6209) by vasycrukov (https://sketchfab.com/vasycrukov) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

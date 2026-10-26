@@ -1,0 +1,18 @@
+# The model payload is fetched, not authored.
+#
+# Every directory under models/ carries a license.txt with the asset's
+# source URL, title and author — those are tracked, because they are the
+# legal record and the re-download manifest. The geometry and textures
+# they describe are 487 MB of third-party binary that git cannot delta
+# compress, so they ship as a release asset instead. See README.md.
+models/**
+!models/**/
+!models/**/license.txt
+!models/**/LICENSE.txt
+
+# Render output. Reproducible from the scripts, and large.
+out_*/
+plates/
+*.blend
+*.blend1
+*.exr

@@ -1,0 +1,11 @@
+Model Information:
+* title:	Vase of flowers
+* source:	https://sketchfab.com/3d-models/vase-of-flowers-f3119580a68845feafa55bf160657609
+* author:	Ty0001 (https://sketchfab.com/Ty0001)
+
+Model License:
+* license type:	CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)
+* requirements:	Author must be credited. No commercial use. Modified versions must have the same license.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Vase of flowers" (https://sketchfab.com/3d-models/vase-of-flowers-f3119580a68845feafa55bf160657609) by Ty0001 (https://sketchfab.com/Ty0001) licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)

@@ -1,0 +1,11 @@
+Model Information:
+* title:	modern sculpture 48
+* source:	https://sketchfab.com/3d-models/modern-sculpture-48-16c0d36c27874b4f93642a9a823d4a4e
+* author:	legendmodelist (https://sketchfab.com/legendmodelist)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "modern sculpture 48" (https://sketchfab.com/3d-models/modern-sculpture-48-16c0d36c27874b4f93642a9a823d4a4e) by legendmodelist (https://sketchfab.com/legendmodelist) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

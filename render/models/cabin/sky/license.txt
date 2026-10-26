@@ -1,0 +1,16 @@
+HDRI Information:
+* title:	Shanghai Bund
+* source:	https://polyhaven.com/a/shanghai_bund
+* author:	Greg Zaal (https://polyhaven.com/all?a=Greg%20Zaal)
+* file:		shanghai_bund_4k.exr
+
+License:
+* license type:	CC0 (https://creativecommons.org/publicdomain/zero/1.0/)
+* requirements:	None. Public domain: no credit required, commercial use allowed,
+		redistribution and modification allowed.
+
+Credit is not required under CC0, but is offered anyway:
+HDRI "Shanghai Bund" by Greg Zaal, from Poly Haven
+(https://polyhaven.com/a/shanghai_bund), released under CC0.
+
+Verified against the source page on 2026-10-26.
