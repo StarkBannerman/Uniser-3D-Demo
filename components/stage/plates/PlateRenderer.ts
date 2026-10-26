@@ -107,7 +107,8 @@ vec3 toneMap(vec3 color) {
 /**
  * ACES filmic, also three's, and the curve the other ten rooms are graded on.
  *
- * Here because the brief specifies AgX for this room while `Stage3D` mounts
+ * Here because the brief specifies AgX for this room while the retired
+ * real-time stage mounted
  * `ToneMappingMode.ACES_FILMIC` for every other one, and a client switching
  * rooms in the picker sees both. Which is right is a look decision, not an
  * engineering one, so both are compiled on demand and `?tone=` picks.

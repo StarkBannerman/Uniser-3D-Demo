@@ -50,14 +50,6 @@ import { LightLayer, type GlowItem } from "./LightLayer";
 import { ShadeLayer } from "./ShadeLayer";
 import { ScreenLayer } from "./ScreenLayer";
 import { LivingRoom } from "./rooms/LivingRoom";
-import { BedroomStage } from "./rooms3d/BedroomStage";
-import { LivingRoomStage } from "./rooms3d/LivingRoomStage";
-import { KitchenStage } from "./rooms3d/KitchenStage";
-import { DenStage } from "./rooms3d/DenStage";
-import { BoardroomStage } from "./rooms3d/BoardroomStage";
-import { WorkspaceStage } from "./rooms3d/WorkspaceStage";
-import { CxoCabinStage } from "./rooms3d/CxoCabinStage";
-import { HotelLobbyStage } from "./rooms3d/HotelLobbyStage";
 import { PlateStage } from "./plates/PlateStage";
 
 
@@ -101,88 +93,19 @@ export function SpaceCanvas({ controlsOpen = false }: { controlsOpen?: boolean }
   if (!space) return null;
 
   /**
-   * A 3D space renders its own lighting and needs none of the compositing
-   * below — no darkness overlay, no colour cast, no glow layer. Those exist to
-   * fake illumination on a flat image; here the lights are real.
-   */
-  if (space.renderer === "3d") {
-    return (
-      /**
-       * Holds 16:9 on a phone, fills its container from `lg` up.
-       *
-       * A real-time room has no fixed aspect to preserve — the camera's field
-       * of view is re-solved for whatever shape it gets (see `Stage3D`) — so on
-       * a laptop it takes every pixel the layout is not using, which is most of
-       * the lower half of the screen.
-       *
-       * Below `lg` the page is a scrolling column with no definite height, and
-       * `h-full` there resolves against an auto-height parent: the stage grew
-       * past its slot and painted over the panel beneath it. An aspect ratio
-       * gives it a real height to occupy instead.
-       *
-       * The illustrated renderer below keeps 16:9 at every width, because that
-       * one is compositing a flat image whose aspect genuinely is fixed.
-       */
-      <div
-        /*
-          Keyed on the pin so applying it remounts the Canvas. The renderer
-          here is frame-pumped rather than free-running, and a resize that
-          arrives between pumps leaves the composer drawing its old viewport
-          into a larger, uncleared buffer - the capture came back as a stale
-          frame with a letterboxed corner. A remount brings renderer and
-          composer up together at the final size, and this path only ever runs
-          under the capture harness.
-        */
-        key={pin ? `pin-${pin.width}x${pin.height}` : "live"}
-        className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black ring-1 ring-shell-800 lg:aspect-auto lg:h-full lg:min-h-[340px]"
-        style={
-          pin
-            ? {
-                width: pin.width,
-                height: pin.height,
-                minHeight: 0,
-                maxHeight: "none",
-                aspectRatio: "auto",
-                flex: "none",
-              }
-            : undefined
-        }
-      >
-        {space.model === "master-bedroom" ? (
-          <BedroomStage />
-        ) : space.model === "living-room" ? (
-          <LivingRoomStage />
-        ) : space.model === "den" ? (
-          <DenStage />
-        ) : space.model === "boardroom" ? (
-          <BoardroomStage />
-        ) : space.model === "workspace" ? (
-          <WorkspaceStage />
-        ) : space.model === "cxo-cabin" ? (
-          <CxoCabinStage />
-        ) : space.model === "hotel-lobby" ? (
-          <HotelLobbyStage />
-        ) : space.model === "kitchen" ? (
-          <KitchenStage />
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-shell-500">
-            No 3D room registered for “{space.model}”.
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  /**
-   * A plates room is a photograph of itself, recomposited live.
+   * The real-time 3D path is gone.
    *
-   * It wants neither of the two paths above. Like the 3D stage it needs none
-   * of the compositing below — the tint, the darkness and the glow layers are
-   * all there to fake illumination on a flat image, and in a plate set every
-   * circuit was genuinely rendered. But unlike the 3D stage its aspect is not
-   * negotiable: the frame is the camera that rendered the plates, so it holds
-   * 16:9 at every width the way the illustrated path does, and gains letterbox
-   * rather than ceiling when the layout has height to spare.
+   * Every listed space is on plates and has been since the last 3D room
+   * was replaced. The eight stages, their light rigs, `Stage3D` and the
+   * `model` dispatch that chose between them came to about 22,000 lines
+   * carried for code nothing routed to, and they put three.js and four of
+   * its satellites into every page's bundle — 784 kB of first-load JS on
+   * the room route against 181 kB without them.
+   *
+   * A space that still declares `renderer: "3d"` now falls through to the
+   * plates path below and shows its fallback, which is a louder failure
+   * than a room that silently renders nothing. It is all in git history if
+   * a real-time room is ever wanted again.
    */
   if (space.renderer === "plates") {
     return (
