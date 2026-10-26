@@ -11,9 +11,12 @@
  * of one job, not two jobs. Pressing either moves the room, because there is one
  * state rather than two copies of it.
  *
- * The wall keypad is still built — `components/keypad/Keypad.tsx`, with its
- * layouts and finishes — and is one import away. It comes back when the panel
- * itself is what is being sold.
+ * The wall keypad was built once — `components/keypad/Keypad.tsx`, with its
+ * layouts and finishes — and was removed before handover after a year of
+ * never being imported. `Space.keypad` still carries the layout, the finish
+ * and the four scenes each room would put on it, so the component comes back
+ * from git history against a declaration that never went away. It is worth
+ * rebuilding when the panel itself is what is being sold.
  */
 
 import Link from "next/link";
