@@ -54,7 +54,7 @@ const DOORS: {
     segment: "residential",
     lead: "Homes and private residences",
     blurb:
-      "The rooms people live in rather than work in, where the argument is not running cost but whether one press does what a person would expect it to — the bedroom putting itself to bed, and the living room becoming a cinema.",
+      "The rooms people live in rather than work in, where the argument is not running cost but whether one press does what a person would expect it to — the bedroom putting itself to bed, the living room becoming a cinema, and the den that already is one.",
   },
 ];
 
@@ -114,7 +114,7 @@ function SoonCard({ name }: { name: string }) {
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-6xl">
         <div className="mb-10 text-center">
           <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-brass-500">
             SmartSpaces
@@ -128,7 +128,16 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid items-start gap-4 sm:grid-cols-2">
+        {/**
+          * One column per door, all three on one row.
+          *
+          * Two columns was right while there were two doors; with three
+          * it dropped Residential onto a second row on its own, which
+          * reads as an afterthought rather than as the third of three.
+          * Two columns is kept at tablet width, where three would make
+          * the blurbs two words wide.
+          */}
+        <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {DOORS.map((door) => {
             const rooms = spacesBySegment(door.segment);
             if (rooms.length === 0 && !door.soon?.length) return null;
