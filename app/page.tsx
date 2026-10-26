@@ -166,6 +166,23 @@ export default function Home() {
             );
           })}
         </div>
+
+        {/**
+          * The only thing in the footer, and it is there because it has to
+          * be.
+          *
+          * Twenty-seven of the assets the rooms are path-traced from are
+          * CC-BY, which asks for the author to be credited wherever the
+          * work is shared. A deployed demo shown to clients is sharing it.
+          */}
+        <footer className="mt-10 flex justify-center border-t border-shell-800 pt-5">
+          <Link
+            href="/credits"
+            className="text-[11px] text-shell-500 transition-colors hover:text-shell-300"
+          >
+            Credits
+          </Link>
+        </footer>
       </div>
     </main>
   );

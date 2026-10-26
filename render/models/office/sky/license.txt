@@ -1,0 +1,16 @@
+HDRI Information:
+* title:	Homecoming Center Rooftop
+* source:	https://polyhaven.com/a/homecoming_center_rooftop
+* author:	Dario Barresi (https://polyhaven.com/all?a=Dario%20Barresi)
+* file:		homecoming_center_rooftop_4k.exr
+
+License:
+* license type:	CC0 (https://creativecommons.org/publicdomain/zero/1.0/)
+* requirements:	None. Public domain: no credit required, commercial use allowed,
+		redistribution and modification allowed.
+
+Credit is not required under CC0, but is offered anyway:
+HDRI "Homecoming Center Rooftop" by Dario Barresi, from Poly Haven
+(https://polyhaven.com/a/homecoming_center_rooftop), released under CC0.
+
+Verified against the source page on 2026-10-26.

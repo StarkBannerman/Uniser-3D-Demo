@@ -1,0 +1,18 @@
+Photo Information:
+* title:	a black and white photo of a red object
+* source:	https://unsplash.com/photos/qyAWIbWfvtA
+* author:	Alexandru Ant (https://unsplash.com/@alexander_ant)
+* file:		alexandru-ant-qyAWIbWfvtA-unsplash.jpg
+
+License:
+* license type:	Unsplash License (https://unsplash.com/license)
+* requirements:	Free to use, commercially and non-commercially, without permission.
+		Credit is appreciated but not required. The photo may NOT be sold
+		unmodified, nor used to build a competing photo service.
+
+Credit, as Unsplash asks for it:
+Photo by Alexandru Ant (https://unsplash.com/@alexander_ant) on Unsplash
+(https://unsplash.com/photos/qyAWIbWfvtA).
+
+Used as the framed artwork in the CXO Cabin.
+Verified against the source page on 2026-10-26.
