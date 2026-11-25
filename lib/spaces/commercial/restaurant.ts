@@ -58,7 +58,7 @@ export const restaurant: Space = {
       productId: "proplus-downlight",
       subsystem: "lighting",
       pitch:
-        "Forty-two recessed heads on the dining floor, tunable 2700 K to 5000 K. The only layer in the room whose job is lux rather than atmosphere, which is why dinner service keeps it to a fifth and Fine Dining switches it off outright — and why Private Event and Cleaning, the two scenes nobody is being sold anything in, are the two that run it high and cool.",
+        "Forty-two recessed heads on the dining floor, tunable 2700 K to 5000 K. The only layer in the room whose job is lux rather than atmosphere, which is why dinner service keeps it under a tenth and Fine Dining switches it off outright — and why the two scenes that run it hardest, Private Event and Cleaning, are the two where the room has stopped being a dining room.",
       dimmable: true,
       tunable: { minK: 2700, maxK: 5000 },
       fixtures: 42,
@@ -104,6 +104,28 @@ export const restaurant: Space = {
        * window rather than argue with it.
        */
       tunable: { minK: 2200, maxK: 4000 },
+      /**
+       * Eighteen is the ceiling for this circuit in every scene but
+       * Cleaning, and it is a measurement rather than a preference.
+       *
+       * The cove extrusion is the brightest object in frame, and past a
+       * point its red channel rails. Measured on a mask of the lit line,
+       * with this circuit alone: 0.5% of the line saturated at level 20,
+       * 95% at 25, 100% at 30 and at everything above it. The line never
+       * reaches pure white — AgX holds its luminance at about 0.92 and
+       * the warm tint keeps blue off maximum — but once red is pinned the
+       * strip stops responding to level at all. It is the same flat cream
+       * band at 30 as at 90, and that flatness is what "the cove is
+       * washed out" describes.
+       *
+       * In a scene the other circuits land on the line too, so the
+       * threshold comes down: 18 is where Evening, Dinner, Fine Dining,
+       * Private Event and Lunch all measure zero saturated pixels on it.
+       * The brightness those scenes need comes from the circuits that are
+       * not sitting on a rail. Cleaning runs it at 50 and blows the whole
+       * line, which is the one place that is wanted — it is the visual
+       * tell that the room has gone over to working light.
+       */
       fixtures: 74, // metres of run
       wattsEach: 9,
       lumensEach: 950,
@@ -349,8 +371,9 @@ export const restaurant: Space = {
          * around the general layer renders at a fifth of what it asks for —
          * measured, the interior drops from 0.225 to 0.123 — which is the
          * dark brown room. The track is outside the rule, so it is what
-         * actually lights breakfast, and the cove stays up because a 10%
-         * cove is most of the difference between even and gloomy.
+         * actually lights breakfast. The cove is off here on purpose: a lit
+         * ceiling ring against a wall of daylight reads as a colour cast
+         * rather than as light.
          */
         "rs-ac": { on: true, setpointC: 23, mode: "cool", fan: 2 },
         "rs-music": { on: true, source: "Brunch", volume: 22 },
@@ -366,14 +389,14 @@ export const restaurant: Space = {
         "Full service in daylight. Brighter on the tables than Day and a little warmer overall, so the room reads as hospitality rather than as a canteen, while the window still carries the floor.",
       fadeMs: 2000,
       targets: {
-        "rs-general": { on: true, level: 53, cct: 4200, sat: 0 },
-        "rs-tunable": { on: true, level: 36, cct: 4000, sat: 0 },
-        "rs-cove": { on: true, level: 45, cct: 3400, sat: 0 },
-        "rs-pendant": { on: true, level: 26, cct: 2700, sat: 0 },
-        "rs-arch": { on: true, level: 36, cct: 3400, sat: 0 },
-        "rs-feature": { on: true, level: 53, cct: 3400, sat: 0 },
-        "rs-table": { on: true, level: 30, cct: 2600, sat: 0 },
-        "rs-shelf": { on: true, level: 51 },
+        "rs-general": { on: true, level: 60, cct: 4200, sat: 0 },
+        "rs-tunable": { on: true, level: 41, cct: 4000, sat: 0 },
+        "rs-cove": { on: true, level: 18, cct: 3400, sat: 0 },
+        "rs-pendant": { on: true, level: 29, cct: 2700, sat: 0 },
+        "rs-arch": { on: true, level: 41, cct: 3400, sat: 0 },
+        "rs-feature": { on: true, level: 45, cct: 3400, sat: 0 },
+        "rs-table": { on: true, level: 35, cct: 2600, sat: 0 },
+        "rs-shelf": { on: true, level: 58 },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 22, mode: "cool", fan: 3 },
         "rs-music": { on: true, source: "Bossa", volume: 28 },
@@ -386,17 +409,17 @@ export const restaurant: Space = {
       name: "Evening",
       icon: "◐",
       blurb:
-        "The turn, and the one scene the cove leads. Daylight has gone, the concealed run takes the ceiling to seventy and the decorative layers come up with it, while a third of the general layer stays on so the floor still reads as a working restaurant rather than as a lounge — this is what makes the glazing a view instead of a dark wall.",
+        "The turn. Daylight has gone, the downlights drop to under a fifth, and the room hands itself to the cove, the pendants and the lit bar — enough light left on the floor to work a full service, little enough that the glazing stops being a dark wall and starts being a view.",
       fadeMs: 2400,
       targets: {
-        "rs-general": { on: true, level: 35, cct: 3000, sat: 0 },
-        "rs-tunable": { on: true, level: 30, cct: 3000, sat: 0 },
-        "rs-cove": { on: true, level: 70, cct: 3000, sat: 0 },
-        "rs-pendant": { on: true, level: 60, cct: 2900, sat: 0 },
-        "rs-arch": { on: true, level: 50, cct: 3000, sat: 0 },
-        "rs-feature": { on: true, level: 60, cct: 3000, sat: 0 },
-        "rs-table": { on: true, level: 50, cct: 2700, sat: 0 },
-        "rs-shelf": { on: true, level: 70 },
+        "rs-general": { on: true, level: 18, cct: 3000, sat: 0 },
+        "rs-tunable": { on: true, level: 15, cct: 3000, sat: 0 },
+        "rs-cove": { on: true, level: 18, cct: 3000, sat: 0 },
+        "rs-pendant": { on: true, level: 32, cct: 2900, sat: 0 },
+        "rs-arch": { on: true, level: 26, cct: 3000, sat: 0 },
+        "rs-feature": { on: true, level: 32, cct: 3000, sat: 0 },
+        "rs-table": { on: true, level: 26, cct: 2700, sat: 0 },
+        "rs-shelf": { on: true, level: 37 },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
         "rs-music": { on: true, source: "Bossa", volume: 30 },
@@ -427,14 +450,14 @@ export const restaurant: Space = {
        * still runs, still prints its five labels, and shows nothing.
        */
       targets: {
-        "rs-general": { on: true, level: 49, cct: 3400, sat: 0 },
-        "rs-tunable": { on: true, level: 31, cct: 3200, sat: 0 },
-        "rs-cove": { on: true, level: 34, cct: 3000, sat: 0 },
-        "rs-pendant": { on: true, level: 31, cct: 2900, sat: 0 },
-        "rs-arch": { on: true, level: 32, cct: 3000, sat: 0 },
-        "rs-feature": { on: true, level: 60, cct: 2700, sat: 0 },
-        "rs-table": { on: true, level: 40, cct: 2700, sat: 0 },
-        "rs-shelf": { on: true, level: 80 },
+        "rs-general": { on: true, level: 20, cct: 3400, sat: 0 },
+        "rs-tunable": { on: true, level: 13, cct: 3200, sat: 0 },
+        "rs-cove": { on: true, level: 14, cct: 3000, sat: 0 },
+        "rs-pendant": { on: true, level: 13, cct: 2900, sat: 0 },
+        "rs-arch": { on: true, level: 13, cct: 3000, sat: 0 },
+        "rs-feature": { on: true, level: 25, cct: 2700, sat: 0 },
+        "rs-table": { on: true, level: 17, cct: 2700, sat: 0 },
+        "rs-shelf": { on: true, level: 33 },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
       },
@@ -457,30 +480,30 @@ export const restaurant: Space = {
           label: "General lighting reduces",
           holdMs: 1300,
           targets: {
-            "rs-general": { on: true, level: 20, cct: 2700, fadeMs: 1300, sat: 0 },
+            "rs-general": { on: true, level: 8, cct: 2700, fadeMs: 1300, sat: 0 },
           },
         },
         {
           label: "Warm white increases",
           holdMs: 1300,
           targets: {
-            "rs-tunable": { on: true, level: 40, cct: 2700, fadeMs: 1300, sat: 0 },
-            "rs-cove": { on: true, level: 45, cct: 2700, fadeMs: 1300, sat: 0 },
+            "rs-tunable": { on: true, level: 17, cct: 2700, fadeMs: 1300, sat: 0 },
+            "rs-cove": { on: true, level: 18, cct: 2700, fadeMs: 1300, sat: 0 },
           },
         },
         {
           label: "Table lighting becomes prominent",
           holdMs: 1300,
           targets: {
-            "rs-table": { on: true, level: 85, cct: 2700, fadeMs: 1300, sat: 0 },
+            "rs-table": { on: true, level: 35, cct: 2700, fadeMs: 1300, sat: 0 },
           },
         },
         {
           label: "Decorative lighting activates",
           holdMs: 1300,
           targets: {
-            "rs-pendant": { on: true, level: 70, cct: 2700, fadeMs: 1300, sat: 0 },
-            "rs-arch": { on: true, level: 40, cct: 2700, fadeMs: 1300, sat: 0 },
+            "rs-pendant": { on: true, level: 29, cct: 2700, fadeMs: 1300, sat: 0 },
+            "rs-arch": { on: true, level: 17, cct: 2700, fadeMs: 1300, sat: 0 },
           },
         },
         {
@@ -499,7 +522,7 @@ export const restaurant: Space = {
       name: "Fine Dining",
       icon: "✦",
       blurb:
-        "The darkest the room goes while still serving, and the only scene with the ceiling switched off. Ninety per cent on the tables, a quarter on the track and the cove at twenty — the contrast ratio is the whole argument, and it is what separates a restaurant from a dining hall.",
+        "The darkest the room goes while still serving, and the only scene with the ceiling switched off. The table lamps run at more than twice any other circuit and everything else is reduced to a glow — the contrast ratio is the whole argument, and it is what separates a restaurant from a dining hall.",
       fadeMs: 2600,
       targets: {
         /**
@@ -511,17 +534,18 @@ export const restaurant: Space = {
          * glow when their circuit is lit, so ten per cent is no longer an
          * invisible floor — it is forty-two lit points across a ceiling
          * whose darkness is the point of the scene. What keeps the floor
-         * readable instead is the track at twenty-five and the tables at
-         * ninety, which is where a fine-dining room puts its light anyway.
+         * readable instead is the table lamps, running at more than twice
+         * any other circuit here, which is where a fine-dining room puts
+         * its light anyway.
          */
         "rs-general": { on: false },
-        "rs-tunable": { on: true, level: 25, cct: 2400, sat: 0 },
-        "rs-cove": { on: true, level: 20, cct: 2400, sat: 0 },
-        "rs-pendant": { on: true, level: 35, cct: 2400, sat: 0 },
-        "rs-arch": { on: true, level: 25, cct: 2400, sat: 0 },
-        "rs-feature": { on: true, level: 40, cct: 2400, sat: 0 },
-        "rs-table": { on: true, level: 90, cct: 2400, sat: 0 },
-        "rs-shelf": { on: true, level: 50 },
+        "rs-tunable": { on: true, level: 12, cct: 2400, sat: 0 },
+        "rs-cove": { on: true, level: 9, cct: 2400, sat: 0 },
+        "rs-pendant": { on: true, level: 16, cct: 2400, sat: 0 },
+        "rs-arch": { on: true, level: 12, cct: 2400, sat: 0 },
+        "rs-feature": { on: true, level: 18, cct: 2400, sat: 0 },
+        "rs-table": { on: true, level: 43, cct: 2400, sat: 0 },
+        "rs-shelf": { on: true, level: 24 },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 22, mode: "cool", fan: 1 },
         "rs-music": { on: true, source: "Jazz Trio", volume: 26 },
@@ -534,17 +558,17 @@ export const restaurant: Space = {
       name: "Private Event",
       icon: "◈",
       blurb:
-        "A booked floor, and the brightest the room goes after dark. Every layer up and a little cooler at 3500 K, because the room is now a venue rather than a restaurant — people stand, circulate and look at each other rather than at a plate, and a scene lit for a plate leaves the rest of the floor in the dark.",
+        "A booked floor, and the brightest the room goes while it is still hosting anybody. Every layer on and a little cooler at 3300 K, because this is a venue rather than a restaurant — people stand, circulate and look at each other rather than at a plate, and a scene lit for a plate leaves the rest of the floor dark. Still well clear of Cleaning, which is the only scene here that stops being hospitality.",
       fadeMs: 2000,
       targets: {
-        "rs-general": { on: true, level: 80, cct: 3500, sat: 0 },
-        "rs-tunable": { on: true, level: 70, cct: 3500, sat: 0 },
-        "rs-cove": { on: true, level: 90, cct: 3500, sat: 0 },
-        "rs-pendant": { on: true, level: 80, cct: 2900, sat: 0 },
-        "rs-arch": { on: true, level: 70, cct: 3500, sat: 0 },
-        "rs-feature": { on: true, level: 90, cct: 3500, sat: 0 },
-        "rs-table": { on: true, level: 60, cct: 2700, sat: 0 },
-        "rs-shelf": { on: true, level: 90 },
+        "rs-general": { on: true, level: 32, cct: 3300, sat: 0 },
+        "rs-tunable": { on: true, level: 32, cct: 3300, sat: 0 },
+        "rs-cove": { on: true, level: 18, cct: 3300, sat: 0 },
+        "rs-pendant": { on: true, level: 41, cct: 2900, sat: 0 },
+        "rs-arch": { on: true, level: 29, cct: 3300, sat: 0 },
+        "rs-feature": { on: true, level: 41, cct: 3300, sat: 0 },
+        "rs-table": { on: true, level: 36, cct: 2700, sat: 0 },
+        "rs-shelf": { on: true, level: 47 },
         "rs-rgb": { on: false },
         /**
          * Off, where it used to carry a low amber wash.
@@ -624,17 +648,17 @@ export const restaurant: Space = {
       name: "Cleaning",
       icon: "✚",
       blurb:
-        "Everything decorative off, full cool white on the floor. Nobody is being sold anything at one in the morning, and the staff turning the room around need to see what they are doing.",
+        "Every circuit at the same level, cool, with the colour off. Nobody is being sold anything at one in the morning and the staff turning the room around need to see what they are doing — this is the one scene in the restaurant allowed to blow its highlights, and the cove line is where it shows.",
       fadeMs: 900,
       targets: {
-        "rs-general": { on: true, level: 65, cct: 4000, sat: 0 },
-        "rs-tunable": { on: true, level: 65, cct: 4000, sat: 0 },
-        "rs-cove": { on: true, level: 65, cct: 4000, sat: 0 },
-        "rs-pendant": { on: true, level: 65, cct: 2900, sat: 0 },
-        "rs-arch": { on: true, level: 65, cct: 4000, sat: 0 },
-        "rs-feature": { on: true, level: 65, cct: 4000, sat: 0 },
-        "rs-table": { on: true, level: 65, cct: 2700, sat: 0 },
-        "rs-shelf": { on: true, level: 65 },
+        "rs-general": { on: true, level: 50, cct: 4000, sat: 0 },
+        "rs-tunable": { on: true, level: 50, cct: 4000, sat: 0 },
+        "rs-cove": { on: true, level: 50, cct: 4000, sat: 0 },
+        "rs-pendant": { on: true, level: 50, cct: 2900, sat: 0 },
+        "rs-arch": { on: true, level: 50, cct: 4000, sat: 0 },
+        "rs-feature": { on: true, level: 50, cct: 4000, sat: 0 },
+        "rs-table": { on: true, level: 50, cct: 2700, sat: 0 },
+        "rs-shelf": { on: true, level: 50 },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 25, mode: "cool", fan: 1 },
         "rs-music": { on: false },
