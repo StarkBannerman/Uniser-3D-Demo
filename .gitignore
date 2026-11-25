@@ -35,3 +35,7 @@ Thumbs.db
 # Screen recordings dropped in for review — large, and not source.
 *.mov
 *.mp4
+
+# Python bytecode from scripts/measure-plates.py
+__pycache__/
+*.pyc

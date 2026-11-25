@@ -8,43 +8,43 @@
   ],
   "layers": {
     "rs_arch": {
-      "scale": 0.057429,
+      "scale": 0.057808,
       "clipped_pct": 0.0
     },
     "rs_cove": {
-      "scale": 0.307617,
+      "scale": 0.308074,
       "clipped_pct": 0.0
     },
     "rs_feature": {
-      "scale": 3.79692,
+      "scale": 3.796896,
       "clipped_pct": 0.002
     },
     "rs_general": {
-      "scale": 0.412427,
+      "scale": 1.273579,
       "clipped_pct": 0.004
     },
     "rs_pendant": {
-      "scale": 1628.185181,
+      "scale": 1627.721436,
       "clipped_pct": 0.001
     },
     "rs_rgb": {
-      "scale": 3.637718,
+      "scale": 3.651563,
       "clipped_pct": 0.003
     },
     "rs_shelf": {
-      "scale": 19.445341,
+      "scale": 19.464111,
       "clipped_pct": 0.0
     },
     "rs_table": {
-      "scale": 0.959424,
+      "scale": 0.970601,
       "clipped_pct": 0.001
     },
     "rs_tunable": {
-      "scale": 0.223389,
+      "scale": 0.223181,
       "clipped_pct": 0.002
     },
     "sky": {
-      "scale": 2.936856,
+      "scale": 2.94382,
       "clipped_pct": 0.0
     },
     "sky_day": {
@@ -52,15 +52,15 @@
       "clipped_pct": 0.0
     },
     "day_morning": {
-      "scale": 0.00676,
+      "scale": 0.006408,
       "clipped_pct": 0.001
     },
     "day_midday": {
-      "scale": 1.409773,
+      "scale": 1.408246,
       "clipped_pct": 0.003
     },
     "day_evening": {
-      "scale": 0.826495,
+      "scale": 0.825586,
       "clipped_pct": 0.0
     }
   }
