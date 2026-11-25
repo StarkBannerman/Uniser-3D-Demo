@@ -38,20 +38,20 @@ import type { PlateProfile } from "../profile";
  */
 export const RESTAURANT_PROFILE: PlateProfile = {
   gain: {
-    rs_general: 686,
-    rs_tunable: 976,
-    rs_cove: 851,
-    rs_pendant: 0.51,
-    rs_arch: 600,
-    rs_feature: 9.2,
-    rs_table: 83,
+    rs_general: 669.1,
+    rs_tunable: 1058.9,
+    rs_cove: 1577.0,
+    rs_pendant: 2.5753,
+    rs_arch: 8000,
+    rs_feature: 10.9,
+    rs_table: 138.0,
     /**
      * The bottle displays, the back bar and the wine wall, split out of
      * `rs_feature` in v8. 4.9 is its lumen share and it happens to land
      * where the brief asks — the shelves read at a p99 of 0.75 with half
      * a per cent of pixels clipped, which is lit glass rather than glare.
      */
-    rs_shelf: 4.9,
+    rs_shelf: 10.0,
     rs_rgb: 73,
     /**
      * `sky_day` carries the daytime view and the light coming in with it, so
