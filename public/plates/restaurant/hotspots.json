@@ -17,8 +17,8 @@
       "visible": true
     },
     "rs-pendant": {
-      "u": 0.6839,
-      "v": 0.423,
+      "u": 0.6822,
+      "v": 0.4357,
       "visible": true
     },
     "rs-arch": {
@@ -40,6 +40,11 @@
       "u": 1.0001,
       "v": 0.5632,
       "visible": false
+    },
+    "rs-shelf": {
+      "u": 0.2482,
+      "v": 0.6201,
+      "visible": true
     }
   }
 }

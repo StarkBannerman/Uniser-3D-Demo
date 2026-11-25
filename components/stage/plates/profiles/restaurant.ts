@@ -1,24 +1,32 @@
 import type { PlateProfile } from "../profile";
 
 /**
- * The hotel restaurant's calibration.
+ * The hotel restaurant's calibration, for the v8 re-render.
  *
- * The gains put the circuits back into proportion, because the plate set is
- * not internally consistent: measured mean frame luminance at full output
- * ran from 0.33 for the pendants to 0.0005 for the track, a factor of six
- * hundred between eighteen 280-lumen globes and thirty-four 900-lumen heads,
- * which is backwards. They are derived rather than dialled —
+ * Derived by `scripts/measure-plates.py --gains` against `fixtures x
+ * lumensEach` from the space file, anchored so `rs_general` alone at full
+ * reads a frame mean of 0.25 — measured at 0.253, with 2.6% of pixels
+ * clipped.
  *
- *     gain ~ (lumens / general's lumens) / (what the plate actually puts out)
+ * v8 changed what a layer *is*, which is why these numbers moved so far.
+ * Every circuit now carries its own fixtures: a downlight lens, a strip, a
+ * pendant globe glows only inside its own layer, and a circuit at zero
+ * shows its fixtures unlit. That makes a plate's mean a worse proxy for
+ * the light a circuit casts than it already was, because the few hundred
+ * pixels of a bright lens can outweigh the wash it throws. Two layers are
+ * off the lumen line for exactly that reason:
  *
- * — using `fixtures x lumensEach` from the space file. The second term is
- * the awkward one: a plate's mean conflates the light a circuit *casts* with
- * the brightness of its own fixtures where they are in shot, a ratio running
- * from 0.45 for the track, which appears nowhere, to 43 for the pendants,
- * which are the largest object in frame. So lumens set the shape and the
- * scenes settled the rest, against the brief's test — Cleaning brightest and
- * most even, Fine Dining clearly the darkest service scene, Private Event
- * above Dinner and Evening, only Party carrying colour.
+ * `rs_pendant` at 0.51. Eighteen 280-lumen globes are the smallest circuit
+ * in the room and the largest object in frame; its plate decodes to a mean
+ * of 0.292, a hundred times `rs_general`.
+ *
+ * `rs_arch` at 600 against a lumen-derived 5841. Its plate is nearly empty
+ * — a mean of 0.00007 — and the derivation divides by that. See the note
+ * on the space file's `rs-arch`: in v8 this layer holds one lit object on
+ * the right of frame and no architectural wash at all, where v7 held 256
+ * times the linear energy. 600 lets that object read without flaring; the
+ * lumen figure would blow its brightest 256 pixels to white and still
+ * light nothing else. This wants a re-render rather than a gain.
  *
  * The two exterior layers are measured inside a mask of the glazing rather
  * than a box over the right of frame, and the night figure is a median
@@ -30,21 +38,21 @@ import type { PlateProfile } from "../profile";
  */
 export const RESTAURANT_PROFILE: PlateProfile = {
   gain: {
-    rs_general: 90,
-    rs_tunable: 260,
-    rs_cove: 7,
-    rs_pendant: 1.2,
-    rs_arch: 5,
-    rs_feature: 0.1,
-    rs_table: 5,
+    rs_general: 686,
+    rs_tunable: 976,
+    rs_cove: 851,
+    rs_pendant: 0.51,
+    rs_arch: 600,
+    rs_feature: 9.2,
+    rs_table: 83,
     /**
-     * 2.5x what lumen share alone would give it.
-     *
-     * Mounted low, behind the planters and up the window piers, so at its
-     * fair share it washed a thin bright line along the sill and nothing
-     * else — a strip of tape rather than a room with colour in it.
+     * The bottle displays, the back bar and the wine wall, split out of
+     * `rs_feature` in v8. 4.9 is its lumen share and it happens to land
+     * where the brief asks — the shelves read at a p99 of 0.75 with half
+     * a per cent of pixels clipped, which is lit glass rather than glare.
      */
-    rs_rgb: 1.5,
+    rs_shelf: 4.9,
+    rs_rgb: 73,
     /**
      * `sky_day` carries the daytime view and the light coming in with it, so
      * it is the one that has to make the room read as naturally lit. `sky`
@@ -68,6 +76,7 @@ export const RESTAURANT_PROFILE: PlateProfile = {
    * warmth is a property of the object rather than of the beam; tinting it
    * again by a 2000 K circuit colour applies it twice.
    */
+  fixedTint: { rs_shelf: 3000 },
   neutralLayers: ["rs_pendant"],
   /**
    * A cove run and a linear architectural profile are almost always RGBW in

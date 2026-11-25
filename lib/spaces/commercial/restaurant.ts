@@ -182,6 +182,33 @@ export const restaurant: Space = {
       glow: [],
     },
     {
+      id: "rs-shelf",
+      kind: "light",
+      name: "Shelf Lighting",
+      zoneId: "rs-main",
+      productId: "connekt-profile",
+      subsystem: "lighting",
+      /**
+       * Split out of `rs-feature` in the v8 re-render.
+       *
+       * Both bottle displays, the back bar shelf and the full-height wine
+       * wall. It used to ride on the feature circuit, which meant the only
+       * way to light the wall graphic was to light four hundred bottles
+       * with it. They are different jobs on different hours — the wine
+       * wall is the thing a guest photographs, and it should still be lit
+       * when the room has gone down for dinner.
+       *
+       * Dim only, fixed 3000 K: a shelf strip behind glass is specified
+       * once and never tuned, and a bottle display that drifts warm looks
+       * like a fridge that has lost its light.
+       */
+      dimmable: true,
+      fixtures: 30,
+      wattsEach: 4,
+      lumensEach: 260,
+      glow: [],
+    },
+    {
       id: "rs-rgb",
       kind: "light",
       name: "RGB",
@@ -304,6 +331,15 @@ export const restaurant: Space = {
         "Breakfast and the room between services. Cool, bright and even, with the façade doing most of it — the decorative layers are off because a filament globe in daylight is a switched-on bulb and nothing more.",
       fadeMs: 2200,
       targets: {
+        "rs-general": { on: true, level: 70, cct: 4000, sat: 0 },
+        "rs-tunable": { on: true, level: 60, cct: 4000, sat: 0 },
+        "rs-cove": { on: false },
+        "rs-pendant": { on: false },
+        "rs-arch": { on: false },
+        "rs-feature": { on: false },
+        "rs-table": { on: false },
+        "rs-shelf": { on: true, level: 50 },
+        "rs-rgb": { on: false },
         /**
          * Carried by the track rather than the downlights, on purpose.
          *
@@ -316,14 +352,6 @@ export const restaurant: Space = {
          * actually lights breakfast, and the cove stays up because a 10%
          * cove is most of the difference between even and gloomy.
          */
-        "rs-general": { on: true, level: 60, cct: 4500, sat: 0 },
-        "rs-tunable": { on: true, level: 95, cct: 4500, sat: 0 },
-        "rs-cove": { on: true, level: 50, cct: 4000, sat: 0 },
-        "rs-pendant": { on: false },
-        "rs-arch": { on: true, level: 25, cct: 4000, sat: 0 },
-        "rs-feature": { on: true, level: 30, cct: 4000, sat: 0 },
-        "rs-table": { on: false },
-        "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 23, mode: "cool", fan: 2 },
         "rs-music": { on: true, source: "Brunch", volume: 22 },
       },
@@ -345,6 +373,7 @@ export const restaurant: Space = {
         "rs-arch": { on: true, level: 42, cct: 3400, sat: 0 },
         "rs-feature": { on: true, level: 62, cct: 3400, sat: 0 },
         "rs-table": { on: true, level: 35, cct: 2600, sat: 0 },
+        "rs-shelf": { on: true, level: 60 },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 22, mode: "cool", fan: 3 },
         "rs-music": { on: true, source: "Bossa", volume: 28 },
@@ -367,6 +396,7 @@ export const restaurant: Space = {
         "rs-arch": { on: true, level: 66, cct: 2800, sat: 0 },
         "rs-feature": { on: true, level: 88, cct: 2900, sat: 0 },
         "rs-table": { on: true, level: 66, cct: 2200, sat: 0 },
+        "rs-shelf": { on: true, level: 80 },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
         "rs-music": { on: true, source: "Bossa", volume: 30 },
@@ -389,6 +419,7 @@ export const restaurant: Space = {
         "rs-arch": { on: true, level: 55, cct: 2900, sat: 0 },
         "rs-feature": { on: true, level: 70, cct: 3000, sat: 0 },
         "rs-table": { on: true, level: 45, cct: 2300, sat: 0 },
+        "rs-shelf": { on: true, level: 80 },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
       },
@@ -456,6 +487,15 @@ export const restaurant: Space = {
         "The darkest the room goes while still serving. Ambient almost out, everything carried by the table pools and the pendants — the contrast ratio is the point, and it is what separates a restaurant from a dining hall.",
       fadeMs: 2600,
       targets: {
+        "rs-general": { on: true, level: 10, cct: 2700, sat: 0 },
+        "rs-tunable": { on: true, level: 26, cct: 2200, sat: 0 },
+        "rs-cove": { on: true, level: 15, cct: 2200, sat: 0 },
+        "rs-pendant": { on: true, level: 95, cct: 2000, sat: 0 },
+        "rs-arch": { on: true, level: 50, cct: 2500, sat: 0 },
+        "rs-feature": { on: true, level: 64, cct: 2700, sat: 0 },
+        "rs-table": { on: true, level: 100, cct: 2000, sat: 0 },
+        "rs-shelf": { on: true, level: 70 },
+        "rs-rgb": { on: false },
         /**
          * Ten per cent, and it stays on.
          *
@@ -470,14 +510,6 @@ export const restaurant: Space = {
          * single thing most able to flatten it — the light has to come from
          * the tables and the pendants or the scene is just a dimmer Dinner.
          */
-        "rs-general": { on: true, level: 10, cct: 2700, sat: 0 },
-        "rs-tunable": { on: true, level: 26, cct: 2200, sat: 0 },
-        "rs-cove": { on: true, level: 15, cct: 2200, sat: 0 },
-        "rs-pendant": { on: true, level: 95, cct: 2000, sat: 0 },
-        "rs-arch": { on: true, level: 50, cct: 2500, sat: 0 },
-        "rs-feature": { on: true, level: 64, cct: 2700, sat: 0 },
-        "rs-table": { on: true, level: 100, cct: 1950, sat: 0 },
-        "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 22, mode: "cool", fan: 1 },
         "rs-music": { on: true, source: "Jazz Trio", volume: 26 },
       },
@@ -499,6 +531,8 @@ export const restaurant: Space = {
         "rs-arch": { on: true, level: 70, cct: 2900, sat: 0 },
         "rs-feature": { on: true, level: 88, cct: 3000, sat: 0 },
         "rs-table": { on: true, level: 70, cct: 2200, sat: 0 },
+        "rs-shelf": { on: true, level: 80 },
+        "rs-rgb": { on: false },
         /**
          * Off, where it used to carry a low amber wash.
          *
@@ -510,7 +544,6 @@ export const restaurant: Space = {
          * dinner. Party is now the only scene in the room with any colour in
          * it, and the dressing comes from the cove and the pendants instead.
          */
-        "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 21, mode: "cool", fan: 3 },
         "rs-music": { on: true, source: "Jazz Trio", volume: 38 },
       },
@@ -525,6 +558,15 @@ export const restaurant: Space = {
         "Colour takes the room. Ambient down to a floor-safety level, the white layers pulled back, and the RGB runs at full saturation — the one scene where the architecture stops being the subject.",
       fadeMs: 1200,
       targets: {
+        "rs-general": { on: true, level: 20, cct: 2700, sat: 0 },
+        "rs-tunable": { on: false },
+        "rs-cove": { on: true, level: 80, cct: 2200, sat: 0 },
+        "rs-pendant": { on: true, level: 25, cct: 2200, sat: 0 },
+        "rs-arch": { on: true, level: 60, cct: 2400, sat: 0 },
+        "rs-feature": { on: true, level: 30, cct: 2700, sat: 0 },
+        "rs-table": { on: true, level: 35, cct: 2200, sat: 0 },
+        "rs-shelf": { on: true, level: 90 },
+        "rs-rgb": { on: true, level: 80, hue: 30, sat: 88 },
         /**
          * The colour is carried by the architecture, not by a strip of tape.
          *
@@ -542,33 +584,25 @@ export const restaurant: Space = {
          * third so every cover still has its own pool, and enough pendant to
          * keep the cluster readable as glass rather than as silhouette.
          */
-        "rs-general": { on: true, level: 5, cct: 2700, sat: 0 },
-        "rs-tunable": { on: false },
-        "rs-cove": { on: true, level: 80, cct: 2200, sat: 0 },
-        "rs-pendant": { on: true, level: 25, cct: 2000, sat: 0 },
-        "rs-arch": { on: true, level: 60, cct: 2500, sat: 0 },
-        "rs-feature": { on: true, level: 30, cct: 2700, sat: 0 },
-        "rs-table": { on: true, level: 35, cct: 2000, sat: 0 },
-        "rs-rgb": { on: true, level: 100, cct: 4000, hue: 320, sat: 100 },
         "rs-ac": { on: true, setpointC: 20, mode: "cool", fan: 4 },
         "rs-music": { on: true, source: "Club Set", volume: 56 },
       },
       /**
-       * Magenta to violet and back, twice a minute.
+       * No drift. Party is a fixed amber now.
        *
-       * Slow enough that nobody watches it happen and fast enough that the
-       * room is never the same colour twice in a sitting, which is the
-       * difference between a party and a photograph of one. Forty-five
-       * degrees is a deliberately short arc: a full hue rotation sweeps
-       * through green on its way round and a dining room lit green is a
-       * fault report, not a scene.
+       * This scene used to cycle the wash from magenta round to violet,
+       * which is what the v8 feedback asked us to take out: amber only,
+       * no pink, purple or blue. The drift had to go with the hue — it
+       * overrides whatever colour the scene sets, so leaving it in simply
+       * reinstated the magenta a frame later.
+       *
+       * The brief offers an optional #FF8A1F to #FFB347 pulse in its
+       * place. Those two are five degrees of hue apart and differ mostly
+       * in brightness, and `SceneDrift` interpolates hue alone — it would
+       * animate nothing a client could see. A brightness pulse is a new
+       * mechanism rather than a parameter, so this stays static until
+       * somebody asks for one.
        */
-      drift: {
-        deviceId: "rs-rgb",
-        fromHue: 320,
-        toHue: 275,
-        periodMs: 20000,
-      },
       highlight: ["flexi-delta-rgb", "smartspaces-audio"],
     },
     {
@@ -580,13 +614,14 @@ export const restaurant: Space = {
         "Everything decorative off, full cool white on the floor. Nobody is being sold anything at one in the morning, and the staff turning the room around need to see what they are doing.",
       fadeMs: 900,
       targets: {
-        "rs-general": { on: true, level: 100, cct: 5000, sat: 0 },
-        "rs-tunable": { on: true, level: 100, cct: 5000, sat: 0 },
-        "rs-cove": { on: false },
-        "rs-pendant": { on: false },
-        "rs-arch": { on: false },
-        "rs-feature": { on: false },
-        "rs-table": { on: false },
+        "rs-general": { on: true, level: 100, cct: 4000, sat: 0 },
+        "rs-tunable": { on: true, level: 100, cct: 4000, sat: 0 },
+        "rs-cove": { on: true, level: 100, cct: 4000, sat: 0 },
+        "rs-pendant": { on: true, level: 100, cct: 2900, sat: 0 },
+        "rs-arch": { on: true, level: 100, cct: 4000, sat: 0 },
+        "rs-feature": { on: true, level: 100, cct: 4000, sat: 0 },
+        "rs-table": { on: true, level: 100, cct: 2700, sat: 0 },
+        "rs-shelf": { on: true, level: 100 },
         "rs-rgb": { on: false },
         "rs-ac": { on: true, setpointC: 25, mode: "cool", fan: 1 },
         "rs-music": { on: false },
