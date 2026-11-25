@@ -8,31 +8,35 @@
   ],
   "layers": {
     "sr_accent": {
-      "scale": 36.787502,
+      "scale": 36.766342,
       "clipped_pct": 0.0
     },
     "sr_arch": {
-      "scale": 47.325001,
+      "scale": 46.537502,
+      "clipped_pct": 0.0
+    },
+    "sr_deco": {
+      "scale": 56.662502,
       "clipped_pct": 0.0
     },
     "sr_floor": {
-      "scale": 22.134377,
-      "clipped_pct": 0.002
-    },
-    "sr_general": {
-      "scale": 30.750002,
+      "scale": 39.0,
       "clipped_pct": 0.0
     },
+    "sr_general": {
+      "scale": 6.16875,
+      "clipped_pct": 0.001
+    },
     "sr_linear": {
-      "scale": 38.212502,
+      "scale": 7.628047,
       "clipped_pct": 0.0
     },
     "sr_rgb": {
-      "scale": 2.65957,
-      "clipped_pct": 0.004
+      "scale": 4.157156,
+      "clipped_pct": 0.0
     },
     "sr_spot": {
-      "scale": 0.108083,
+      "scale": 0.483984,
       "clipped_pct": 0.001
     },
     "sr_track": {
@@ -40,31 +44,31 @@
       "clipped_pct": 0.001
     },
     "sr_tunable": {
-      "scale": 0.801563,
+      "scale": 0.842669,
       "clipped_pct": 0.001
     },
     "sr_zone_1": {
-      "scale": 0.540234,
+      "scale": 2.817734,
       "clipped_pct": 0.003
     },
     "sr_zone_2": {
-      "scale": 0.162378,
+      "scale": 0.368199,
       "clipped_pct": 0.002
     },
     "sr_zone_3": {
-      "scale": 0.029773,
+      "scale": 0.025589,
       "clipped_pct": 0.0
     },
     "sr_zone_4": {
-      "scale": 0.440881,
-      "clipped_pct": 0.003
+      "scale": 1.076052,
+      "clipped_pct": 0.002
     },
     "sr_zone_5": {
-      "scale": 0.242596,
+      "scale": 0.494531,
       "clipped_pct": 0.0
     },
     "sr_zone_6": {
-      "scale": 5.697583,
+      "scale": 4.449763,
       "clipped_pct": 0.0
     }
   }

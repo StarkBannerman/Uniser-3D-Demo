@@ -44,6 +44,7 @@ import {
   cancelTween,
   clearTweens,
   easing,
+  equalPower,
   now as tweenNow,
   startTween,
 } from "./tween";
@@ -86,6 +87,9 @@ const MAX_EVENTS = 40;
  * ten writes a second.
  */
 const DRIFT_STEP_DEG = 0.5;
+
+/** How long the spotlights take to move from one vehicle to the next. */
+const SELECTION_CROSSFADE_MS = 800;
 
 /**
  * Expand a scene's selection tokens against the current choice.
@@ -961,16 +965,90 @@ export const useSim = create<SimStore>((set, get) => ({
    * caption the presenter reads is describing something that is happening.
    */
   setSelection: (deviceId) => {
-    const { space, selectionId, activeSceneId } = get();
+    const { space, selectionId, activeSceneId, states, commanded } = get();
     if (!space?.selection || selectionId === deviceId) return;
     if (!space.selection.options.some((o) => o.deviceId === deviceId)) return;
+    const previousId = selectionId ?? space.selection.defaultDeviceId;
     set({ selectionId: deviceId });
     const active = space.scenes.find((sc) => sc.id === activeSceneId);
     if (!active) return;
-    const aims = [active.targets, ...(active.steps ?? []).map((st) => st.targets)].some(
-      (t) => SELECTED_TARGET in t || OTHERS_TARGET in t,
-    );
-    if (aims) get().applyScene(active.id);
+    const maps = [active.targets, ...(active.steps ?? []).map((st) => st.targets)];
+    const aims = maps.some((t) => SELECTED_TARGET in t || OTHERS_TARGET in t);
+    if (!aims) return;
+
+    /**
+     * The last word each token has, and every device the scene names.
+     *
+     * A device written out in the scene wins over the token it also
+     * belongs to — the same rule `expandSelection` applies — which is how
+     * the showroom pins its product ring at 50 while the car circuits it
+     * travels with swing between 100 and 15.
+     */
+    let selected: (StatePatch & { fadeMs?: number }) | undefined;
+    let others: (StatePatch & { fadeMs?: number }) | undefined;
+    const named = new Set<string>();
+    for (const m of maps) {
+      for (const key of Object.keys(m)) {
+        if (key !== SELECTED_TARGET && key !== OTHERS_TARGET) named.add(key);
+      }
+      if (SELECTED_TARGET in m) selected = m[SELECTED_TARGET];
+      if (OTHERS_TARGET in m) others = m[OTHERS_TARGET];
+    }
+    const circuitsOf = (optionId: string) => {
+      const option = space.selection?.options.find((o) => o.deviceId === optionId);
+      if (!option) return [];
+      return [option.deviceId, ...(option.alsoDeviceIds ?? [])].filter(
+        (id) => !named.has(id),
+      );
+    };
+
+    /**
+     * Swap the two subjects, rather than replaying the demonstration.
+     *
+     * Re-pressing the scene is the obvious implementation and it is wrong
+     * in a way that only shows on the screen: the beat that raises the new
+     * car runs seconds before the beat that lowers the old one, so for
+     * most of the replay *two* vehicles sit at full and the room has two
+     * subjects. Measured against the authored timings, that overlap was
+     * about 1.6 s of a 4 s sequence.
+     *
+     * So when the scene is settled and the only thing changing is which
+     * car it is about, the two circuits cross over directly, in 800 ms, on
+     * equal-power curves — see `equalPower`. The total light in the room
+     * stays level through the swap and neither car reaches the other's
+     * brightness on the way. A sequence still running, or a scene without
+     * both tokens, falls back to the replay.
+     */
+    const ready =
+      !get().busy &&
+      !get().sequence &&
+      selected &&
+      others &&
+      typeof selected.level === "number" &&
+      typeof others.level === "number";
+    if (!ready) {
+      get().applyScene(active.id);
+      return;
+    }
+    const nextStates = { ...states };
+    const nextCommanded = { ...commanded };
+    const cross = (ids: string[], to: number) => {
+      for (const id of ids) {
+        const device = space.devices.find((d) => d.id === id);
+        const current = nextStates[id] as LightState | undefined;
+        if (!device || device.kind !== "light" || !current) continue;
+        const from = current.on ? current.level : 0;
+        cancelTween(id, "level");
+        if (from !== to) {
+          startTween(id, "level", from, to, SELECTION_CROSSFADE_MS, equalPower(from, to));
+        }
+        nextStates[id] = { ...current, on: true, level: from };
+        nextCommanded[id] = to;
+      }
+    };
+    cross(circuitsOf(deviceId), selected!.level as number);
+    cross(circuitsOf(previousId), others!.level as number);
+    set({ states: nextStates, commanded: nextCommanded });
   },
 
   tick: (dtRealMs) => {

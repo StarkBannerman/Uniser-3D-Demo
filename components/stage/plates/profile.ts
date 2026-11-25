@@ -59,6 +59,33 @@ export interface PlateProfile {
   rgbwLayers: string[];
   /** Device id the RGBW layers take their hue from, or null for none. */
   colourBus: string | null;
+  /**
+   * Layers that get a noise gate on the raw texel, before the decode.
+   *
+   * For a circuit that lights one object in a wide shot. Most of its plate
+   * is the faint bounce of that object against the rest of the room, and
+   * at the gain such a circuit needs — hundreds of times what a room-wide
+   * layer takes — that bounce stops being faint. The 8-bit floor becomes
+   * visible banding, the path tracer's denoiser leaves grey cloud patches
+   * across the walls, and anything the lit object is coloured reflects
+   * that colour over the whole frame: four spots on a red car turned the
+   * showroom pink.
+   *
+   *     m     = max(r, g, b)
+   *     keep  = max(m - 0.02, 0) / 0.98 * smoothstep(0.015, 0.04, m)
+   *     texel = texel * keep / m
+   *
+   * On the encoded value rather than the decoded one, because that is
+   * where the quantisation is, and keyed on the peak channel rather than
+   * run on each. Per channel it subtracts the same amount from the
+   * weakest channel first, so a dim reddish pixel survives as a pure red
+   * one: measured on the red coupe's circuit, a per-channel gate left the
+   * room at R/G 2.25 against 2.17 with no gate at all, and this one
+   * brings it to 2.07 at the same brightness on the car. One key, applied
+   * to all three, takes a pixel to black without changing its hue on the
+   * way. The smoothstep keeps the gate from showing an edge of its own.
+   */
+  noiseFloor?: string[];
 }
 
 /** Sensible nothing, for a plate set with no calibration of its own. */

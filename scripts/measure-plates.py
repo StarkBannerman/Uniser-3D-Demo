@@ -134,6 +134,7 @@ def load_profile(name: str) -> dict:
         "neutral": strings("neutralLayers"),
         "fixed": {k: int(v) for k, v in pairs("fixedTint").items()},
         "rgbw": strings("rgbwLayers"),
+        "floor": strings("noiseFloor"),
         "bus": bus.group(1) if bus and bus.group(1) else None,
     }
 
@@ -151,6 +152,7 @@ SET = load_profile(re.sub(r"_(sheer|closed|screen|fan)$", "", PLATES.name))
 GAIN = SET["gain"]
 EXPOSURE = SET["exposure"]
 TINT_SATURATION = SET["tint"]
+NOISE_FLOOR = set(SET["floor"])
 
 MAN = json.loads((PLATES / "manifest.json").read_text())
 LAYERS = list(MAN["layers"].keys())
@@ -183,6 +185,15 @@ def linear(layer, tier="sd", plates=None):
     if hit is None:
         man = MAN if base == PLATES else json.loads((base / "manifest.json").read_text())
         img = np.asarray(Image.open(base / tier / f"{layer}.webp").convert("RGB"), np.float32) / np.float32(255)
+        # The shader's `gate()`, for the layers the profile names. On the
+        # encoded texel and before the decode, exactly as there — see
+        # `PlateProfile.noiseFloor`.
+        if layer in NOISE_FLOOR:
+            m = img.max(axis=2, keepdims=True)
+            t = np.clip((m - np.float32(0.015)) / np.float32(0.025), 0, 1)
+            k = (np.maximum(m - np.float32(0.02), 0) / np.float32(0.98)
+                 * (t * t * (3 - 2 * t)) / np.maximum(m, np.float32(1e-5)))
+            img = img * k
         hit = (img ** np.float32(man["gamma"])) * np.float32(man["layers"][layer]["scale"])
         _CACHE[key] = hit
     return hit

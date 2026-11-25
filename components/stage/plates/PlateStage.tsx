@@ -392,6 +392,10 @@ export function PlateStage({
           glass,
           overlayBox,
           overlayTravel,
+          // The noise gate, per layer, in sampler order.
+          layers.map((l) =>
+            profileFor(profileName).noiseFloor?.includes(l) ? 1 : 0,
+          ),
         );
       } catch (e) {
         if (!cancelled) {
@@ -861,11 +865,14 @@ export function PlateStage({
 
       {ready && !failed && hotspots && space && (
         <div className="pointer-events-none absolute inset-0">
-          {Object.entries(hotspots.points).map(([pointId, point]) => {
-            if (!point.visible) return null;
+          {Object.entries(hotspots.points).map(([pointId, raw]) => {
             // A point of interest resolves to the circuit that lights it,
             // and keeps its own name for the tooltip.
             const alias = space.plates?.hotspotAliases?.[pointId];
+            // A hand-measured position overrides the projected one, and
+            // says by its presence that the point is in frame.
+            const point = alias?.at ? { ...raw, ...alias.at, visible: true } : raw;
+            if (!point.visible) return null;
             const deviceId = alias?.deviceId ?? pointId;
             const device = space.devices.find((d) => d.id === deviceId);
             if (!device) return null;

@@ -23,6 +23,39 @@ export const easing = {
     t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
 } satisfies Record<string, Easing>;
 
+/** The dimming law the shader uses: a level of `L` emits `(L/100)^2.2`. */
+const DIM_GAMMA = 2.2;
+
+/**
+ * One half of an equal-power crossfade, for a given pair of endpoints.
+ *
+ * Two circuits swapping roles — the spotlights leaving one car and
+ * arriving on another — must not dip or bulge in the middle. A linear
+ * crossfade dips, because level is not light: halfway between 100 and 0
+ * both fixtures are at 50, which is 2 x 50^2.2, about 22% of the light
+ * one of them had. A cosine crossfade on *power* holds the total still.
+ *
+ * So the two sides share a cos^2 / sin^2 split of the power between their
+ * endpoints, and this converts that back into the fraction of the level
+ * journey the tween engine wants. Give one side (from, to) and the other
+ * (to, from) and their outputs sum to a constant at every instant.
+ *
+ * Built per call rather than stored in `easing` because the shape depends
+ * on the endpoints: a fade from 100 to 15 is not the mirror of one from
+ * 15 to 100 unless the floor is accounted for.
+ */
+export function equalPower(from: number, to: number): Easing {
+  const span = to - from;
+  if (span === 0) return easing.linear;
+  const a = Math.pow(Math.max(from, 0) / 100, DIM_GAMMA);
+  const b = Math.pow(Math.max(to, 0) / 100, DIM_GAMMA);
+  return (t) => {
+    const c = Math.cos((t * Math.PI) / 2) ** 2;
+    const level = 100 * Math.pow(a * c + b * (1 - c), 1 / DIM_GAMMA);
+    return (level - from) / span;
+  };
+}
+
 interface Tween {
   from: number;
   to: number;

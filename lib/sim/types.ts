@@ -888,6 +888,24 @@ export interface Space {
         deviceId: string;
         label: string;
         /**
+         * Where the marker really belongs, when the render put it wrong.
+         *
+         * The offline renderer projects a circuit's position from its
+         * light object, and for a fitting whose emitter sits behind or
+         * beside the thing you see, that lands somewhere useless. The
+         * showroom's pendant globes are the case: `hotspots.json` has
+         * `sr-deco` at u 1.047, which is off the right edge of the frame,
+         * and the renderer duly marked it `visible: false` — so the
+         * circuit the client asked to be able to tap had no marker at all.
+         *
+         * Declaring the measured position here rather than editing
+         * `hotspots.json` is the same choice `label` makes, for the same
+         * reason: that file is generated and the next re-render
+         * overwrites it. A point with `at` is always drawn, because a
+         * position given by hand is a statement that it is on screen.
+         */
+        at?: { u: number; v: number };
+        /**
          * A scene the marker recalls as well as selecting the circuit.
          *
          * For a point of interest that names a *use* of the room rather

@@ -35,7 +35,27 @@ export const showroom: Space = {
   blurb:
     "A 900 m² luxury car showroom, path-traced offline and relit live — ten lighting types across the display floor, a turntable, a brand wall and a mezzanine, with the adjustable spotlights split per vehicle so any of the six cars can be made the subject of the room.",
   renderer: "plates",
-  plates: { dir: "/plates/showroom", profile: "showroom" },
+  plates: {
+    dir: "/plates/showroom",
+    profile: "showroom",
+    /**
+     * One correction, measured off the plate rather than guessed.
+     *
+     * v14's render projects `sr-deco` to u 1.047 — off the right edge of
+     * the frame — and marks it invisible, so the new pendant circuit had
+     * no marker at all. The globes themselves are plainly in shot: the
+     * brightest 0.1% of `sr_deco` sits inside u 0.902-0.931, v 0.413-0.454,
+     * and its centroid is the position below. Re-measure it the same way
+     * if the camera ever moves.
+     */
+    hotspotAliases: {
+      "sr-deco": {
+        deviceId: "sr-deco",
+        label: "Decorative Pendants",
+        at: { u: 0.9165, v: 0.4335 },
+      },
+    },
+  },
 
   keypad: {
     layout: "grid",
@@ -323,6 +343,30 @@ export const showroom: Space = {
     },
 
     {
+      id: "sr-deco",
+      kind: "light",
+      name: "Decorative Pendants",
+      zoneId: "sr-main",
+      productId: "pipeline-pendant",
+      subsystem: "lighting",
+      pitch:
+        "Three opal globes on staggered drops over the reception desk. The only soft source in a building full of hard ones, and the only light in the room a customer stands directly underneath — a showroom that greets people under the same spotlights it uses on the cars is a showroom that treats them like stock.",
+      /**
+       * Dim only, fixed at 2700 K.
+       *
+       * An opal globe over a desk is specified once. Tuning it would put
+       * the warmest object in the room on the same curve as the circuits
+       * that exist to render paint honestly, and the whole argument for
+       * this fitting is that it is not one of those.
+       */
+      dimmable: true,
+      fixtures: 3,
+      wattsEach: 9,
+      lumensEach: 450,
+      glow: [],
+    },
+
+    {
       id: "sr-ac",
       kind: "climate",
       name: "Air Conditioning",
@@ -406,16 +450,17 @@ export const showroom: Space = {
         "Trading hours. Bright, even and cool enough to read paint honestly — the only scene in the room with no subject, because at nine in the morning you do not yet know which car the person walking in came to see.",
       fadeMs: 1800,
       targets: {
-        "sr-general": { on: true, level: 85, cct: 4500, sat: 0 },
-        "sr-spot": { on: true, level: 70, cct: 4500, sat: 0 },
-        "@selected": { on: true, level: 70, cct: 4500, sat: 0 },
-        "@others": { on: true, level: 70, cct: 4500, sat: 0 },
-        "sr-track": { on: true, level: 70, cct: 4500, sat: 0 },
-        "sr-linear": { on: true, level: 60 },
-        "sr-tunable": { on: true, level: 70, cct: 4500, sat: 0 },
-        "sr-accent": { on: true, level: 60 },
-        "sr-floor": { on: true, level: 40 },
-        "sr-arch": { on: true, level: 60 },
+        "sr-general": { on: true, level: 56, cct: 4500, sat: 0 },
+        "sr-spot": { on: true, level: 46, cct: 4500, sat: 0 },
+        "@selected": { on: true, level: 46, cct: 4500, sat: 0 },
+        "@others": { on: true, level: 46, cct: 4500, sat: 0 },
+        "sr-track": { on: true, level: 46, cct: 4500, sat: 0 },
+        "sr-linear": { on: true, level: 40 },
+        "sr-tunable": { on: true, level: 46, cct: 4500, sat: 0 },
+        "sr-accent": { on: true, level: 40 },
+        "sr-floor": { on: true, level: 26 },
+        "sr-deco": { on: true, level: 46 },
+        "sr-arch": { on: true, level: 40 },
         "sr-rgb": { on: false },
         "sr-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
         "sr-music": { on: true, source: "Showroom", volume: 20 },
@@ -428,7 +473,7 @@ export const showroom: Space = {
       name: "Vehicle Presentation",
       icon: "◎",
       blurb:
-        "The sheet's own demonstration, run as one button: general lighting dims, the selected car's spotlights come up, accent light focuses on it, everything around it steps back, and the colour temperature moves to 5000 K for the paint. Five stages, about four seconds, on whichever vehicle is selected.",
+        "The sheet's own demonstration, run as one button: general lighting dims, the selected car's spotlights come up, accent light follows it, everything around it steps back, and the colour temperature goes to 5000 K for the paint. Five stages, about four seconds, on whichever vehicle is selected — and the room steps back rather than going dark, because a showroom with one lit car and a black floor is a photograph, not a place to stand.",
       fadeMs: 800,
       /**
        * Stage zero sets only what the narration does not.
@@ -440,12 +485,25 @@ export const showroom: Space = {
        * the demonstration's end state here made all five steps no-ops — the
        * room cut straight to the answer and not one caption appeared.
        *
-       * So the five circuits the beats talk about are deliberately absent,
-       * and what is left is the housekeeping: the architectural line settles
-       * to 40, the colour goes off, and the plant carries on.
+       * So the seven circuits the beats talk about are deliberately absent,
+       * and what is left is the housekeeping.
        */
       targets: {
-        "sr-arch": { on: true, level: 40 },
+        "sr-arch": { on: true, level: 50 },
+        /**
+         * The ring is pinned, and has to be named again in every stage
+         * that carries a group token.
+         *
+         * `sr-spot` rides with the turntable car as `alsoDeviceIds`, so
+         * `@selected` and `@others` reach it too — and a token would take
+         * it to 100 or to 15 depending on which vehicle is chosen, which
+         * is the one thing this scene cannot have: the ring lights the
+         * middle of the room, and a presentation whose ambient changes
+         * with the selection is a presentation of the room, not the car.
+         */
+        "sr-spot": { on: true, level: 50, cct: 5000, sat: 0 },
+        "sr-accent": { on: false },
+        "sr-deco": { on: false },
         "sr-rgb": { on: false },
         "sr-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
         "sr-music": { on: true, source: "Showroom", volume: 20 },
@@ -454,43 +512,58 @@ export const showroom: Space = {
        * The five beats, in the sheet's order and its words.
        *
        * Authored at 1800 ms a beat, which `PACE` plays at about 0.44 and
-       * lands near the four seconds the brief asks for. The last beat is the
-       * one that matters most and is easiest to miss: moving the selected
-       * car's spots to 5000 K while everything else stays at 4500 K is what
-       * makes the paint on that one vehicle look different from the paint on
-       * the five around it.
+       * lands near the four seconds the brief asks for. The last beat is
+       * the one that matters most and is easiest to miss: the selected
+       * car's spots go to 5000 K, which is what makes the paint on that
+       * one vehicle look different from the paint on the five around it.
        */
       steps: [
         {
+          /**
+           * The linears come *up* here, and that is deliberate.
+           *
+           * This beat used to take them from 60 down to 25 alongside the
+           * ceiling, so the one circuit the client wanted to see arrive
+           * only ever left. Nothing is broken in the runner — traced, the
+           * step fires with its caption and the circuit moves — the
+           * movement was simply downward, and against the v14 plate,
+           * which puts this circuit's output on the floor rather than in
+           * the diffuser, a drop is close to invisible.
+           *
+           * So the downlights come down to 40 and the slat ceiling goes
+           * up to 35. The room keeps a floor to stand on while the lux
+           * layer leaves, and what replaces it is architectural.
+           */
           label: "Dimming general lighting",
           holdMs: 1800,
           targets: {
-            "sr-general": { on: true, level: 20, fadeMs: 800, sat: 0 },
-            "sr-linear": { on: true, level: 25, fadeMs: 800 },
+            "sr-general": { on: true, level: 40, cct: 5000, fadeMs: 800, sat: 0 },
+            "sr-linear": { on: true, level: 35, fadeMs: 800 },
           },
         },
         {
           label: "Focusing on {selection}",
           holdMs: 1800,
           targets: {
-            "@selected": { on: true, level: 100, fadeMs: 800, sat: 0 },
+            "@selected": { on: true, level: 100, cct: 5000, fadeMs: 800, sat: 0 },
+            "sr-spot": { on: true, level: 50, cct: 5000, fadeMs: 800, sat: 0 },
           },
         },
         {
           label: "Accent lighting follows the vehicle",
           holdMs: 1800,
           targets: {
-            "sr-floor": { on: true, level: 70, fadeMs: 800 },
-            "sr-accent": { on: true, level: 30, fadeMs: 800 },
-            "sr-track": { on: true, level: 30, fadeMs: 800, sat: 0 },
+            "sr-floor": { on: true, level: 40, fadeMs: 800 },
+            "sr-track": { on: true, level: 30, cct: 5000, fadeMs: 800, sat: 0 },
           },
         },
         {
           label: "Surrounding lighting reduces",
           holdMs: 1800,
           targets: {
-            "@others": { on: true, level: 25, fadeMs: 800, sat: 0 },
-            "sr-tunable": { on: true, level: 30, fadeMs: 800, sat: 0 },
+            "@others": { on: true, level: 15, cct: 5000, fadeMs: 800, sat: 0 },
+            "sr-spot": { on: true, level: 50, cct: 5000, fadeMs: 800, sat: 0 },
+            "sr-tunable": { on: true, level: 30, cct: 5000, fadeMs: 800, sat: 0 },
           },
         },
         {
@@ -498,6 +571,7 @@ export const showroom: Space = {
           holdMs: 1600,
           targets: {
             "@selected": { on: true, level: 100, cct: 5000, fadeMs: 1000, sat: 0 },
+            "sr-spot": { on: true, level: 50, cct: 5000, fadeMs: 1000, sat: 0 },
           },
         },
       ],
@@ -509,27 +583,58 @@ export const showroom: Space = {
       name: "New Car Launch",
       icon: "✦",
       blurb:
-        "Evening, with the turntable car as the only subject in the building. Ambient almost out, the product ring at full, accent and floor lighting high, and the feature wall running brand colour that drifts from blue to magenta across the evening.",
+        "Evening, with the turntable car as the only subject in the building. The other five go dark, the product ring wraps the launch car in white 4000 K so its paint is the paint, and the colour is on the feature wall behind it and nowhere else.",
       fadeMs: 2200,
       targets: {
-        "sr-general": { on: true, level: 25, cct: 4500, sat: 0 },
-        "sr-spot": { on: true, level: 100, cct: 4500, sat: 0 },
-        "@selected": { on: true, level: 40, cct: 4500, sat: 0 },
-        "@others": { on: true, level: 40, cct: 4500, sat: 0 },
-        // The launch car is the turntable car whatever is selected, so this
-        // is named outright and wins over the group token above.
-        "sr-zone-3": { on: true, level: 100, cct: 4500, sat: 0 },
-        "sr-track": { on: true, level: 60, cct: 4500, sat: 0 },
-        "sr-linear": { on: true, level: 40 },
-        "sr-tunable": { on: true, level: 30, cct: 4500, sat: 0 },
-        "sr-accent": { on: true, level: 90 },
-        "sr-floor": { on: true, level: 90 },
-        "sr-arch": { on: true, level: 60 },
-        "sr-rgb": { on: true, level: 100, cct: 4000, hue: 220, sat: 100 },
+        /**
+         * Fifteen and twenty, which are ceilings rather than choices.
+         *
+         * A launch is the one scene where the room is supposed to lose to
+         * the car. Anything the ambient layers add here is light landing
+         * on five vehicles nobody is being shown and on a floor nobody is
+         * looking at, and every point of it narrows the gap between the
+         * subject and its background.
+         */
+        "sr-general": { on: true, level: 3, cct: 4000, sat: 0 },
+        "sr-linear": { on: true, level: 4 },
+        /**
+         * The five other cars are off, not dimmed.
+         *
+         * `@others` at 40 was the old reading of "ambient almost out", and
+         * it is the wrong one: four heads on each of five cars is five
+         * competing subjects at the moment the room is meant to have one.
+         * The turntable car is named outright below and wins over the
+         * group token whichever vehicle the presenter has selected.
+         */
+        "@selected": { on: false },
+        "@others": { on: false },
+        "sr-spot": { on: true, level: 100, cct: 4000, sat: 0 },
+        "sr-zone-3": { on: true, level: 100, cct: 4000, sat: 0 },
+        "sr-track": { on: true, level: 6, cct: 4000, sat: 0 },
+        "sr-tunable": { on: true, level: 4, cct: 4000, sat: 0 },
+        "sr-accent": { on: true, level: 11 },
+        "sr-floor": { on: true, level: 14 },
+        "sr-arch": { on: true, level: 9 },
+        "sr-deco": { on: false },
+        /**
+         * Deep blue `#1E5BFF`, held, and only on the wall.
+         *
+         * The hue and saturation are that hex in HSV. It used to drift
+         * from blue round to magenta over thirty seconds, which is a
+         * different promise from "the brand colour": a client who picks a
+         * colour and watches it turn into another one has been shown a
+         * toy. `SceneDrift` interpolates hue and nothing else, so the only
+         * way to hold a colour is not to have one.
+         *
+         * Nothing follows this circuit. `sr_rgb` is not in `rgbwLayers`
+         * and there is no colour bus feeding the spots, so the blue is on
+         * the feature wall and the cars stay the colour the white light
+         * makes them — which is the whole trick the scene is selling.
+         */
+        "sr-rgb": { on: true, level: 16, cct: 4000, hue: 224, sat: 88 },
         "sr-ac": { on: true, setpointC: 21, mode: "cool", fan: 3 },
         "sr-music": { on: true, source: "Launch Set", volume: 42 },
       },
-      drift: { deviceId: "sr-rgb", fromHue: 220, toHue: 320, periodMs: 30000 },
       highlight: ["flexi-delta-rgb", "magneto-track"],
     },
     {
@@ -541,17 +646,18 @@ export const showroom: Space = {
         "The room sold as a lounge rather than a shop. Warm, low and architectural, with the edges doing most of the work and a trace of amber on the feature wall — this is the setting for the customer who is not going to be hurried.",
       fadeMs: 2400,
       targets: {
-        "sr-general": { on: true, level: 30, cct: 3000, sat: 0 },
-        "sr-spot": { on: true, level: 70, cct: 3000, sat: 0 },
-        "@selected": { on: true, level: 60, cct: 3000, sat: 0 },
-        "@others": { on: true, level: 60, cct: 3000, sat: 0 },
-        "sr-track": { on: true, level: 40, cct: 3000, sat: 0 },
-        "sr-linear": { on: true, level: 30 },
-        "sr-tunable": { on: true, level: 50, cct: 3000, sat: 0 },
-        "sr-accent": { on: true, level: 70 },
-        "sr-floor": { on: true, level: 50 },
-        "sr-arch": { on: true, level: 80 },
-        "sr-rgb": { on: true, level: 15, cct: 2600, hue: 35, sat: 55 },
+        "sr-general": { on: true, level: 17, cct: 3000, sat: 0 },
+        "sr-spot": { on: true, level: 40, cct: 3000, sat: 0 },
+        "@selected": { on: true, level: 34, cct: 3000, sat: 0 },
+        "@others": { on: true, level: 34, cct: 3000, sat: 0 },
+        "sr-track": { on: true, level: 23, cct: 3000, sat: 0 },
+        "sr-linear": { on: true, level: 17 },
+        "sr-tunable": { on: true, level: 28, cct: 3000, sat: 0 },
+        "sr-accent": { on: true, level: 40 },
+        "sr-floor": { on: true, level: 28 },
+        "sr-deco": { on: true, level: 40 },
+        "sr-arch": { on: true, level: 45 },
+        "sr-rgb": { on: true, level: 9, cct: 2600, hue: 35, sat: 55 },
         "sr-ac": { on: true, setpointC: 22, mode: "cool", fan: 1 },
         "sr-music": { on: true, source: "Lounge", volume: 24 },
       },
@@ -566,16 +672,17 @@ export const showroom: Space = {
         "Someone is sitting down with a specification sheet. The lounge and the desk come up warm and the cars stay visible behind them, because a customer talking about a car should still be able to see it over the salesperson's shoulder.",
       fadeMs: 2000,
       targets: {
-        "sr-general": { on: true, level: 55, cct: 3500, sat: 0 },
-        "sr-spot": { on: true, level: 40, cct: 3500, sat: 0 },
-        "@selected": { on: true, level: 40, cct: 3500, sat: 0 },
-        "@others": { on: true, level: 40, cct: 3500, sat: 0 },
-        "sr-track": { on: true, level: 40, cct: 3500, sat: 0 },
-        "sr-linear": { on: true, level: 40 },
-        "sr-tunable": { on: true, level: 70, cct: 3500, sat: 0 },
-        "sr-accent": { on: true, level: 50 },
-        "sr-floor": { on: true, level: 30 },
-        "sr-arch": { on: true, level: 60 },
+        "sr-general": { on: true, level: 44, cct: 3500, sat: 0 },
+        "sr-spot": { on: true, level: 32, cct: 3500, sat: 0 },
+        "@selected": { on: true, level: 32, cct: 3500, sat: 0 },
+        "@others": { on: true, level: 32, cct: 3500, sat: 0 },
+        "sr-track": { on: true, level: 32, cct: 3500, sat: 0 },
+        "sr-linear": { on: true, level: 32 },
+        "sr-tunable": { on: true, level: 56, cct: 3500, sat: 0 },
+        "sr-accent": { on: true, level: 40 },
+        "sr-floor": { on: true, level: 24 },
+        "sr-deco": { on: true, level: 60 },
+        "sr-arch": { on: true, level: 48 },
         "sr-rgb": { on: false },
         "sr-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
         "sr-music": { on: true, source: "Ambient", volume: 18 },
@@ -591,17 +698,18 @@ export const showroom: Space = {
         "A handover. The selected car is the brightest thing in the building and everything else steps back a little, with a soft brand wash behind it — this is the scene that ends up in the customer's photographs.",
       fadeMs: 2000,
       targets: {
-        "sr-general": { on: true, level: 50, cct: 4000, sat: 0 },
-        "sr-spot": { on: true, level: 60, cct: 4000, sat: 0 },
+        "sr-general": { on: true, level: 33, cct: 4000, sat: 0 },
+        "sr-spot": { on: true, level: 40, cct: 4000, sat: 0 },
         "@selected": { on: true, level: 100, cct: 4000, sat: 0 },
-        "@others": { on: true, level: 35, cct: 4000, sat: 0 },
-        "sr-track": { on: true, level: 40, cct: 4000, sat: 0 },
-        "sr-linear": { on: true, level: 40 },
-        "sr-tunable": { on: true, level: 50, cct: 4000, sat: 0 },
-        "sr-accent": { on: true, level: 60 },
-        "sr-floor": { on: true, level: 60 },
-        "sr-arch": { on: true, level: 60 },
-        "sr-rgb": { on: true, level: 30, cct: 4000, hue: 215, sat: 45 },
+        "@others": { on: true, level: 23, cct: 4000, sat: 0 },
+        "sr-track": { on: true, level: 26, cct: 4000, sat: 0 },
+        "sr-linear": { on: true, level: 26 },
+        "sr-tunable": { on: true, level: 33, cct: 4000, sat: 0 },
+        "sr-accent": { on: true, level: 40 },
+        "sr-floor": { on: true, level: 40 },
+        "sr-deco": { on: false },
+        "sr-arch": { on: true, level: 40 },
+        "sr-rgb": { on: true, level: 20, cct: 4000, hue: 215, sat: 45 },
         "sr-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
         "sr-music": { on: true, source: "Ambient", volume: 26 },
       },
@@ -616,17 +724,18 @@ export const showroom: Space = {
         "A booked floor with people standing and circulating rather than looking at one car. Accent and floor lighting high, the ceiling doing visible work, and the feature wall cycling slowly through the brand range.",
       fadeMs: 1800,
       targets: {
-        "sr-general": { on: true, level: 35, cct: 4000, sat: 0 },
-        "sr-spot": { on: true, level: 70, cct: 4000, sat: 0 },
-        "@selected": { on: true, level: 70, cct: 4000, sat: 0 },
-        "@others": { on: true, level: 70, cct: 4000, sat: 0 },
-        "sr-track": { on: true, level: 70, cct: 4000, sat: 0 },
-        "sr-linear": { on: true, level: 70 },
-        "sr-tunable": { on: true, level: 40, cct: 4000, sat: 0 },
-        "sr-accent": { on: true, level: 90 },
-        "sr-floor": { on: true, level: 80 },
-        "sr-arch": { on: true, level: 70 },
-        "sr-rgb": { on: true, level: 100, cct: 4000, hue: 200, sat: 100 },
+        "sr-general": { on: true, level: 23, cct: 4000, sat: 0 },
+        "sr-spot": { on: true, level: 45, cct: 4000, sat: 0 },
+        "@selected": { on: true, level: 45, cct: 4000, sat: 0 },
+        "@others": { on: true, level: 45, cct: 4000, sat: 0 },
+        "sr-track": { on: true, level: 45, cct: 4000, sat: 0 },
+        "sr-linear": { on: true, level: 45 },
+        "sr-tunable": { on: true, level: 26, cct: 4000, sat: 0 },
+        "sr-accent": { on: true, level: 58 },
+        "sr-floor": { on: true, level: 51 },
+        "sr-deco": { on: false },
+        "sr-arch": { on: true, level: 45 },
+        "sr-rgb": { on: true, level: 64, cct: 4000, hue: 200, sat: 100 },
         "sr-ac": { on: true, setpointC: 21, mode: "cool", fan: 4 },
         "sr-music": { on: true, source: "Launch Set", volume: 52 },
       },
@@ -651,6 +760,7 @@ export const showroom: Space = {
         "sr-tunable": { on: false },
         "sr-accent": { on: true, level: 50 },
         "sr-floor": { on: true, level: 30 },
+        "sr-deco": { on: false },
         "sr-arch": { on: true, level: 30 },
         "sr-rgb": { on: false },
         "sr-ac": { on: true, setpointC: 26, mode: "cool", fan: 1 },
@@ -719,6 +829,7 @@ export const showroom: Space = {
     "sr-floor": { on: true, level: 40 },
     "sr-arch": { on: true, level: 60 },
     "sr-tunable": { on: true, level: 70, cct: DEFAULT_CCT, sat: 0 },
+    "sr-deco": { on: true, level: 70 },
     "sr-rgb": { on: false, level: 0, cct: DEFAULT_CCT, hue: 220, sat: 100 },
     "sr-ac": { on: true, setpointC: 22, mode: "cool", fan: 2 },
     "sr-music": { on: true, source: "Showroom", volume: 20 },

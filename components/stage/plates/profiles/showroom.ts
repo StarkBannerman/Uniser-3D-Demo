@@ -1,94 +1,139 @@
 import type { PlateProfile } from "../profile";
 
 /**
- * The luxury car showroom's calibration.
+ * The luxury car showroom's calibration, for the v14 re-render.
  *
- * Derived, not dialled, by `scripts/measure-plates.py --gains`, anchored so
- * `sr_general` alone at full reads about 0.25 mean display luminance — the
- * brief's own test — and spread across the other circuits in proportion to
- * `fixtures x lumensEach` from the space file.
+ * Every gain here is a measurement: each circuit rendered alone at full
+ * output, through this file's own exposure and the AgX curve, bisected
+ * until the frame mean hits the target its job implies.
  *
- * The spread is wide because the plate set is not internally consistent. At
- * full output the architectural line decodes to a mean of 0.212 and the
- * product spots to 0.00002, a factor of ten thousand between a circuit of
- * 72 000 lumens and one of 26 000 — so the gains run from 1.1 to 8900 and
- * that is the measurement, not a preference.
+ *   0.25  the two circuits that light the room — general and linear
+ *   0.12  the ones that light a thing — spots, track, tunable, the
+ *         architectural line and the six per-vehicle circuits
+ *   0.06  the ones that are decoration — pendants, floor, accent, colour
+ *
+ * v14 moved the layers a long way relative to each other, which is why no
+ * old value survived. `sr_spot` went from twelve narrow beams that barely
+ * registered to a wrap around the turntable car plus three low front
+ * spots: its plate mean rose 65x and its gain fell from 52 263 to 355.
+ * `sr_floor` gained the ring on the floor and rose 5.1x. `sr_general`
+ * halved, `sr_arch` lost the pillar washes and gained the desk grazer, and
+ * `sr_linear` moved its output off the diffuser and onto the floor.
+ *
+ * `sr_deco` is new: three opal globes over the reception desk. Like any
+ * decorative circuit whose fixtures are in shot, its plate mean is carried
+ * by a few hundred very bright pixels — 0.0369 against `sr_general`'s
+ * 0.0164 from three globes against sixty-four downlights — so 0.06 is the
+ * target that makes it read as glass rather than as a lamp.
+ *
+ * The six vehicle circuits are the exception worth knowing about, and the
+ * reason is in their plates. Four heads aimed at one car in a 900 m² wide
+ * shot leave 76% to 99% of the frame black, so a frame-mean target spends
+ * all of its light on the few hundred pixels that are lit. At the 0.12
+ * these are solved to, each car's own hotspot clips hard with the circuit
+ * alone at full: zone 6 at 62% of the disc, zone 1 at 57%, zone 5 at 56%,
+ * zone 4 at 34%. The scenes carry them below full for that reason, and the
+ * figures are in the space file beside the levels. A frame mean is the
+ * wrong statistic for a circuit that is deliberately not lighting the
+ * frame, and the honest fix is a target measured at the car.
  *
  * Two things are deliberately absent. There are no RGBW layers: the sheet
- * puts colour on the feature-wall fins and the planter uplights and nowhere
- * else, so `sr_rgb` tints its own plate and nothing follows it. And there
- * are no neutral layers, because unlike the restaurant nothing here was
- * rendered with its lamp colour baked in — the two plates that measure
- * coloured are `sr_floor` at R/B 1.29, which is a warm floor being lit, and
- * `sr_zone_4` at 3.61, which is the red coupe reflecting its own paint.
- * Both are surfaces doing what surfaces do, and tinting them is correct.
+ * puts colour on the feature-wall fins and nowhere else, so `sr_rgb` tints
+ * its own plate and nothing follows it — which is also what keeps the cars
+ * white under a coloured wall in New Car Launch. And there are no neutral
+ * layers, because nothing here was rendered with its lamp colour baked in.
  */
 export const SHOWROOM_PROFILE: PlateProfile = {
   gain: {
-    sr_general: 29.4,
+    sr_general: 50.56,
+    sr_linear: 9.449,
+
+    sr_spot: 355.4,
+    sr_track: 409.0,
+    sr_tunable: 2370,
+    sr_arch: 2.996,
+
     /**
-     * Four figures, and it is not a mistake.
+     * Six four-head circuits, solved on the car and then on the room.
      *
-     * The product ring decodes to a frame mean of 0.00002 — it is twelve
-     * narrow beams onto one car in a wide shot, so almost every pixel of
-     * its plate is black. The plate uses its full 8-bit range where it is
-     * lit, so there is nothing to amplify but signal.
+     * Not on the frame. A frame-mean target asks a circuit that lights one
+     * vehicle to light the whole picture, and the only way it can is by
+     * amplifying what is nearly nothing everywhere else: at the gains that
+     * produced, selecting a car covered the walls in grey denoiser cloud,
+     * put visible 8-bit banding in the floor, and — the red coupe's spots
+     * bouncing red light off red paint — turned the entire showroom pink.
      *
-     * Solved against the turntable car rather than against the frame, for
-     * the same reason the zones are: this ring is the only thing that
-     * actually lights that vehicle, so what matters is what it does there.
+     * Each gain here is the lower of two measurements, with the noise gate
+     * below already applied:
+     *
+     *   the car   the circuit alone at full reads a mean of 0.45 inside
+     *             its own hotspot box, +/-8% of the frame
+     *   the room  the same circuit puts no more than 0.06 on everything
+     *             outside all six boxes
+     *
+     * Whichever binds first wins, because a vehicle circuit that lights
+     * the room is not doing its job however bright the car gets.
+     *
+     *   zone  gain       car box  room   contrast  binds on
+     *   1     459.3      0.423    0.060  7.0x      room
+     *   2     2123       0.097    0.060  1.6x      room
+     *   3     14030      0.069    0.060  1.1x      room
+     *   4     4263       0.220    0.060  3.7x      room
+     *   5     23130      0.450    0.047  9.6x      car
+     *   6     1490000    0.450    0.016  27.7x     car
+     *
+     * Two of them cannot isolate their vehicle at any gain. `sr_zone_2`
+     * and `sr_zone_3` reach 1.6x and 1.1x their own spill, because in v14
+     * their brightest pixels are not the car — the energy-weighted
+     * centroid of each one's top 1% sits at v 0.33 and v 0.28, up on the
+     * ceiling, which is the lit fixture rather than the vehicle under it.
+     * No gain fixes a pass that puts its light somewhere else. Those two
+     * want re-aiming in the render.
      */
-    sr_spot: 52263,
-    sr_track: 296,
-    sr_linear: 3.4,
-    sr_accent: 1.1,
-    sr_floor: 6.6,
-    sr_arch: 2.1,
-    sr_tunable: 552,
-    sr_rgb: 29,
-    /**
-     * Six identical four-spot circuits, equalised at their own car.
-     *
-     * Normalising these on frame mean like the rest was wrong: a narrow
-     * circuit aimed at one vehicle in a wide shot is almost all black, so
-     * matching frame means matched the black and left the cars unequal —
-     * the side-on saloon came out dimmer under its own spotlights than its
-     * neighbours were under the ambient. These are instead solved so each
-     * zone delivers the same luminance inside its own car's hotspot, which
-     * is the thing the presenter is actually looking at — and solved
-     * against the rendered composite rather than against linear plate
-     * values, because AgX is not linear and equal light at the car is not
-     * the same as equal *picture* at the car.
-     *
-     * `sr_zone_3` is the exception and is deliberately low. Its pass puts
-     * almost nothing on the turntable car — equalising it the same way asks
-     * for a gain of 964 639 — and what light it does carry lands on the
-     * cars either side, so raising it would brighten the neighbours of the
-     * vehicle it is meant to isolate. The turntable car's light is the
-     * high-CRI ring above it, which is why `sr-spot` is attached to that
-     * option as a companion in the space file.
-     */
-    sr_zone_1: 149,
-    sr_zone_2: 5921,
-    sr_zone_3: 50,
-    sr_zone_4: 5628,
-    sr_zone_5: 2648,
-    sr_zone_6: 25301,
+    sr_zone_1: 459.3,
+    sr_zone_2: 2123,
+    sr_zone_3: 14030,
+    sr_zone_4: 4263,
+    sr_zone_5: 23130,
+    sr_zone_6: 1490000,
+
+    sr_deco: 162.9,
+    sr_floor: 4.641,
+    sr_accent: 3.237,
+    sr_rgb: 107.4,
   },
   /**
-   * 0.20, which is lower than the restaurant's because the gains are
-   * larger. The two are one calibration: what matters is their product.
-   *
-   * Measured scene means at this setting: Closing 0.07, Vehicle
-   * Presentation 0.22, Customer Consultation 0.25, Delivery 0.26, Premium
-   * 0.26, New Car Launch 0.30, Event 0.33, Showroom Open 0.35. Under
-   * Vehicle Presentation each of the six cars reads 1.43x to 1.56x the
-   * brightest other car, which is the number that says the selection is
-   * visibly doing something.
+   * 0.20. Gain and exposure are one calibration — only their product
+   * matters — and the gains above were solved against this number, so
+   * moving it invalidates all sixteen of them at once.
    */
   exposure: 0.2,
   tintSaturation: 0.55,
+  /**
+   * The pendants are opal glass and the globes are in shot, so their
+   * warmth is a property of the object. The device carries no `tunable`
+   * range for the same reason; this is the other half of that statement.
+   */
+  fixedTint: { sr_deco: 2700 },
   neutralLayers: [],
   rgbwLayers: [],
   colourBus: "sr-rgb",
+  /**
+   * The six vehicle circuits, and only those.
+   *
+   * Each one lights a single car in a wide shot and needs a gain in the
+   * thousands to do it, which turned what is nearly nothing across the
+   * rest of its plate into something: grey denoiser cloud over the walls,
+   * 8-bit banding in the floor, and — because the light bouncing off a
+   * red car is red — a pink room whenever the red coupe was selected.
+   * The gate removes the bounce and leaves the car.
+   */
+  noiseFloor: [
+    "sr_zone_1",
+    "sr_zone_2",
+    "sr_zone_3",
+    "sr_zone_4",
+    "sr_zone_5",
+    "sr_zone_6",
+  ],
 };

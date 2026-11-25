@@ -312,7 +312,8 @@ function fragmentSource(
   const samplers = Array.from({ length: n }, (_, i) => `uniform sampler2D uPass${i};`).join("\n");
   const accum = Array.from(
     { length: n },
-    (_, i) => `  hdr += uWeight[${i}] * pow(texture(uPass${i}, vUv).rgb, g) * uScale[${i}];`,
+    (_, i) =>
+      `  hdr += uWeight[${i}] * pow(gate(texture(uPass${i}, vUv).rgb, uFloor[${i}]), g) * uScale[${i}];`,
   ).join("\n");
 
   /**
@@ -337,6 +338,7 @@ out vec4 fragColor;
 
 uniform vec3 uWeight[${n}];
 uniform float uScale[${n}];
+uniform float uFloor[${n}];
 uniform float uGamma;
 uniform float uExposure;
 ${samplers}
@@ -347,6 +349,25 @@ ${wipe ? WIPE : ""}
 vec3 toSRGB(vec3 c) {
   c = clamp(c, 0.0, 1.0);
   return mix(1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, c * 12.92, step(c, vec3(0.0031308)));
+}
+
+/**
+ * The noise gate, on for a layer whose profile asks for it.
+ *
+ * See PlateProfile.noiseFloor. A branch-free mix rather than a branch:
+ * the flag is 0 or 1 per layer and never changes after link, so a gated
+ * layer costs one smoothstep and the rest cost nothing measurable.
+ * (No backticks in here - this string is a template literal.)
+ */
+vec3 gate(vec3 t, float on) {
+  // Keyed on the pixel's peak channel and applied as one scalar, not run
+  // per channel. Per channel it removes the weakest channel first, so a
+  // dim reddish bounce pixel comes out *pure* red - measured, that made
+  // the red coupe's cast worse than no gate at all. One key preserves hue
+  // and takes the whole pixel to black together.
+  float m = max(max(t.r, t.g), t.b);
+  float k = max(m - 0.02, 0.0) / 0.98 * smoothstep(0.015, 0.04, m) / max(m, 1e-5);
+  return mix(t, t * k, on);
 }
 
 void main() {
@@ -476,6 +497,12 @@ export class PlateRenderer {
      * rectangle, `drop` is an edge rolling down it.
      */
     private overlayTravel: "fade" | "drop" = "fade",
+    /**
+     * One 0-or-1 per layer, in the same order as a `scales` row: 1 turns
+     * the noise gate on for that layer. See `PlateProfile.noiseFloor`.
+     * Omitted means off everywhere, which is every room but the showroom.
+     */
+    floors: number[] | null = null,
   ) {
     const gl = canvas.getContext("webgl2", {
       alpha: false,
@@ -577,6 +604,14 @@ export class PlateRenderer {
     gl.uniform1f(gl.getUniformLocation(program, "uGamma"), gamma);
     this.uScale = gl.getUniformLocation(program, "uScale");
     gl.uniform1fv(this.uScale, this.scales[0]);
+    // Set once: which layer gets the gate is a property of the room, not
+    // of the frame, so this never moves again after link.
+    gl.uniform1fv(
+      gl.getUniformLocation(program, "uFloor"),
+      new Float32Array(
+        Array.from({ length: this.n }, (_, i) => floors?.[i] ?? 0),
+      ),
+    );
     this.uWeight = gl.getUniformLocation(program, "uWeight");
     this.uExposure = gl.getUniformLocation(program, "uExposure");
 
