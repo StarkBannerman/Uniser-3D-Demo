@@ -349,7 +349,17 @@ export const lobby: Space = {
           label: "Warming colour temperature",
           holdMs: 2300,
           targets: {
-            "ca-tunable": { on: true, level: 50, cct: 3000, fadeMs: 1000, sat: 0 },
+            /**
+             * 40, down from 50, and the cove follows in the next beat.
+             *
+             * v16 made the chandelier a real fixture — every candle lit, a
+             * sparkle inside each crystal tier, a glow down onto the lounge
+             * — and added four opal globes over the table. Measured, the
+             * circuit decodes 2.4x brighter than v15 at the same gain. The
+             * working light has to come down to let it lead, or the room is
+             * simply brighter rather than more focused.
+             */
+            "ca-tunable": { on: true, level: 40, cct: 3000, fadeMs: 1000, sat: 0 },
           },
         },
         {
@@ -357,7 +367,8 @@ export const lobby: Space = {
           holdMs: 2300,
           targets: {
             "ca-feature": { on: true, level: 80, fadeMs: 1000 },
-            "ca-cove": { on: true, level: 80, fadeMs: 1000 },
+            // 60, down from 80 — see the downlights two beats above.
+            "ca-cove": { on: true, level: 60, fadeMs: 1000 },
             "ca-facade": { on: true, level: 60, fadeMs: 1000 },
             "ca-arch": { on: true, level: 70, fadeMs: 1000 },
           },
@@ -366,7 +377,7 @@ export const lobby: Space = {
           label: "Decorative lighting activates",
           holdMs: 2300,
           targets: {
-            "ca-deco": { on: true, level: 70, fadeMs: 1000 },
+            "ca-deco": { on: true, level: 100, fadeMs: 1000 },
             "ca-accent": { on: true, level: 70, fadeMs: 1000 },
           },
         },
@@ -446,7 +457,7 @@ export const lobby: Space = {
         "ca-cove": { on: true, level: 100 },
         "ca-deco": { on: true, level: 100 },
         "ca-feature": { on: true, level: 100 },
-        "ca-accent": { on: true, level: 75 },
+        "ca-accent": { on: true, level: 100 },
         "ca-facade": { on: true, level: 100 },
         "ca-ac": { on: true, setpointC: 21, mode: "cool", fan: 4 },
         "ca-music": { on: true, source: "Event Set", volume: 40 },
@@ -459,33 +470,36 @@ export const lobby: Space = {
       name: "Cleaning",
       icon: "✚",
       blurb:
-        "Two in the morning and the floor is being turned around. Full cool white on the downlights, the architecture holding the edges, and everything decorative off — nobody is being sold anything at this hour.",
+        "Two in the morning and the floor is being turned around. Every circuit at full on 4000 K — the chandelier, the globes, the water wall and the linears included. The one scene that is not selling anything, and the only one that proves every fixture in the room still works.",
       fadeMs: 900,
       targets: {
         /**
-         * The downlights go to the top of their range, not to 5500 K.
+         * Every circuit at full on 4000 K, which reverses this scene.
          *
-         * Cleaning has to read as flat cool white, and it gets as close as
-         * this engine allows. Dropping the architecture from 100 to 35 was
-         * most of it — fixed 2700 K on the sheet, it was supplying enough
-         * warm light to swamp everything else.
+         * It used to be the lean one: downlights at 6500 K, the
+         * architecture dropped to 35 to keep warm light from swamping
+         * them, and everything decorative off on the grounds that nobody
+         * is being sold anything at two in the morning. The client wants
+         * the opposite, and for the reason Housekeeping exists in the
+         * guest room — this is the scene that proves a fixture works, and
+         * a circuit left out of it is a circuit nobody checks until a
+         * guest sees it dead. Bright and even everywhere beats cool.
          *
-         * It is still not blue-dominant, and that is not this scene's
-         * fault. `cctToRgb` normalises the brightest channel to 255, and at
-         * 6500 K that channel is still red: the tint it returns is
-         * (1.005, 1.000, 0.981). The warmest colour temperature is warm and
-         * the coolest is white, so no scene can tint a room cool. Measured
-         * on the interior, Cleaning lands at R-B +0.059 against Event's
-         * +0.099 and Evening's +0.090 — the coolest scene after dark by a
-         * clear margin, which is as far as the colour model goes.
+         * 4000 K rather than 6500. The old comment is worth keeping
+         * because the measurement behind it has not changed: `cctToRgb`
+         * normalises the brightest channel to 255, and at 6500 K that
+         * channel is still red — the tint it returns is
+         * (1.005, 1.000, 0.981). No scene in this engine can tint a room
+         * cool, so 6500 K was buying almost nothing over 4000 K and the
+         * sheet asks for 4000 K.
          */
-        "ca-tunable": { on: true, level: 100, cct: 6500, sat: 0 },
-        "ca-arch": { on: true, level: 35 },
-        "ca-cove": { on: true, level: 40 },
-        "ca-deco": { on: false },
-        "ca-feature": { on: false },
-        "ca-accent": { on: false },
-        "ca-facade": { on: false },
+        "ca-tunable": { on: true, level: 100, cct: 4000, sat: 0 },
+        "ca-arch": { on: true, level: 100 },
+        "ca-cove": { on: true, level: 100 },
+        "ca-deco": { on: true, level: 100 },
+        "ca-feature": { on: true, level: 100 },
+        "ca-accent": { on: true, level: 100 },
+        "ca-facade": { on: true, level: 100 },
         "ca-ac": { on: true, setpointC: 25, mode: "fan", fan: 1 },
         "ca-music": { on: false },
       },
