@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "tsx scripts/stamp-plates.mts",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "verify": "tsx scripts/verify-sim.mts"
+    "verify": "tsx scripts/verify-sim.mts",
+    "stamp": "tsx scripts/stamp-plates.mts"
   },
   "dependencies": {
     "next": "^15.5.4",

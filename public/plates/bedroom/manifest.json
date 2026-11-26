@@ -1,5 +1,6 @@
 {
-  "gamma": 5.0,
+  "rev": "7e5560e78ef3",
+  "gamma": 5,
   "width": 1920,
   "height": 1080,
   "sd": [
@@ -21,23 +22,23 @@
     },
     "br_general": {
       "scale": 30.675001,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "br_path": {
       "scale": 5.122266,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "br_reading": {
       "scale": 0.425208,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "br_wardrobe": {
       "scale": 24.297657,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "day_sky": {
       "scale": 3.264551,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "sky": {
       "scale": 191.925003,
@@ -45,15 +46,15 @@
     },
     "day_morning": {
       "scale": 0.631055,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "day_midday": {
       "scale": 1.080615,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "day_evening": {
       "scale": 0.789478,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     }
   }
 }

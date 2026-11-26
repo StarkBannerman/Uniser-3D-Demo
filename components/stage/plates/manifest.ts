@@ -23,6 +23,20 @@
  */
 
 export interface PlateManifest {
+  /**
+   * A hash of this set's cached bytes, written by `scripts/stamp-plates.mts`.
+   *
+   * The plates are served `immutable` for a year and their paths never change
+   * between renders, so without this a browser that has seen the room once
+   * keeps that version for good — see the script for the whole story. This is
+   * hung on the query string by `plateUrl` and `stillUrl`, which makes a
+   * re-rendered set a new URL and leaves an unchanged one alone.
+   *
+   * Optional because a set that has never been stamped should still load. It
+   * will simply cache the old way, which is the behaviour we are replacing
+   * rather than a failure.
+   */
+  rev?: string;
   /** Decode exponent, shared by every layer. */
   gamma: number;
   width: number;
@@ -152,10 +166,29 @@ export function layersOf(manifest: PlateManifest): string[] {
 
 export type PlateTier = "hd" | "sd";
 
-export function plateUrl(dir: string, tier: PlateTier, layer: string): string {
-  return `${dir}/${tier}/${layer}.webp`;
+/**
+ * `?v=` and nothing else, so an unstamped set keeps the URL it always had.
+ *
+ * A query string is enough: HTTP caches key on the whole URL, so changing it
+ * is a miss even though the file on disk is at the same path. Renaming 600
+ * files would also work and is what the `next.config.mjs` comment imagined,
+ * but it would put a hash in every filename the render pipeline writes and
+ * the converter would have to learn about it. This keeps the knowledge in
+ * one place.
+ */
+function rev(r: string | undefined): string {
+  return r ? `?v=${r}` : "";
 }
 
-export function stillUrl(dir: string, tier: PlateTier): string {
-  return `${dir}/still_${tier}.jpg`;
+export function plateUrl(
+  dir: string,
+  tier: PlateTier,
+  layer: string,
+  r?: string,
+): string {
+  return `${dir}/${tier}/${layer}.webp${rev(r)}`;
+}
+
+export function stillUrl(dir: string, tier: PlateTier, r?: string): string {
+  return `${dir}/still_${tier}.jpg${rev(r)}`;
 }

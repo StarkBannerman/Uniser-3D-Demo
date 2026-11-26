@@ -1,5 +1,6 @@
 {
-  "gamma": 5.0,
+  "rev": "8216d598920c",
+  "gamma": 5,
   "width": 1920,
   "height": 1080,
   "sd": [
@@ -9,19 +10,19 @@
   "layers": {
     "sr_accent": {
       "scale": 36.766342,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "sr_arch": {
       "scale": 46.537502,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "sr_deco": {
       "scale": 56.662502,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "sr_floor": {
-      "scale": 39.0,
-      "clipped_pct": 0.0
+      "scale": 39,
+      "clipped_pct": 0
     },
     "sr_general": {
       "scale": 6.16875,
@@ -29,11 +30,11 @@
     },
     "sr_linear": {
       "scale": 7.628047,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "sr_rgb": {
       "scale": 4.157156,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "sr_spot": {
       "scale": 0.483984,
@@ -57,7 +58,7 @@
     },
     "sr_zone_3": {
       "scale": 0.025589,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "sr_zone_4": {
       "scale": 1.076052,
@@ -65,11 +66,11 @@
     },
     "sr_zone_5": {
       "scale": 0.494531,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "sr_zone_6": {
       "scale": 4.449763,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     }
   }
 }

@@ -208,6 +208,14 @@ export function PlateStage({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tier, setTier] = useState<PlateTier | null>(null);
+  /**
+   * The base set's cache revision, for the holding still.
+   *
+   * State rather than a ref because the still is rendered in JSX below and
+   * has to re-render once the manifest has landed. Null until then, which
+   * is also when `tier` is null, so the image is not mounted yet anyway.
+   */
+  const [baseRev, setBaseRev] = useState<string | undefined>(undefined);
   const [hotspots, setHotspots] = useState<HotspotFile | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -288,11 +296,25 @@ export function PlateStage({
         extra = rest.filter((x): x is PlateManifest => x !== null);
         chosen = pickTier(1 + extra.length);
         setTier(chosen);
+        setBaseRev(m.rev);
         setHotspots(h);
       } catch (e) {
         if (!cancelled) setFailed(e instanceof Error ? e.message : "plate set would not load");
         return;
       }
+
+      /**
+       * Each set's revision, by directory.
+       *
+       * Per set rather than one for the room: the curtain sets are rendered
+       * and replaced independently, so a re-rendered `room_closed` should
+       * not throw away the cached `room`. A set with no `rev` maps to
+       * undefined and keeps its old URL.
+       */
+      const revs: Record<string, string | undefined> = {};
+      [manifest, ...extra].forEach((m, i) => {
+        if (setDirs[i]) revs[setDirs[i]] = m.rev;
+      });
 
       const layers = layersOf(manifest);
       const plateW = chosen === "hd" ? manifest.width : manifest.sd[0];
@@ -634,7 +656,7 @@ export function PlateStage({
             : set > 0 && fallback[set - 1]?.includes(layer)
               ? setDirs[0]
               : setDirs[set];
-          const image = await loadImage(plateUrl(from, chosen, layer));
+          const image = await loadImage(plateUrl(from, chosen, layer, revs[from]));
           if (cancelled || !renderer) return;
           renderer.setLayer(layers.indexOf(layer), image, set);
           if ("close" in image) image.close();
@@ -751,7 +773,7 @@ export function PlateStage({
       {/* The still, holding the frame until the scene's own layers land. */}
       {tier && (
         <img
-          src={stillUrl(dir, tier)}
+          src={stillUrl(dir, tier, baseRev)}
           alt=""
           aria-hidden
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"

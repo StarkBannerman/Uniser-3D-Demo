@@ -1,5 +1,6 @@
 {
-  "gamma": 5.0,
+  "rev": "d842027c0ad2",
+  "gamma": 5,
   "width": 1920,
   "height": 1080,
   "sd": [
@@ -9,11 +10,11 @@
   "layers": {
     "cx_accent": {
       "scale": 30.339846,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "cx_cove": {
       "scale": 36.862503,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "cx_deco": {
       "scale": 1.362012,
@@ -25,7 +26,7 @@
     },
     "cx_general": {
       "scale": 30.581251,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "cx_lounge": {
       "scale": 18.089064,
@@ -33,19 +34,19 @@
     },
     "cx_plinth": {
       "scale": 23.294533,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "cx_shelf": {
       "scale": 36.356251,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "cx_task": {
       "scale": 36.600002,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "day_sky": {
       "scale": 3.105469,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "sky": {
       "scale": 0.253381,

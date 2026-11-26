@@ -1,5 +1,6 @@
 {
-  "gamma": 5.0,
+  "rev": "49d73dd3d339",
+  "gamma": 5,
   "width": 1920,
   "height": 1080,
   "sd": [
@@ -9,11 +10,11 @@
   "layers": {
     "rs_arch": {
       "scale": 0.057808,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "rs_cove": {
       "scale": 0.308074,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "rs_feature": {
       "scale": 3.796896,
@@ -33,7 +34,7 @@
     },
     "rs_shelf": {
       "scale": 19.464111,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "rs_table": {
       "scale": 0.970601,
@@ -45,11 +46,11 @@
     },
     "sky": {
       "scale": 2.94382,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "sky_day": {
       "scale": 1.468359,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "day_morning": {
       "scale": 0.006408,
@@ -61,7 +62,7 @@
     },
     "day_evening": {
       "scale": 0.825586,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     }
   }
 }

@@ -1,5 +1,6 @@
 {
-  "gamma": 5.0,
+  "rev": "1be93778e06d",
+  "gamma": 5,
   "width": 1920,
   "height": 1080,
   "sd": [
@@ -9,11 +10,11 @@
   "layers": {
     "day_sky": {
       "scale": 0.852539,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "lv_accent": {
       "scale": 30.998438,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "lv_cove": {
       "scale": 71.887505,
@@ -21,15 +22,15 @@
     },
     "lv_deco": {
       "scale": 360.900024,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "lv_general": {
       "scale": 30.018751,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "lv_rgb": {
       "scale": 73.800003,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "lv_tvwall": {
       "scale": 46.209377,
@@ -41,11 +42,11 @@
     },
     "day_morning": {
       "scale": 1.086914,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "day_midday": {
       "scale": 0.173291,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "day_evening": {
       "scale": 0.223242,

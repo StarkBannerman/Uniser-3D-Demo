@@ -13,10 +13,23 @@ const nextConfig = {
    * revalidated.
    *
    * The plates are not content-hashed — they are authored assets dropped
-   * into `public/`, not build output — so the long cache is a promise that a
-   * re-render will land under a new path or a cache purge. If that becomes
-   * awkward, hashing the filenames and listing them in the manifest is the
-   * better answer than shortening this.
+   * into `public/`, not build output — so the long cache used to be a
+   * promise that a re-render would land under a new path or a cache purge.
+   * That promise was broken by every re-render we have done. `immutable`
+   * means a browser will not revalidate, will not send `If-None-Match` and
+   * will not ask again for a year, so anyone who had opened the demo kept
+   * the old room; and because each deployment gets a fresh hostname and a
+   * cache is keyed by hostname, the preview link always looked right while
+   * the real domain stayed stale.
+   *
+   * It is kept now rather than shortened, because shortening it would not
+   * have helped: entries already in people's browsers are not revalidated
+   * whatever this says, so only a change of URL reaches them.
+   * `scripts/stamp-plates.mts` hashes each set's bytes into its
+   * `manifest.json`, and `plateUrl`/`stillUrl` hang that on the query
+   * string — a re-rendered set becomes a new URL and is fetched once, an
+   * untouched one keeps this cache and costs nothing. The manifest below is
+   * the pointer, which is why it is the file that must stay fresh.
    */
   async headers() {
     return [

@@ -1,5 +1,6 @@
 {
-  "gamma": 5.0,
+  "rev": "4a890abbeebb",
+  "gamma": 5,
   "width": 1920,
   "height": 1080,
   "sd": [
@@ -21,27 +22,27 @@
     },
     "br_general": {
       "scale": 30.672657,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "br_path": {
       "scale": 5.126953,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "br_reading": {
       "scale": 0.424768,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "br_wardrobe": {
       "scale": 24.239063,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "day_sky": {
       "scale": 0.403162,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "sky": {
       "scale": 0.230109,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "day_morning": {
       "scale": 0.061446,

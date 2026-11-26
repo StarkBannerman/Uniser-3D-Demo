@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import Link from "next/link";
-import { SEGMENT_TITLE, spacesBySegment } from "@/lib/spaces";
+import { SEGMENT_TITLE, spaces, spacesBySegment } from "@/lib/spaces";
 import type { Segment, Space } from "@/lib/sim/types";
 
 /**
@@ -58,9 +60,41 @@ const DOORS: {
   },
 ];
 
+/**
+ * Each plate set's cache revision, read off disk at build time.
+ *
+ * This page is prerendered, so the read happens once during `next build` and
+ * never in a request. It is the same `rev` the stage uses — see
+ * `scripts/stamp-plates.mts` — and the card needs it for the same reason the
+ * stage does: the stills are served `immutable` for a year under a path that
+ * a re-render overwrites, so without the query string the gallery would show
+ * the previous render of a room to anyone who had visited before.
+ */
+function revs(): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  const root = join(process.cwd(), "public/plates");
+  for (const space of spaces) {
+    const dir = space.plates?.dir;
+    if (!dir || dir in out) continue;
+    try {
+      const raw = readFileSync(join(root, dir.replace("/plates/", ""), "manifest.json"), "utf8");
+      out[dir] = (JSON.parse(raw) as { rev?: string }).rev;
+    } catch {
+      // A set with no readable manifest simply goes unversioned, which is
+      // how every set behaved before stamping existed.
+      out[dir] = undefined;
+    }
+  }
+  return out;
+}
+
+const REV = revs();
+
 /** A room's holding image, which is the first frame its stage will show. */
 function thumb(space: Space): string | null {
-  return space.plates ? `${space.plates.dir}/still_sd.jpg` : null;
+  if (!space.plates) return null;
+  const rev = REV[space.plates.dir];
+  return `${space.plates.dir}/still_sd.jpg${rev ? `?v=${rev}` : ""}`;
 }
 
 function RoomCard({ space }: { space: Space }) {

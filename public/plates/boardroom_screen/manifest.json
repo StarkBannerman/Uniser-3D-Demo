@@ -1,5 +1,6 @@
 {
-  "gamma": 5.0,
+  "rev": "0d8f1a28522d",
+  "gamma": 5,
   "width": 1536,
   "height": 1064,
   "sd": [
@@ -9,7 +10,7 @@
   "layers": {
     "bd_accent": {
       "scale": 37.350002,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "bd_feature": {
       "scale": 38.238281,
@@ -21,11 +22,11 @@
     },
     "bd_general": {
       "scale": 30.46172,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "bd_projection": {
       "scale": 5.7,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "bd_table": {
       "scale": 36.787502,
@@ -37,7 +38,7 @@
     },
     "sky": {
       "scale": 0.870117,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     },
     "day_morning": {
       "scale": 0.251953,
@@ -49,7 +50,7 @@
     },
     "day_evening": {
       "scale": 0.00036,
-      "clipped_pct": 0.0
+      "clipped_pct": 0
     }
   }
 }
