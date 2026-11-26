@@ -3,26 +3,41 @@ import type { PlateProfile } from "../profile";
 /**
  * The hotel guest room's calibration.
  *
+ * Re-derived against the v12 plates, November 2026.
+ *
  * Derived by `scripts/measure-plates.py --gains`, anchored so `rm_tunable`
- * alone at full reads about 0.13 mean display luminance, and spread across
+ * alone at full reads about 0.25 mean display luminance, and spread across
  * the other circuits in proportion to `fixtures x lumensEach` from the space
  * file. The two exterior layers are solved inside the glazing mask against
  * the same targets the restaurant uses: night glass median 0.03-0.12, and
- * daytime glass mean 0.65-0.80.
+ * daytime glass mean 0.65-0.80, and the v12 re-render left both in band —
+ * they are unchanged here.
  *
- * The anchor is 0.13 rather than the 0.25 the other rooms use, and that is
- * the one number here chosen by looking rather than by solving. Gain and
- * exposure only ever reach the shader as a product, so the anchor is the
- * whole brightness scale — and at 0.25 these plates put Housekeeping at a
- * 0.55 frame mean with 10.4% of it clipped, because the room has six
- * circuits at full in a small pale box where the lobby has two in a large
- * dark one. At 0.13 the eight scenes run 0.007 to 0.382 with a worst case
- * of 3.4% clipped, which is the lobby's spread with the guest room's much
- * wider dynamic range on top of it.
+ * The anchor is 0.25 now, the same as every other room, and the reason the
+ * previous set had to run at 0.13 has been rendered away. That anchor was
+ * chosen because these plates put Housekeeping at a 0.55 frame mean with
+ * 10.4% of the frame clipped, and the clipping was two channels and three
+ * deep in places. The v12 plates are a different exposure: the converter
+ * records `rm_tunable` at a scale of 6.15 where v11 recorded 31.03, and
+ * `rm_cove` at 11.32 where it recorded 37.33. Decoded, the brightest circuit
+ * in the room is now a frame mean of 0.155 against the old 0.345. So the
+ * same 0.25 anchor that blew the old set out lands the new one inside the
+ * band every other room sits in.
  *
- * The best-behaved set of the four. The widest gain here is the reading
- * spots at 102 and the narrowest the pendant and floor lamp at 1.5, a range
- * of seventy — against the showroom's fifty thousand. Two narrow beams aimed
+ * Measured at these gains, nothing in this room reaches white in any scene.
+ * The peak display luminance across all eight is 0.9292, in Housekeeping,
+ * and across every circuit alone at full it is 0.9295, in `rm_cove`. What
+ * the clip counter reports — 15.5% of Housekeeping, 6.35% of `rm_cove` on
+ * its own — is the red channel railing under a 2700 K tint and nothing else:
+ * not one pixel in the room has a second channel at the rail, let alone a
+ * third. A warm fixture with a saturated red channel is what a warm fixture
+ * looks like.
+ *
+ * The gains are two orders of magnitude larger than v11's and that is the
+ * manifest scale moving, not the room. Gain and scale only reach the shader
+ * as a product. The spread is what to read instead: `rm_tunable` at 603
+ * against `rm_wardrobe` at 8.8, a range of about seventy, unchanged from the
+ * old set and against the showroom's fifty thousand. Two narrow beams aimed
  * at a pillow leave almost every pixel of their plate black, which is what a
  * large gain on a small plate mean means, and it is honest rather than a
  * mis-scaled render.
@@ -35,15 +50,15 @@ import type { PlateProfile } from "../profile";
  */
 export const ROOM_PROFILE: PlateProfile = {
   gain: {
-    rm_tunable: 38.6,
-    rm_entry: 41.4,
-    rm_bedside: 25.2,
-    rm_reading: 103.6,
-    rm_cove: 7.8,
-    rm_bath: 7.5,
-    rm_wardrobe: 2.9,
-    rm_deco: 1.5,
-    rm_night: 1.6,
+    rm_tunable: 602.8,
+    rm_entry: 396.2,
+    rm_bedside: 87.65,
+    rm_reading: 465.7,
+    rm_cove: 53.07,
+    rm_bath: 23.57,
+    rm_wardrobe: 8.843,
+    rm_deco: 14.46,
+    rm_night: 15.14,
     /**
      * The two door indicators, and they are on the lumen line like
      * everything else.
@@ -52,12 +67,15 @@ export const ROOM_PROFILE: PlateProfile = {
      * to make an indicator visible, and measurement says otherwise: the
      * derivation divides by the plate's *mean*, and an LED plate is black
      * everywhere except one dot, so a tiny mean hands back a large gain.
-     * Measured in Night with the room at its lowest, switching Do Not
-     * Disturb on moves its brightest pixel by +0.65 — an unmistakable red
-     * point. The honest number was already the right one.
+     * Re-measured on the v12 plates: in Night, with the room at its lowest,
+     * switching Do Not Disturb on takes its own pixels from 0.020 to 0.515
+     * mean and its peak from 0.42 to 0.80 — an unmistakable red point. The
+     * green one does the same work against a far harder background, going
+     * 0.199 to 0.620 in Housekeeping with the curtains back at midday. The
+     * honest number was already the right one.
      */
-    rm_dnd: 6.2,
-    rm_service: 2.7,
+    rm_dnd: 18.95,
+    rm_service: 8.156,
 
     /**
      * The view, and the sun on top of it.
@@ -93,11 +111,19 @@ export const ROOM_PROFILE: PlateProfile = {
     day_evening: 5,
   },
   /**
-   * 0.08, the lowest of the four rooms, because these are the brightest
-   * plates. `rm_cove` decodes to a frame mean of 0.345 against the lobby's
-   * brightest circuit at 0.116 — twenty-six metres of cove in a small pale
-   * room with a marble wall reaches every surface in it, where the same
-   * trick in a double-height lobby lights a ceiling nobody is under.
+   * 0.08, and left alone through the v12 re-balance.
+   *
+   * Exposure and gain only ever reach the shader as a product, so moving
+   * one is moving the other and the split between them is bookkeeping. The
+   * whole of the v12 change is therefore in `gain` above, where it can be
+   * read circuit by circuit, rather than smeared across both.
+   *
+   * `rm_cove` is still the brightest circuit in the room — it decodes to a
+   * frame mean of 0.155, against the lobby's brightest at 0.116. Twenty-six
+   * metres of cove in a small pale room with a marble wall reaches every
+   * surface in it, where the same trick in a double-height lobby lights a
+   * ceiling nobody is under. v12 made it a hidden cove rather than a lit
+   * line, which more than halved the number without changing that.
    */
   exposure: 0.08,
   /**
@@ -105,12 +131,16 @@ export const ROOM_PROFILE: PlateProfile = {
    *
    * Those sets were rendered neutral and take their warmth entirely from
    * the tint. This one was not: the lit pixels of these plates measure R/B
-   * 1.04 to 1.42 before anything is applied, because the renderer put the
-   * fixtures' own warmth in. At 0.55 the product of the two lands between
-   * 2.9 and 4.0, which is sodium. At 0.40 it lands between 2.2 and 2.9,
+   * 1.03 to 1.44 before anything is applied, because the renderer put the
+   * fixtures' own warmth in. At 0.55 the product of the two lands around
+   * 2.9 to 4.0, which is sodium. At 0.40 it lands between 2.14 and 2.98,
    * which brackets the 2.80 the lobby's tinted circuits render at — so the
    * two rooms agree about what 2700 K looks like, which is what matters
    * when a client switches between them in the picker.
+   *
+   * Re-measured on the v12 plates and unchanged: the re-render moved the
+   * native warmth of the white circuits by at most 0.02 in R/B, so the
+   * figure that was right for v11 is right here.
    */
   tintSaturation: 0.4,
   /**

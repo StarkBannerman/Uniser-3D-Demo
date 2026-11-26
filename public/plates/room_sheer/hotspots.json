@@ -27,8 +27,8 @@
       "visible": true
     },
     "rm-reading": {
-      "u": 0.5747,
-      "v": 0.5722,
+      "u": 0.5958,
+      "v": 0.5828,
       "visible": true
     },
     "rm-cove": {
@@ -38,7 +38,7 @@
     },
     "rm-deco": {
       "u": 0.6654,
-      "v": 0.3162,
+      "v": 0.3066,
       "visible": true
     },
     "rm-night": {

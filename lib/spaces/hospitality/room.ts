@@ -448,7 +448,6 @@ export const room: Space = {
             "rm-cove": { on: true, level: 80, fadeMs: 1400 },
             "rm-tunable": { on: true, level: 70, cct: 3500, sat: 0, fadeMs: 1400 },
             "rm-bedside": { on: true, level: 60, fadeMs: 1400 },
-            "rm-wardrobe": { on: true, level: 60, fadeMs: 1400 },
             "rm-bath": { on: true, level: 40, fadeMs: 1400 },
           },
         },
@@ -586,7 +585,18 @@ export const room: Space = {
         "rm-cove": { on: true, level: 30 },
         "rm-bath": { on: true, level: 10 },
         "rm-wardrobe": { on: false },
-        "rm-deco": { on: true, level: 20 },
+        /**
+         * Off, where it used to be at 20.
+         *
+         * The v12 render makes `rm_deco` a two-ring brass halo over the
+         * bench and a table lamp on the desk, and both are now *in* the
+         * layer rather than implied by it. Measured, the pendant's own
+         * pixels read 2.2x the frame mean in Evening at level 80; at a
+         * Night frame mean of 0.14 even 20% of it is the brightest object
+         * in a room that is meant to be asleep. The cove at 30 and the
+         * bedsides at 25 carry the scene instead.
+         */
+        "rm-deco": { on: false },
         "rm-night": { on: true, level: 60 },
         "rm-tunable": { on: false },
         "rm-dnd": { on: true, level: 100 },
@@ -631,14 +641,26 @@ export const room: Space = {
       fadeMs: 900,
       daylight: { day_sky: 100, day_morning: 0, day_midday: 100, day_evening: 0, sky: 0 },
       targets: {
+        /**
+         * Every lighting circuit at full, the two door indicators apart.
+         *
+         * The scene used to hold the reading spots, the decoratives and
+         * the night path out of it on the grounds that a cleaner does not
+         * need them. The client wants the opposite and is right: this is
+         * the only scene in the room that proves every fixture in it
+         * works, and a circuit left out of it is a circuit nobody checks
+         * until a guest finds it dead. So all nine white circuits run at
+         * 100 and only the door panel is selective — green for
+         * housekeeping, red off, which is the state a trolley reads.
+         */
         "rm-entry": { on: true, level: 100 },
         "rm-bedside": { on: true, level: 100 },
-        "rm-reading": { on: false },
+        "rm-reading": { on: true, level: 100 },
         "rm-cove": { on: true, level: 100 },
         "rm-bath": { on: true, level: 100 },
         "rm-wardrobe": { on: true, level: 100 },
-        "rm-deco": { on: false },
-        "rm-night": { on: false },
+        "rm-deco": { on: true, level: 100 },
+        "rm-night": { on: true, level: 100 },
         "rm-tunable": { on: true, level: 100, cct: 5000, sat: 0 },
         "rm-dnd": { on: false },
         "rm-service": { on: true, level: 100 },

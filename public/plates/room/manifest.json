@@ -8,68 +8,68 @@
   ],
   "layers": {
     "day_sky": {
-      "scale": 3.367969,
+      "scale": 3.365625,
       "clipped_pct": 0.0
     },
     "rm_bath": {
-      "scale": 36.581253,
+      "scale": 36.5625,
       "clipped_pct": 0.0
     },
     "rm_bedside": {
-      "scale": 3.175781,
+      "scale": 2.565998,
       "clipped_pct": 0.001
     },
     "rm_cove": {
-      "scale": 37.328907,
-      "clipped_pct": 0.0
+      "scale": 11.324201,
+      "clipped_pct": 0.002
     },
     "rm_deco": {
-      "scale": 36.787502,
+      "scale": 11.868751,
       "clipped_pct": 0.0
     },
     "rm_dnd": {
-      "scale": 7.51875,
+      "scale": 7.534136,
       "clipped_pct": 0.0
     },
     "rm_entry": {
-      "scale": 30.337502,
+      "scale": 6.065625,
       "clipped_pct": 0.0
     },
     "rm_night": {
-      "scale": 37.21875,
+      "scale": 10.200001,
       "clipped_pct": 0.0
     },
     "rm_reading": {
-      "scale": 6.517969,
-      "clipped_pct": 0.005
+      "scale": 5.175677,
+      "clipped_pct": 0.001
     },
     "rm_service": {
-      "scale": 5.53125,
+      "scale": 5.529582,
       "clipped_pct": 0.0
     },
     "rm_tunable": {
-      "scale": 31.031252,
+      "scale": 6.15,
       "clipped_pct": 0.0
     },
     "rm_wardrobe": {
-      "scale": 36.900002,
+      "scale": 36.9375,
       "clipped_pct": 0.0
     },
     "sky": {
-      "scale": 1.699219,
+      "scale": 1.698047,
       "clipped_pct": 0.0
     },
     "day_morning": {
-      "scale": 2.037305,
+      "scale": 2.009032,
       "clipped_pct": 0.003
     },
     "day_midday": {
-      "scale": 1.194141,
+      "scale": 1.191273,
       "clipped_pct": 0.0
     },
     "day_evening": {
-      "scale": 0.480469,
-      "clipped_pct": 0.004
+      "scale": 0.50846,
+      "clipped_pct": 0.003
     }
   }
 }
