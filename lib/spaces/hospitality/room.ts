@@ -642,16 +642,23 @@ export const room: Space = {
       daylight: { day_sky: 100, day_morning: 0, day_midday: 100, day_evening: 0, sky: 0 },
       targets: {
         /**
-         * Every lighting circuit at full, the two door indicators apart.
+         * Every working light at full, the night path and the red
+         * indicator apart.
          *
-         * The scene used to hold the reading spots, the decoratives and
-         * the night path out of it on the grounds that a cleaner does not
-         * need them. The client wants the opposite and is right: this is
-         * the only scene in the room that proves every fixture in it
-         * works, and a circuit left out of it is a circuit nobody checks
-         * until a guest finds it dead. So all nine white circuits run at
-         * 100 and only the door panel is selective — green for
-         * housekeeping, red off, which is the state a trolley reads.
+         * The scene used to hold the reading spots and the decoratives
+         * out of it on the grounds that a cleaner does not need them.
+         * The client wants the opposite and is right: this is the only
+         * scene in the room that proves a fixture works, and a circuit
+         * left out of it is a circuit nobody checks until a guest finds
+         * it dead.
+         *
+         * `rm-night` is the exception the client called, and it is the
+         * right one. The path lighting is not a working light — it is
+         * seven two-watt glows under the bed and along the skirting, and
+         * at eleven in the morning with the curtains back it contributes
+         * nothing a cleaner can see and nothing a cleaner can check. It
+         * is the one circuit in the room whose test is that it is the
+         * *only* thing on, which is Good Night.
          */
         "rm-entry": { on: true, level: 100 },
         "rm-bedside": { on: true, level: 100 },
@@ -660,7 +667,7 @@ export const room: Space = {
         "rm-bath": { on: true, level: 100 },
         "rm-wardrobe": { on: true, level: 100 },
         "rm-deco": { on: true, level: 100 },
-        "rm-night": { on: true, level: 100 },
+        "rm-night": { on: false },
         "rm-tunable": { on: true, level: 100, cct: 5000, sat: 0 },
         "rm-dnd": { on: false },
         "rm-service": { on: true, level: 100 },
