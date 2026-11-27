@@ -1,5 +1,5 @@
 {
-  "rev": "4e6f0f2db081",
+  "rev": "4a0e61aabe68",
   "gamma": 5,
   "width": 1536,
   "height": 1064,
@@ -9,55 +9,55 @@
   ],
   "layers": {
     "ow_accent": {
-      "scale": 0.000375,
+      "scale": 0.001227,
       "clipped_pct": 0
     },
     "ow_break": {
-      "scale": 36.890339,
+      "scale": 36.601337,
       "clipped_pct": 0
     },
     "ow_cove": {
-      "scale": 23.288967,
+      "scale": 23.288975,
       "clipped_pct": 0
     },
     "ow_display": {
-      "scale": 0.002456,
+      "scale": 0.004977,
       "clipped_pct": 0
     },
     "ow_general": {
-      "scale": 6.179507,
+      "scale": 6.1875,
       "clipped_pct": 0
     },
     "ow_linear": {
-      "scale": 0.063086,
+      "scale": 0.071249,
       "clipped_pct": 0
     },
     "ow_meeting": {
-      "scale": 0.055278,
+      "scale": 0.062114,
       "clipped_pct": 0
     },
     "ow_task_a": {
-      "scale": 0.01489,
+      "scale": 0.028964,
       "clipped_pct": 0
     },
     "ow_task_b": {
-      "scale": 0.011504,
+      "scale": 0.021813,
       "clipped_pct": 0
     },
     "sky": {
-      "scale": 0.101463,
+      "scale": 0.101235,
       "clipped_pct": 0
     },
     "day_morning": {
-      "scale": 0.007929,
+      "scale": 0.015112,
       "clipped_pct": 0
     },
     "day_midday": {
-      "scale": 0.001615,
+      "scale": 0.002894,
       "clipped_pct": 0
     },
     "day_evening": {
-      "scale": 0.000746,
+      "scale": 0.000825,
       "clipped_pct": 0
     }
   }

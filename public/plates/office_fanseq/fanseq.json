@@ -1,5 +1,5 @@
 {
-  "rev": "598e7feaed01",
+  "rev": "a6b7c02ee042",
   "frames": 24,
   "cols": 5,
   "rows": 5,
@@ -30,8 +30,17 @@
     1064
   ],
   "layers": {
+    "day_evening": {
+      "scale": 1.189645
+    },
+    "day_midday": {
+      "scale": 0.85514
+    },
     "day_morning": {
       "scale": 0.440292
+    },
+    "ow_accent": {
+      "scale": 1.445882
     },
     "ow_break": {
       "scale": 36.206253
@@ -39,8 +48,23 @@
     "ow_cove": {
       "scale": 22.575001
     },
+    "ow_display": {
+      "scale": 5.601562
+    },
     "ow_general": {
       "scale": 4.264454
+    },
+    "ow_linear": {
+      "scale": 5.776477
+    },
+    "ow_meeting": {
+      "scale": 36.5625
+    },
+    "ow_task_a": {
+      "scale": 3.658594
+    },
+    "ow_task_b": {
+      "scale": 3.013264
     },
     "sky": {
       "scale": 0.949219

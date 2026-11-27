@@ -95,7 +95,43 @@ export function fanSeqUsable(f: FanSeqFile): boolean {
   if (!layers || typeof layers !== "object") return false;
   const names = Object.keys(layers);
   if (names.length === 0) return false;
-  return names.every((n) => okNum(layers[n]?.scale));
+  if (!names.every((n) => okNum(layers[n]?.scale))) return false;
+  // A tile that is not exactly the rectangle it replaces cannot be mapped
+  // onto it without a stretch, and a stretch of a fraction of a texel is
+  // what draws an outline. Better the still fan than a misaligned one.
+  return fanRect(f) !== null;
+}
+
+/**
+ * Where the fan sits, in uv, worked out from the pixel figures.
+ *
+ * `rect_uv` is in the file as well and the two agree today, but it is the
+ * rounded one — twelve decimal places of `142 / 1064` — and the mapping
+ * from screen uv to tile uv has to be exact to the texel or the atlas sits
+ * half a pixel off its own rectangle and draws a line down the join. So
+ * the pixels are the source of truth and `rect_uv` is a convenience.
+ *
+ * Null when the figures do not describe a tile-sized rectangle inside the
+ * plate — which is the one thing worth refusing a sequence over, because
+ * every other inconsistency shows up as the wrong picture in the right
+ * place and this one shows up as a box.
+ */
+export function fanRect(f: FanSeqFile): [number, number, number, number] | null {
+  const okNum = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+  const r = f.rect_px;
+  const p = f.plate_size;
+  if (!Array.isArray(r) || r.length !== 4 || !r.every(okNum)) return null;
+  if (!Array.isArray(p) || p.length !== 2 || !p.every(okNum)) return null;
+  const [pw, ph] = p;
+  if (pw < 1 || ph < 1) return null;
+  if (!(r[2] > r[0]) || !(r[3] > r[1])) return null;
+  if (r[0] < 0 || r[1] < 0 || r[2] > pw || r[3] > ph) return null;
+  // The HD tile is the rectangle, pixel for pixel; the SD tile is it
+  // halved, with the odd pixel allowed to land either way.
+  if (r[2] - r[0] !== f.tile[0] || r[3] - r[1] !== f.tile[1]) return null;
+  if (Math.abs(f.tile[0] / 2 - f.tile_sd[0]) > 1) return null;
+  if (Math.abs(f.tile[1] / 2 - f.tile_sd[1]) > 1) return null;
+  return [r[0] / pw, r[1] / ph, r[2] / pw, r[3] / ph];
 }
 
 /**
@@ -166,6 +202,52 @@ export const FAN_RPS = [0, 0.9, 1.6, 2.4] as const;
 /** Motion-blur taps at off, low, medium and high. */
 export const FAN_TAPS = [1, 1, 3, 5] as const;
 
+/**
+ * A speed setting is not always a whole number.
+ *
+ * The simulation tweens every numeric property of a device, and `speed`
+ * is a number, so a scene that moves the fan from medium to low walks it
+ * through 1.97, 1.84, 1.62 and the rest on its way. Indexing a four-entry
+ * table with that gives `undefined`, and the two tables failed differently
+ * and badly:
+ *
+ *   FAN_RPS[1.6] ?? 0   ->  0, so the fan was told to stop for the whole
+ *                           length of the tween and then jump to the new
+ *                           speed when the number finally landed.
+ *   FAN_TAPS[1.6]       ->  undefined, and `Math.max(1, undefined)` is
+ *                           NaN, which went into `uFanGrid.w`, divided
+ *                           the summed taps, and turned every pixel of
+ *                           the rectangle into NaN. That is the black box
+ *                           that appeared for half a second whenever a
+ *                           scene changed the fan's speed — and only
+ *                           then, which is why switching between two
+ *                           scenes that agree about the fan never showed
+ *                           it.
+ *
+ * So the tables are read rather than indexed. The rate interpolates,
+ * because a fan changing speed really does pass through the speeds in
+ * between and that is what the tween is for. The tap count does not: it
+ * is a quality setting and the shader needs the integer it sums to match
+ * the number it divides by, so it steps at the halfway mark.
+ */
+function clampSpeed(speed: number, top: number): number {
+  if (!Number.isFinite(speed)) return 0;
+  return Math.min(Math.max(speed, 0), top);
+}
+
+/** Revolutions per second at a setting, whole or part way between two. */
+export function fanRps(speed: number): number {
+  const s = clampSpeed(speed, FAN_RPS.length - 1);
+  const i = Math.floor(s);
+  const j = Math.min(i + 1, FAN_RPS.length - 1);
+  return FAN_RPS[i] + (FAN_RPS[j] - FAN_RPS[i]) * (s - i);
+}
+
+/** Motion-blur taps at a setting. Always one of the table's own values. */
+export function fanTaps(speed: number): number {
+  return FAN_TAPS[Math.round(clampSpeed(speed, FAN_TAPS.length - 1))] ?? 1;
+}
+
 /** Seconds to reach speed, and to come back down. */
 export const SPIN_UP_S = 1.5;
 export const SPIN_DOWN_S = 3;
@@ -222,7 +304,7 @@ export function newFanMotion(periods = 1): FanMotion {
  * believes.
  */
 export function stepFan(m: FanMotion, dt: number): boolean {
-  const target = FAN_RPS[Math.min(Math.max(m.want, 0), 3)] ?? 0;
+  const target = fanRps(m.want);
   if (target > m.rps) {
     // Reaching full speed from rest should take SPIN_UP_S whatever the
     // target is, so the ramp is a share of the target rather than a fixed
@@ -235,6 +317,26 @@ export function stepFan(m: FanMotion, dt: number): boolean {
   if (m.rps > 0) {
     m.turns += m.rps * dt;
     m.parking = target === 0;
+    return true;
+  }
+  /**
+   * Asked for but not yet moving, which is the fan's first frame.
+   *
+   * It has to say yes here or it never starts. The loop resets its clock
+   * whenever the fan wakes, so the first step after the atlas lands has
+   * `dt` of exactly zero — and a zero-length step builds no speed, so the
+   * old `return false` told the caller there was nothing left to do and
+   * the loop stopped. The fan then sat on frame 0 until something else
+   * happened to schedule a frame: a tween still running, a sensor moving
+   * a light. Turn it on in a room that is sitting still and it stayed
+   * still with it.
+   *
+   * "Does this still need frames" is the question, and the answer when
+   * somebody has just asked for speed is yes, whatever this particular
+   * step managed to do about it.
+   */
+  if (target > 0) {
+    m.parking = false;
     return true;
   }
   if (!m.parking) return false;

@@ -351,7 +351,22 @@ function fragmentSource(
    * folds away, not a disabled branch.
    */
   const fanGlsl = fan
-    ? `/** One frame of one layer, read out of the atlas. */
+    ? `/**
+ * One frame of one layer, read out of the atlas.
+ *
+ * \`f\` is rounded to a frame and wrapped: the blur taps run either side of
+ * the current angle, so the first tap of frame 0 is frame -2, and a fan is
+ * a loop. \`mod\` is the right wrap for that because GLSL's takes the sign
+ * of the divisor, so a negative tap lands at the top of the sequence
+ * rather than off the end of the grid.
+ *
+ * The clamp is what keeps a tile off its neighbours. Tiles are packed edge
+ * to edge with no gutter, so a LINEAR fetch half a texel outside this tile
+ * reads the next frame of the sequence and the blade ghosts. Half a texel
+ * in on each side is the whole fix, and it costs only the outer half-texel
+ * of the rect - which the feather below has already handed back to the
+ * base plate anyway.
+ */
 vec3 fanTile(int slot, vec2 q, float f) {
   float frames = uFanGrid.z;
   float i = mod(floor(f + 0.5), frames);
@@ -359,6 +374,38 @@ vec3 fanTile(int slot, vec2 q, float f) {
   float cy = floor(i / uFanGrid.x);
   vec2 uv = (vec2(cx, cy) + clamp(q, uFanInset, 1.0 - uFanInset)) / uFanGrid.xy;
   return texture(uFanAtlas, vec3(uv, float(slot))).rgb;
+}
+
+/**
+ * How much of this pixel is the fan's, 0 outside the rect and 1 well in.
+ *
+ * Feathered *inwards only*. The first version straddled the boundary -
+ * \`smoothstep(edge - soft, edge + soft)\` - which meant the band just
+ * outside the rect got a share of the atlas, and outside the rect \`q\` is
+ * negative and clamps to the tile's edge texel. So a few pixels of the
+ * ceiling above the fan and the wall to its left were being painted with
+ * the atlas's outermost row smeared along them. That was the thin dark
+ * outline: the atlases carry a one-texel dark fringe on the top, bottom
+ * and left of every tile (measured: the top row of the cove tile reads 20
+ * where the plate reads 86), and straddling put that fringe on screen
+ * twice over - once outside the rect, once at full strength on its first
+ * row.
+ *
+ * Feathering inwards fixes both at once. At the boundary the mask is 0, so
+ * the fringe row contributes nothing and the base plate draws it; by eight
+ * texels in the mask is 1 and the pixel is all fan. The plate and the
+ * atlas agree to about one count in 255 over that band, so the ramp hides
+ * rounding rather than splicing two different pictures.
+ *
+ * An edge flush with the frame gets no feather at all - \`uFanSoft\` is 0
+ * there and this is a hard step. The office fan runs off the right-hand
+ * side of the plate, and feathering that edge would freeze the last eight
+ * columns of blade against a still while the rest of it turned.
+ */
+float fanEdge(float x, float lo, float hi, float sLo, float sHi) {
+  float a = sLo > 0.0 ? smoothstep(lo, lo + sLo, x) : step(lo, x);
+  float b = sHi > 0.0 ? 1.0 - smoothstep(hi - sHi, hi, x) : step(x, hi);
+  return a * b;
 }
 
 /**
@@ -370,23 +417,41 @@ vec3 fanTile(int slot, vec2 q, float f) {
  * tint the rest of the room does, and is lit by whatever the room is doing
  * rather than pasted on top of it.
  *
+ * Every layer goes through here, and a layer the sequence does not carry
+ * falls back to its plate rather than to black. That distinction is what
+ * the box was made of. The first sequence held five atlases out of the
+ * room's thirteen, and the eight it did not hold were being dropped inside
+ * the rect instead of read off the plate - so the cove's diagonal run
+ * across the ceiling simply stopped at the rectangle's edge and picked up
+ * again on the other side. The atlases now carry all thirteen, and the
+ * \`slot < 0\` fallback below is what keeps a room whose sequence is one
+ * circuit short looking continuous rather than cut out.
+ *
  * The same substitution happens in every covering pass, including the one
- * drawn from the blinds-down set. Measured, that is right for the three
- * circuit layers - open and closed agree inside the rect to within WebP
- * noise - and very slightly wrong for the two daylight ones, which do
- * differ because a blind changes what reaches the ceiling. It is left
- * wrong on purpose: daylight is 1% to 3% of the light in this rectangle,
- * so the error is a few hundredths of a per cent, and the alternative is a
- * fan that stops turning when somebody lowers the blinds.
+ * drawn from the blinds-down set, and the texel it substitutes is then
+ * decoded with *that set's* scale rather than the atlas's own. The two
+ * differ, because the sequence was rendered against the open room: the
+ * closed set reads sky at 0.889 where the atlas says 0.949, and
+ * day_midday at 0.469 against 0.855. (No backticks in this comment - it
+ * is inside a template literal, like the one on gate() below.)
+ *
+ * Measured, that is worth 1.15% of the light inside the rectangle with
+ * every circuit at full and the blinds all the way down, and most of it
+ * is ow_general being 1.6% out rather than anything to do with
+ * daylight - the daylight layers are 80% and 96% out but they are four
+ * hundredths of a per cent of this rectangle. One per cent of linear
+ * light is well under a count on screen, and under the WebP noise the
+ * atlases already carry, so it is left alone. The alternative is a second
+ * scale uniform and a restructured accumulate line, to buy a fan that
+ * otherwise stops turning when somebody lowers the blinds.
  */
 vec3 fanTexel(sampler2D plate, int layer) {
   vec3 base = texture(plate, vUv).rgb;
   if (uFanOn <= 0.0) return base;
   int slot = uFanSlot[layer];
   if (slot < 0) return base;
-  vec2 lo = smoothstep(uFanRect.xy - uFanSoft, uFanRect.xy + uFanSoft, vUv);
-  vec2 hi = smoothstep(uFanRect.zw + uFanSoft, uFanRect.zw - uFanSoft, vUv);
-  float m = lo.x * lo.y * hi.x * hi.y;
+  float m = fanEdge(vUv.x, uFanRect.x, uFanRect.z, uFanSoft.x, uFanSoft.z)
+          * fanEdge(vUv.y, uFanRect.y, uFanRect.w, uFanSoft.y, uFanSoft.w);
   if (m <= 0.0) return base;
   vec2 q = (vUv - uFanRect.xy) / (uFanRect.zw - uFanRect.xy);
   // Motion blur: consecutive frames centred on the current angle, so the
@@ -419,10 +484,10 @@ ${samplers}
  * texture so the whole feature costs a single sampler.
  *
  * It has to be a single sampler. Units are the scarce thing here - the
- * showroom already uses all sixteen - and five more sampler2Ds would not
- * fit beside the office's thirteen layers and the HDR target. A
- * sampler2DArray holds all five atlases on one unit, which is also why
- * every atlas has to be the same size.
+ * showroom already uses all sixteen - and the office needs one atlas per
+ * layer, so thirteen more sampler2Ds would want more than twice the units
+ * the hardware has. A sampler2DArray holds every atlas on one unit, which
+ * is also why they all have to be the same size.
  *
  * uFanSlot maps a layer index to its array slice, or -1 for a layer the
  * sequence does not carry. uFanOn is 0 until the atlases are loaded, which
@@ -434,7 +499,7 @@ ${
     ? `uniform highp sampler2DArray uFanAtlas;
 uniform int   uFanSlot[${n}];
 uniform vec4  uFanRect;    // u0, v0, u1, v1 - v downward, like vUv
-uniform vec2  uFanSoft;    // feathered edge, in uv
+uniform vec4  uFanSoft;    // feather inwards from u0, v0, u1, v1; 0 = hard
 uniform vec4  uFanGrid;    // cols, rows, frames, taps
 uniform vec2  uFanInset;   // half a texel, to keep a tile off its neighbour
 uniform float uFanFrame;   // where in the sequence, as a float
@@ -868,18 +933,28 @@ export class PlateRenderer {
   }
 
   /**
-   * Hand over the fan's atlases, one per layer that lights it.
+   * Hand over the fan's atlases, one per layer the rectangle needs.
    *
    * `slots[i]` is the array slice for layer `i`, or -1 for a layer the
    * sequence does not carry. All the images must be the same size, which
    * the loader has already checked, because an array texture is one
-   * allocation with a fixed footprint per slice.
+   * allocation with a fixed footprint per slice. The office's thirteen
+   * slices of 1260x1160 are about 76 MB on the card, which is a fifth of
+   * what its three plate sets already hold and the reason this is loaded
+   * on demand rather than with the room.
    *
-   * No mipmaps, unlike the plates. A tile is a fifth of the atlas in each
-   * axis, so a mip chain would blend neighbouring frames into each other
-   * at the first reduction - the smear would be the fan at two angles
-   * rather than the fan out of focus. The rectangle is small enough on
-   * screen that minification is mild and the inset clamp handles the rest.
+   * No mipmaps, unlike the plates, and the brief is explicit about it. A
+   * tile is a fifth of the atlas in each axis, so a mip chain would blend
+   * neighbouring frames into each other at the first reduction - the
+   * smear would be the fan at two angles rather than the fan out of
+   * focus. `texStorage3D` is told one level, which is also what stops a
+   * driver sampling an unallocated mip and returning black.
+   *
+   * It does mean the rectangle is sampled from level 0 while the plate
+   * around it comes off a mip, so a heavily minified stage shows a little
+   * more aliasing on the blades than on the ceiling behind them. That is
+   * the right way round - the blades are the thing being looked at - and
+   * the feather keeps the change of character off the boundary.
    */
   setFanAtlas(
     images: readonly TexImageSource[],
@@ -916,13 +991,41 @@ export class PlateRenderer {
       new Int32Array(Array.from({ length: this.n }, (_, i) => slots[i] ?? -1)),
     );
     gl.uniform4f(gl.getUniformLocation(p, "uFanRect"), rect[0], rect[1], rect[2], rect[3]);
-    // Four pixels of feather, as the brief asks. The plate and the atlas
-    // agree inside the rectangle, so this is hiding rounding rather than
-    // a seam between two different pictures.
-    gl.uniform2f(
+    /**
+     * Eight plate texels of feather, inwards, on every edge that has a
+     * plate on the other side of it.
+     *
+     * In *plate* texels, not canvas pixels, which is the correction. What
+     * the feather is covering is a texel-grid artefact - half-texel
+     * rounding where the atlas's grid meets the plate's, and the dark
+     * fringe the packer leaves on the outside row of each tile - and
+     * those are eight texels wide whatever size the canvas happens to be.
+     * Measured in canvas pixels, as it was, the band shrank to nothing on
+     * a wide display and the fringe came back.
+     *
+     * The rect spans `tile` texels of the plate, so one texel is
+     * `span / tile` in uv and the conversion needs nothing else. At SD
+     * that gives eight SD texels, which is the same share of the picture
+     * and the same relation to the SD grid.
+     *
+     * Zero where the rect is flush with the frame: there is no plate out
+     * there to blend back to, and feathering the office fan's right-hand
+     * edge would leave eight columns of blade standing still.
+     */
+    const spanU = rect[2] - rect[0];
+    const spanV = rect[3] - rect[1];
+    const feather = 8;
+    // Never more than two fifths of the rect from each side, so a small
+    // rectangle ends up softened rather than erased.
+    const softU = Math.min((feather * spanU) / tile.width, spanU * 0.4);
+    const softV = Math.min((feather * spanV) / tile.height, spanV * 0.4);
+    const edge = 1e-6;
+    gl.uniform4f(
       gl.getUniformLocation(p, "uFanSoft"),
-      4 / Math.max(this.canvas.width, 1),
-      4 / Math.max(this.canvas.height, 1),
+      rect[0] > edge ? softU : 0,
+      rect[1] > edge ? softV : 0,
+      rect[2] < 1 - edge ? softU : 0,
+      rect[3] < 1 - edge ? softV : 0,
     );
     gl.uniform2f(
       gl.getUniformLocation(p, "uFanInset"),
@@ -935,13 +1038,25 @@ export class PlateRenderer {
     return true;
   }
 
-  /** Where the fan is, and how much blur the speed asks for. */
+  /**
+   * Where the fan is, and how much blur the speed asks for.
+   *
+   * Both numbers are checked rather than trusted, because the shape of
+   * the failure is so far out of proportion to the mistake. A NaN tap
+   * count divides the summed taps, every channel of every layer inside
+   * the rectangle comes out NaN, and the fan becomes a hard-edged black
+   * box — from one `undefined` in a four-entry table read at 2.4. The
+   * taps are also clamped to five, which is how many the shader's
+   * unrolled loop can actually add: ask for more and it would sum five
+   * and divide by six.
+   */
   setFanFrame(frame: number, taps: number, grid: { cols: number; rows: number; frames: number }): void {
     if (!this.fanTex || this.lost) return;
     const gl = this.gl;
+    const n = Number.isFinite(taps) ? Math.min(5, Math.max(1, Math.round(taps))) : 1;
     gl.useProgram(this.program);
-    gl.uniform1f(this.uFanFrame, frame);
-    gl.uniform4f(this.uFanGrid, grid.cols, grid.rows, grid.frames, Math.max(1, taps));
+    gl.uniform1f(this.uFanFrame, Number.isFinite(frame) ? frame : 0);
+    gl.uniform4f(this.uFanGrid, grid.cols, grid.rows, grid.frames, n);
   }
 
   /** Give the atlas memory back, on the way out of the room. */

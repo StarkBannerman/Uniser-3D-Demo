@@ -45,8 +45,9 @@ import {
 } from "./manifest";
 import { PlateRenderer, type ToneCurve } from "./PlateRenderer";
 import {
-  FAN_TAPS,
   fanFrame,
+  fanRect,
+  fanTaps,
   fanSeqDir,
   loadFanSeq,
   newFanMotion,
@@ -508,8 +509,20 @@ export function PlateStage({
        */
       const FAN_HZ = 30;
 
-      /** Should the fan be given frames at all right now? */
-      const fanAwake = () => Boolean(fanSeq) && visible && inView;
+      /**
+       * Should the fan be given frames at all right now?
+       *
+       * True while the atlases are still on their way, too, as long as
+       * somebody has asked for speed. Nothing is drawn in that state —
+       * there is no sequence to draw from — but the angle keeps
+       * advancing, so when the frames land the fan appears already
+       * turning at the speed the room asked for instead of starting its
+       * spin-up from rest. The rectangle is showing a motion-blurred
+       * still until then, which reads as a running fan; stopping it dead
+       * and spinning it up again would be the visible jump.
+       */
+      const fanAwake = () =>
+        (Boolean(fanSeq) || (fanLoading && fanMotion.want > 0)) && visible && inView;
 
       const schedule = () => {
         if (frame) return;
@@ -519,19 +532,23 @@ export function PlateStage({
           const moved = easeClockLayers(now);
           let spun = false;
           let turning = false;
-          if (fanAwake() && fanSeq) {
+          if (fanAwake()) {
+            const seq = fanSeq;
             // Clamped, because a backgrounded tab hands back one enormous
             // delta on its first frame and the fan would jump a third of a
             // turn rather than resume.
             const dt = fanTick ? Math.min(0.1, (now - fanTick) / 1000) : 0;
             fanTick = now;
             turning = stepFan(fanMotion, dt);
-            if (now - fanDrawn >= 1000 / FAN_HZ - 1 || !turning) {
+            if (seq && (now - fanDrawn >= 1000 / FAN_HZ - 1 || !turning)) {
               fanDrawn = now;
               renderer.setFanFrame(
-                fanFrame(fanMotion, fanSeq.file),
-                FAN_TAPS[Math.min(Math.max(fanMotion.want, 0), 3)],
-                { cols: fanSeq.file.cols, rows: fanSeq.file.rows, frames: fanSeq.file.frames },
+                fanFrame(fanMotion, seq.file),
+                // `fanTaps`, not an index: a scene moving the fan between
+                // speeds tweens the setting through fractions, and the
+                // table has four entries.
+                fanTaps(fanMotion.want),
+                { cols: seq.file.cols, rows: seq.file.rows, frames: seq.file.frames },
               );
               spun = true;
             }
@@ -563,13 +580,56 @@ export function PlateStage({
        */
       const covering = overlayLoaded ? extra.length - 1 : extra.length;
 
-      const trackPositions = (): [number, number] => {
+      /**
+       * Which layers of each plate set have reached the GPU.
+       *
+       * A set that is still downloading is not an empty set. Every layer
+       * it has not delivered is bound to one black texel — the right
+       * placeholder for a layer that *adds* light, and the wrong one for
+       * a set that replaces or covers, because those two put the blank
+       * on screen instead of leaving it out.
+       *
+       * The overlay replaces. `mix(base, overlay, f)` with a blank
+       * overlay at the 0.85 a medium fan asks for leaves fifteen per cent
+       * of the room inside the rectangle, and that is the black box that
+       * appeared when a scene switched the fan on before the overlay set
+       * had landed: measured on a throttled link, the rect sat at 0.35 to
+       * 0.55 of the ceiling beside it for about two and a half seconds.
+       * The coverings are the same hazard wearing blinds — a blackout
+       * drawn across an unloaded closed set is a black window.
+       *
+       * So a set composites only once it is whole. Recorded by name
+       * rather than tallied, so a retry cannot complete a set twice.
+       */
+      const landed: Set<string>[] = setDirs.map(() => new Set<string>());
+      const setFull = (set: number) => set >= 0 && landed[set].size >= layers.length;
+      /** Where each role's plates live in `setDirs`, or -1 for absent. */
+      const sheerSet = covering === 2 ? 1 : -1;
+      const closedSet = covering >= 1 ? covering : -1;
+      const overlaySet = overlayLoaded ? setDirs.length - 1 : -1;
+
+      /**
+       * Where the tracks are, and where the shader is allowed to see them.
+       *
+       * `gated` off gives the shade's real position, which is what the
+       * loader prioritises by — the master bedroom opens with its sheer
+       * fully drawn, and it has to fetch that set in the first wave or
+       * its opening frame is the wrong room. `gated` on is what the
+       * shader gets: a track whose plates have not all arrived stays at
+       * zero, reading as the covering still being open. A blind that
+       * draws a second late is a blind that is late; a blind that draws
+       * over a set of blank plates is a hole in the room.
+       */
+      const trackPositions = (gated = true): [number, number] => {
         if (!curtainId) return [0, 0];
         const st = useSim.getState().states[curtainId] as ShadeState | undefined;
         const clamp = (v: number) => Math.min(Math.max(v / 100, 0), 1);
         // A one-covering window reports no middle track, so its shade's
         // unused `sheer` never reaches the shader as a position.
-        return [covering === 2 ? clamp(st?.sheer ?? 0) : 0, clamp(st?.blackout ?? 0)];
+        return [
+          covering === 2 && (!gated || setFull(sheerSet)) ? clamp(st?.sheer ?? 0) : 0,
+          covering >= 1 && gated && !setFull(closedSet) ? 0 : clamp(st?.blackout ?? 0),
+        ];
       };
       let curtainPos: [number, number] = trackPositions();
 
@@ -583,7 +643,12 @@ export function PlateStage({
        */
       const OVERLAY_BY_SPEED = [0, 0.6, 0.85, 1];
       const overlayStrength = (): number => {
-        if (!overlayLoaded || !overlayId) return 0;
+        // `setFull` is the gate on the black box. Until every plate of
+        // the overlay set is on the card the overlay does not composite
+        // at all, so the rectangle is drawn from the base plates and the
+        // fan simply looks still — which is what a room with no overlay
+        // rendered shows, and is a picture rather than a hole.
+        if (!overlayLoaded || !overlayId || !setFull(overlaySet)) return 0;
         const st = useSim.getState().states[overlayId];
         if (!st) return 0;
         if (overlayTravel === "drop") {
@@ -599,18 +664,29 @@ export function PlateStage({
       /* ---------------- the fan, when it has a sequence to play -------- */
 
       /**
-       * Nothing is fetched until somebody turns the fan on.
+       * Fetched after the plates, and before anybody asks.
        *
-       * Five atlases are about 300 KB at SD and 1.3 MB at HD, which is not
-       * much beside the plate set but is entirely wasted in the six rooms
-       * out of eleven whose fan nobody touches. So the first time the
-       * speed goes above zero we go and get them, and until they arrive
-       * the old composited still carries on — which is also exactly what a
-       * room with no sequence rendered does, forever.
+       * The office's thirteen atlases are 292 KB at SD and 648 KB at HD —
+       * less than the five used to cost, because a tile that is mostly
+       * unlit ceiling compresses to almost nothing. Small enough that the
+       * old on-demand fetch was not buying much and was costing a second
+       * of still fan between pressing a scene and the blades moving, so
+       * they are now preloaded at idle once the plate set is down (see
+       * the end of the loader). Turning the fan on still asks, for the
+       * case where somebody is quicker than the idle callback, and
+       * `wantFanSeq` only ever fetches once.
+       *
+       * Thirteen rather than five because the rect has to be *complete*.
+       * Any layer missing from the atlas is drawn inside the rectangle
+       * from the base plate, which is a still: correct while the plate and
+       * frame 0 agree, and a visible step everywhere else. The cove's
+       * diagonal run across the ceiling was the one that showed it.
        */
       let fanSeq: FanSeq | null = null;
       let fanSlots: number[] = [];
       let fanAsked = false;
+      /** Asked for and not yet settled, either way. */
+      let fanLoading = false;
       const fanMotion = newFanMotion();
       let fanTick = 0;
       let fanDrawn = 0;
@@ -625,32 +701,67 @@ export function PlateStage({
         return Math.min(Math.max(st.speed, 0), 3);
       };
 
+      /**
+       * Fetch the atlases, once per visit to the room.
+       *
+       * Nothing here can draw a half-loaded sequence. `loadFanSeq` waits
+       * on every atlas decoding before it returns one, `setFanAtlas`
+       * fills every slice of the array texture before it raises `uFanOn`,
+       * and the shader reads the base plate while that flag is down. The
+       * black box was never the atlas; it was the overlay set compositing
+       * blank, which `setFull` above now prevents.
+       */
       const wantFanSeq = () => {
         if (fanAsked || !overlaySequence || !renderer?.fanCapable) return;
         fanAsked = true;
+        fanLoading = true;
         void (async () => {
-          const seq = await loadFanSeq(fanSeqDir(dir), chosen, layers, loadImage);
-          if (cancelled || !seq || !renderer) {
-            if (seq) for (const im of seq.images) if ("close" in im) im.close();
-            return;
+          try {
+            const seq = await loadFanSeq(fanSeqDir(dir), chosen, layers, loadImage);
+            // `fanSeqUsable` has already refused a file with no usable rect,
+            // so this is the type narrowing and not a second opinion.
+            const rect = seq && fanRect(seq.file);
+            if (cancelled || !seq || !rect || !renderer) {
+              if (seq) for (const im of seq.images) if ("close" in im) im.close();
+              return;
+            }
+            // The tile is the tier's own: the SD atlases are half-size, and
+            // the inset and the feather are both counted in texels of
+            // whichever grid is actually loaded.
+            const [tw, th] = chosen === "hd" ? seq.file.tile : seq.file.tile_sd;
+            fanSlots = layers.map((name) => seq.order.indexOf(name));
+            const ok = renderer.setFanAtlas(
+              seq.images,
+              fanSlots,
+              { cols: seq.file.cols, rows: seq.file.rows, frames: seq.file.frames },
+              { width: tw, height: th },
+              rect,
+            );
+            // The decoded bitmaps have been copied into the array texture and
+            // are a few megabytes of nothing from here on.
+            for (const im of seq.images) if ("close" in im) im.close();
+            if (!ok) return;
+            fanMotion.periods = 360 / seq.file.period_deg;
+            fanSeq = seq;
+            dirty = true;
+          } finally {
+            fanLoading = false;
+            /**
+             * `refresh` as well as `schedule`, whichever way it went.
+             *
+             * On success the composited still is up and has to come down:
+             * the fan may have been switched on a moment ago and
+             * `overlayStrength` was asked for its share before there was a
+             * sequence to replace it. Drawing without recomputing that
+             * share puts the atlas and the still on screen together, which
+             * is two fans at two angles. On failure this is what parks the
+             * loop that was keeping the angle warm.
+             */
+            if (!cancelled) {
+              refresh();
+              schedule();
+            }
           }
-          const [tw, th] = chosen === "hd" ? seq.file.tile : seq.file.tile_sd;
-          fanSlots = layers.map((name) => seq.order.indexOf(name));
-          const ok = renderer.setFanAtlas(
-            seq.images,
-            fanSlots,
-            { cols: seq.file.cols, rows: seq.file.rows, frames: seq.file.frames },
-            { width: tw, height: th },
-            seq.file.rect_uv,
-          );
-          // The decoded bitmaps have been copied into the array texture and
-          // are a few megabytes of nothing from here on.
-          for (const im of seq.images) if ("close" in im) im.close();
-          if (!ok) return;
-          fanMotion.periods = 360 / seq.file.period_deg;
-          fanSeq = seq;
-          dirty = true;
-          schedule();
         })();
       };
 
@@ -669,12 +780,11 @@ export function PlateStage({
         );
         let curtainMoved = false;
         if (covering && curtainId) {
-          const shade = states[curtainId] as ShadeState | undefined;
-          const clamp = (v: number) => Math.min(Math.max(v / 100, 0), 1);
-          const next: [number, number] = [
-            covering === 2 ? clamp(shade?.sheer ?? 0) : 0,
-            clamp(shade?.blackout ?? 0),
-          ];
+          // Through `trackPositions` rather than recomputed here, so the
+          // readiness gate on the covering sets lives in one place and
+          // cannot drift out of step with the position the opening frame
+          // was loaded for.
+          const next = trackPositions();
           /**
            * Exactly, with no deadband — unlike the layer weights.
            *
@@ -821,6 +931,25 @@ export function PlateStage({
         } catch (e) {
           // One missing plate is a dark circuit, not a dead room.
           console.error(e);
+        } finally {
+          /**
+           * Marked whether it arrived or threw.
+           *
+           * The question `setFull` is asking is "is anything still on its
+           * way", not "is every plate perfect" — a layer that 404s is
+           * never going to arrive, and counting only successes would mean
+           * one bad file in the overlay set stopped the fan compositing
+           * for the life of the page. It has already been logged above.
+           */
+          if (!cancelled) {
+            landed[set].add(layer);
+            if (landed[set].size === layers.length) {
+              // The set has just become usable: the overlay or a track
+              // that was being held at zero can take its real value now.
+              refresh();
+              schedule();
+            }
+          }
         }
       };
 
@@ -833,7 +962,11 @@ export function PlateStage({
        * the whole open set is. Only a scene that opens on sheer needs both
        * before the room can be shown.
        */
-      const [sheerNow, blackoutNow] = curtainPos;
+      // Ungated: `curtainPos` is held at zero until the covering sets
+      // land, and prioritising by that would send every room to fetch the
+      // open set first — including the one that opens on sheer, which
+      // would then show the wrong room until its own set turned up.
+      const [sheerNow, blackoutNow] = trackPositions(false);
       const first: (() => Promise<void>)[] = [];
       const later: (() => Promise<void>)[] = [];
       // The same test `draw` uses to decide which sets contribute, so the
@@ -860,6 +993,31 @@ export function PlateStage({
       if (cancelled) return;
       setReady(true);
       await Promise.all(later.map((run) => run()));
+      if (cancelled) return;
+      /**
+       * Then go and get the fan's frames, before anybody asks for them.
+       *
+       * They used to be fetched on the first press of a switch, which
+       * put a second of downloading between the ask and the blades
+       * moving — and on a slow link that second is the whole of a scene
+       * change. Six hundred and fifty kilobytes at HD is small beside
+       * the plate set that has just finished landing, and this runs
+       * after it rather than beside it, so first paint is untouched.
+       *
+       * Only a room that declares `sequence` gets here at all, so the
+       * ten rooms without one still fetch nothing. `wantFanSeq` is
+       * idempotent, so a switch pressed in the meantime does not start a
+       * second fetch — it finds this one already running.
+       */
+      if (overlaySequence) {
+        const soon = (fn: () => void) =>
+          typeof requestIdleCallback === "function"
+            ? requestIdleCallback(fn, { timeout: 3000 })
+            : setTimeout(fn, 1000);
+        soon(() => {
+          if (!cancelled) wantFanSeq();
+        });
+      }
     })();
 
     return () => {
