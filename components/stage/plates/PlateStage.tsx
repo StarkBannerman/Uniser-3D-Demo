@@ -44,6 +44,15 @@ import {
   type PlateTier,
 } from "./manifest";
 import { PlateRenderer, type ToneCurve } from "./PlateRenderer";
+import {
+  FAN_TAPS,
+  fanFrame,
+  fanSeqDir,
+  loadFanSeq,
+  newFanMotion,
+  stepFan,
+  type FanSeq,
+} from "./fanseq";
 import { CLOCK_EASE_MS } from "./profile";
 import { profileFor } from "./profiles";
 import {
@@ -199,6 +208,8 @@ export function PlateStage({
     rect: string;
     travel?: "fade" | "drop";
     pinLayers?: string[];
+    /** This room has a rendered frame sequence for its fan. */
+    sequence?: boolean;
   };
   /** Soft overlays the space opts into. See `Space.plates.cues`. */
   cues?: ("tv" | "screen" | "airflow")[];
@@ -235,6 +246,7 @@ export function PlateStage({
   const overlayRect = overlay?.rect;
   const overlayId = overlay?.deviceId;
   const overlayTravel = overlay?.travel ?? "fade";
+  const overlaySequence = Boolean(overlay?.sequence) && overlayTravel !== "drop";
   const overlayPinned = overlay?.pinLayers?.join(",") ?? "";
   const closedDir = curtain?.closedDir;
   const curtainId = curtain?.deviceId;
@@ -248,6 +260,8 @@ export function PlateStage({
     let renderer: PlateRenderer | null = null;
     let unsubscribe: (() => void) | null = null;
     let observer: ResizeObserver | null = null;
+    let onscreen: IntersectionObserver | null = null;
+    let onVisible: (() => void) | null = null;
     let frame = 0;
 
     (async () => {
@@ -481,17 +495,54 @@ export function PlateStage({
         return true;
       };
 
+      /**
+       * Thirty, not sixty.
+       *
+       * A fan is the one thing on this stage that asks for frames when
+       * nothing else is happening, and at three revolutions a second the
+       * difference between 30 and 60 Hz is not something anybody can see —
+       * the blades move about six degrees between frames either way, and
+       * the motion blur is already averaging across more than that. Half
+       * the draws is half the GPU for a demo that may be running on a
+       * laptop beside a presentation.
+       */
+      const FAN_HZ = 30;
+
+      /** Should the fan be given frames at all right now? */
+      const fanAwake = () => Boolean(fanSeq) && visible && inView;
+
       const schedule = () => {
         if (frame) return;
         frame = requestAnimationFrame((now) => {
           frame = 0;
           if (!renderer) return;
           const moved = easeClockLayers(now);
-          if (dirty || moved) {
+          let spun = false;
+          let turning = false;
+          if (fanAwake() && fanSeq) {
+            // Clamped, because a backgrounded tab hands back one enormous
+            // delta on its first frame and the fan would jump a third of a
+            // turn rather than resume.
+            const dt = fanTick ? Math.min(0.1, (now - fanTick) / 1000) : 0;
+            fanTick = now;
+            turning = stepFan(fanMotion, dt);
+            if (now - fanDrawn >= 1000 / FAN_HZ - 1 || !turning) {
+              fanDrawn = now;
+              renderer.setFanFrame(
+                fanFrame(fanMotion, fanSeq.file),
+                FAN_TAPS[Math.min(Math.max(fanMotion.want, 0), 3)],
+                { cols: fanSeq.file.cols, rows: fanSeq.file.rows, frames: fanSeq.file.frames },
+              );
+              spun = true;
+            }
+          } else {
+            fanTick = 0;
+          }
+          if (dirty || moved || spun) {
             dirty = false;
             renderer.draw(shown, exposure, curtainPos, overlayMix);
           }
-          if (tweening) schedule();
+          if (tweening || turning) schedule();
         });
       };
 
@@ -545,6 +596,64 @@ export function PlateStage({
       };
       let overlayMix = overlayStrength();
 
+      /* ---------------- the fan, when it has a sequence to play -------- */
+
+      /**
+       * Nothing is fetched until somebody turns the fan on.
+       *
+       * Five atlases are about 300 KB at SD and 1.3 MB at HD, which is not
+       * much beside the plate set but is entirely wasted in the six rooms
+       * out of eleven whose fan nobody touches. So the first time the
+       * speed goes above zero we go and get them, and until they arrive
+       * the old composited still carries on — which is also exactly what a
+       * room with no sequence rendered does, forever.
+       */
+      let fanSeq: FanSeq | null = null;
+      let fanSlots: number[] = [];
+      let fanAsked = false;
+      const fanMotion = newFanMotion();
+      let fanTick = 0;
+      let fanDrawn = 0;
+      let visible = typeof document === "undefined" || !document.hidden;
+      let inView = true;
+
+      /** The speed the room is asking for, 0 off to 3 high. */
+      const fanSpeed = (): number => {
+        if (overlayTravel === "drop" || !overlayId) return 0;
+        const st = useSim.getState().states[overlayId] as FanState | undefined;
+        if (!st || !st.on) return 0;
+        return Math.min(Math.max(st.speed, 0), 3);
+      };
+
+      const wantFanSeq = () => {
+        if (fanAsked || !overlaySequence || !renderer?.fanCapable) return;
+        fanAsked = true;
+        void (async () => {
+          const seq = await loadFanSeq(fanSeqDir(dir), chosen, layers, loadImage);
+          if (cancelled || !seq || !renderer) {
+            if (seq) for (const im of seq.images) if ("close" in im) im.close();
+            return;
+          }
+          const [tw, th] = chosen === "hd" ? seq.file.tile : seq.file.tile_sd;
+          fanSlots = layers.map((name) => seq.order.indexOf(name));
+          const ok = renderer.setFanAtlas(
+            seq.images,
+            fanSlots,
+            { cols: seq.file.cols, rows: seq.file.rows, frames: seq.file.frames },
+            { width: tw, height: th },
+            seq.file.rect_uv,
+          );
+          // The decoded bitmaps have been copied into the array texture and
+          // are a few megabytes of nothing from here on.
+          for (const im of seq.images) if ("close" in im) im.close();
+          if (!ok) return;
+          fanMotion.periods = 360 / seq.file.period_deg;
+          fanSeq = seq;
+          dirty = true;
+          schedule();
+        })();
+      };
+
       const refresh = () => {
         const { space, states, clockMin, daylightMix, daylightTint } = useSim.getState();
         if (!space) return;
@@ -588,7 +697,23 @@ export function PlateStage({
             curtainMoved = true;
           }
         }
-        const nextOverlay = overlayStrength();
+        /**
+         * The fan, and the still it replaces.
+         *
+         * Once a sequence is playing the composited still has to go to
+         * zero, or the room gets both: the still is a separate render
+         * whose blades are somewhere else, which is the double fan the
+         * brief rules out. Until then `overlayStrength` carries on exactly
+         * as before, which is what keeps the bedroom and the living room
+         * working untouched.
+         */
+        const speed = fanSpeed();
+        if (speed > 0) wantFanSeq();
+        if (speed !== fanMotion.want) {
+          fanMotion.want = speed;
+          if (fanSeq) schedule();
+        }
+        const nextOverlay = fanSeq ? 0 : overlayStrength();
         const overlayMoved = nextOverlay !== overlayMix;
         if (overlayMoved) overlayMix = nextOverlay;
         if (!weightsMoved && !curtainMoved && !overlayMoved) return;
@@ -635,6 +760,37 @@ export function PlateStage({
       resize();
       observer = new ResizeObserver(resize);
       observer.observe(container);
+
+      /**
+       * Stop spending frames on a fan nobody is looking at.
+       *
+       * Two ways to not be looking at it: the tab is in the background,
+       * which `visibilitychange` covers, and the stage has been scrolled
+       * off, which it does not. Both park the loop rather than the fan —
+       * `fanMotion` keeps its angle, so coming back resumes mid-turn
+       * instead of snapping to frame 0.
+       */
+      onVisible = () => {
+        visible = !document.hidden;
+        if (visible) {
+          fanTick = 0;
+          schedule();
+        }
+      };
+      document.addEventListener("visibilitychange", onVisible);
+      onscreen = new IntersectionObserver(
+        (entries) => {
+          const next = entries.some((e) => e.isIntersecting);
+          if (next === inView) return;
+          inView = next;
+          if (inView) {
+            fanTick = 0;
+            schedule();
+          }
+        },
+        { threshold: 0 },
+      );
+      onscreen.observe(container);
 
       const { states, clockMin } = useSim.getState();
       const { needed } = loadOrder(layers, states, clockMin);
@@ -710,14 +866,19 @@ export function PlateStage({
       cancelled = true;
       if (frame) cancelAnimationFrame(frame);
       observer?.disconnect();
+      onscreen?.disconnect();
+      if (onVisible) document.removeEventListener("visibilitychange", onVisible);
       unsubscribe?.();
+      // Before dispose, which would take the atlas with it anyway — but
+      // only this one says so, and it is the line somebody will look for.
+      renderer?.releaseFanAtlas();
       // Drops the thirteen textures, the program and the context. Without
       // this, leaving and re-entering the room leaks a plate set each time,
       // which on the HD tier is about 130 MB a visit.
       renderer?.dispose();
       useSim.getState().setStageStatic(false);
     };
-  }, [dir, profileName, sheerDir, closedDir, curtainId, declaredWindow, overlayDir, overlayRect, overlayId, overlayTravel, overlayPinned]);
+  }, [dir, profileName, sheerDir, closedDir, curtainId, declaredWindow, overlayDir, overlayRect, overlayId, overlayTravel, overlayPinned, overlaySequence]);
 
   const space = useSim((s) => s.space);
   const select = useSim((s) => s.select);

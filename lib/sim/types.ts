@@ -842,6 +842,20 @@ export interface Space {
        */
       travel?: "fade" | "drop";
       /**
+       * This room has a rendered frame sequence for its fan.
+       *
+       * Declared rather than probed, and only because of the console. The
+       * loader would happily take a 404 as "no sequence here" — that is
+       * what it does if the files are missing anyway — but a browser logs
+       * every failed request whatever the fetch does with it, and a demo
+       * shown to a client should not print a red line each time somebody
+       * switches a fan on in a room whose sequence has not been rendered.
+       *
+       * So turning a room on is its assets plus this word. See
+       * `components/stage/plates/fanseq.ts`.
+       */
+      sequence?: boolean;
+      /**
        * Layers that always come from the overlay set, whichever pass is
        * drawing.
        *

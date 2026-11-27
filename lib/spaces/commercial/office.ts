@@ -78,6 +78,16 @@ export const office: Space = {
       dir: "/plates/office_fan",
       deviceId: "ow-fan",
       rect: "fan_rect",
+      /**
+       * The blades really turn here: `/plates/office_fanseq` holds a frame
+       * sequence, fetched the first time somebody switches the fan on.
+       *
+       * The still above stays as the fallback and is what the bedroom and
+       * the living room still use — and it is what this room falls back
+       * to as well if the sequence will not load, or if the device has no
+       * texture unit to spare for it.
+       */
+      sequence: true,
     },
     hotspotAliases: {
       blinds: { deviceId: "ow-blinds", label: "Motorised blinds" },

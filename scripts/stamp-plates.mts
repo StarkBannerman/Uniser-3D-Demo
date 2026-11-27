@@ -36,7 +36,7 @@
  * was re-rendered.
  */
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
@@ -96,12 +96,23 @@ let stale: string[] = [];
 
 for (const name of sets) {
   const dir = join(PLATES, name);
-  const manifestPath = join(dir, "manifest.json");
+  /**
+   * A fan sequence keeps its pointer in `fanseq.json`, not `manifest.json`.
+   *
+   * Same problem, same answer: its atlases live under `hd/` and `sd/` so
+   * they are served `immutable` for a year like every other plate, and a
+   * re-rendered sequence would reach nobody who had already loaded one.
+   * The json itself is not matched by that header rule, so it is fresh on
+   * every load and can carry the rev.
+   */
+  const manifestPath = ["manifest.json", "fanseq.json"]
+    .map((f) => join(dir, f))
+    .find((f) => existsSync(f));
   let manifest: Record<string, unknown>;
   try {
-    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    manifest = JSON.parse(readFileSync(manifestPath ?? "", "utf8"));
   } catch {
-    console.log(`  skip ${name} — no readable manifest.json`);
+    console.log(`  skip ${name} — no readable manifest.json or fanseq.json`);
     continue;
   }
   const rev = revOf(dir);
@@ -114,7 +125,7 @@ for (const name of sets) {
   // two-space shape the converter writes. Any existing `rev` is dropped on
   // the way through rather than left to shadow the new one.
   const { rev: _old, ...rest } = manifest;
-  writeFileSync(manifestPath, JSON.stringify({ rev, ...rest }, null, 2));
+  writeFileSync(manifestPath!, JSON.stringify({ rev, ...rest }, null, 2));
   console.log(`  ${name.padEnd(18)} ${manifest.rev ?? "(none)"} -> ${rev}`);
   changed++;
 }

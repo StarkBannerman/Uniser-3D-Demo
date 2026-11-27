@@ -1,0 +1,50 @@
+{
+  "rev": "598e7feaed01",
+  "frames": 24,
+  "cols": 5,
+  "rows": 5,
+  "period_deg": 120,
+  "gamma": 5,
+  "tile": [
+    252,
+    232
+  ],
+  "tile_sd": [
+    126,
+    116
+  ],
+  "rect_px": [
+    1284,
+    142,
+    1536,
+    374
+  ],
+  "rect_uv": [
+    0.8359375,
+    0.13345864661654136,
+    1,
+    0.35150375939849626
+  ],
+  "plate_size": [
+    1536,
+    1064
+  ],
+  "layers": {
+    "day_morning": {
+      "scale": 0.440292
+    },
+    "ow_break": {
+      "scale": 36.206253
+    },
+    "ow_cove": {
+      "scale": 22.575001
+    },
+    "ow_general": {
+      "scale": 4.264454
+    },
+    "sky": {
+      "scale": 0.949219
+    }
+  },
+  "note": "decode like the base plates: linear = pow(texel, gamma) * scale; frame i at (i % cols, i // cols); frame 0 == base plate"
+}

@@ -308,12 +308,24 @@ function fragmentSource(
   tone: ToneCurve,
   target: "display" | "hdr",
   wipe: boolean,
+  /**
+   * Whether to compile the fan-sequence path at all.
+   *
+   * False when the context has no unit to spare for the atlas - the
+   * showroom's sixteen layers leave none - and then `fanTexel` is a
+   * passthrough and not one fan uniform is declared. Compiling it out
+   * rather than disabling it at runtime means a room that cannot have a
+   * turning fan also cannot have a sampler2DArray bound to a unit holding
+   * a 2D texture, which some drivers reject at draw time whether or not
+   * anything samples it.
+   */
+  fan: boolean,
 ): string {
   const samplers = Array.from({ length: n }, (_, i) => `uniform sampler2D uPass${i};`).join("\n");
   const accum = Array.from(
     { length: n },
     (_, i) =>
-      `  hdr += uWeight[${i}] * pow(gate(texture(uPass${i}, vUv).rgb, uFloor[${i}]), g) * uScale[${i}];`,
+      `  hdr += uWeight[${i}] * pow(gate(fanTexel(uPass${i}, ${i}), uFloor[${i}]), g) * uScale[${i}];`,
   ).join("\n");
 
   /**
@@ -331,6 +343,65 @@ function fragmentSource(
         ? "  fragColor = vec4(hdr * curtainCoef(), 1.0);"
         : "  fragColor = vec4(hdr, 1.0);";
 
+  /**
+   * The fan substitution, or nothing at all.
+   *
+   * Built out here rather than inline so the passthrough is readable:
+   * a room with no sequence compiles a one-line function the driver
+   * folds away, not a disabled branch.
+   */
+  const fanGlsl = fan
+    ? `/** One frame of one layer, read out of the atlas. */
+vec3 fanTile(int slot, vec2 q, float f) {
+  float frames = uFanGrid.z;
+  float i = mod(floor(f + 0.5), frames);
+  float cx = mod(i, uFanGrid.x);
+  float cy = floor(i / uFanGrid.x);
+  vec2 uv = (vec2(cx, cy) + clamp(q, uFanInset, 1.0 - uFanInset)) / uFanGrid.xy;
+  return texture(uFanAtlas, vec3(uv, float(slot))).rgb;
+}
+
+/**
+ * This layer's texel: the base plate, or the fan's if it has one here.
+ *
+ * Substituted before the decode rather than after, because the atlases are
+ * encoded exactly like the plates and carry the same per-layer scale - so
+ * the fan goes through the identical pow(texel, gamma) * scale * level *
+ * tint the rest of the room does, and is lit by whatever the room is doing
+ * rather than pasted on top of it.
+ *
+ * The same substitution happens in every covering pass, including the one
+ * drawn from the blinds-down set. Measured, that is right for the three
+ * circuit layers - open and closed agree inside the rect to within WebP
+ * noise - and very slightly wrong for the two daylight ones, which do
+ * differ because a blind changes what reaches the ceiling. It is left
+ * wrong on purpose: daylight is 1% to 3% of the light in this rectangle,
+ * so the error is a few hundredths of a per cent, and the alternative is a
+ * fan that stops turning when somebody lowers the blinds.
+ */
+vec3 fanTexel(sampler2D plate, int layer) {
+  vec3 base = texture(plate, vUv).rgb;
+  if (uFanOn <= 0.0) return base;
+  int slot = uFanSlot[layer];
+  if (slot < 0) return base;
+  vec2 lo = smoothstep(uFanRect.xy - uFanSoft, uFanRect.xy + uFanSoft, vUv);
+  vec2 hi = smoothstep(uFanRect.zw + uFanSoft, uFanRect.zw - uFanSoft, vUv);
+  float m = lo.x * lo.y * hi.x * hi.y;
+  if (m <= 0.0) return base;
+  vec2 q = (vUv - uFanRect.xy) / (uFanRect.zw - uFanRect.xy);
+  // Motion blur: consecutive frames centred on the current angle, so the
+  // smear sits on the blade rather than trailing it. Bounded at five so
+  // the loop unrolls; uFanGrid.w carries the count the speed asks for.
+  int taps = int(uFanGrid.w);
+  vec3 sum = vec3(0.0);
+  for (int t = 0; t < 5; t++) {
+    if (t >= taps) break;
+    sum += fanTile(slot, q, uFanFrame + float(t) - (uFanGrid.w - 1.0) * 0.5);
+  }
+  return mix(base, sum / uFanGrid.w, m);
+}`
+    : `vec3 fanTexel(sampler2D plate, int layer) { return texture(plate, vUv).rgb; }`;
+
   return `#version 300 es
 precision highp float;
 in vec2 vUv;
@@ -342,6 +413,34 @@ uniform float uFloor[${n}];
 uniform float uGamma;
 uniform float uExposure;
 ${samplers}
+
+/**
+ * The fan sequence: one atlas per circuit that lights the fan, as one array
+ * texture so the whole feature costs a single sampler.
+ *
+ * It has to be a single sampler. Units are the scarce thing here - the
+ * showroom already uses all sixteen - and five more sampler2Ds would not
+ * fit beside the office's thirteen layers and the HDR target. A
+ * sampler2DArray holds all five atlases on one unit, which is also why
+ * every atlas has to be the same size.
+ *
+ * uFanSlot maps a layer index to its array slice, or -1 for a layer the
+ * sequence does not carry. uFanOn is 0 until the atlases are loaded, which
+ * is the whole of the fallback: an unloaded or absent sequence costs one
+ * comparison per layer and draws the base plate.
+ */
+${
+  fan
+    ? `uniform highp sampler2DArray uFanAtlas;
+uniform int   uFanSlot[${n}];
+uniform vec4  uFanRect;    // u0, v0, u1, v1 - v downward, like vUv
+uniform vec2  uFanSoft;    // feathered edge, in uv
+uniform vec4  uFanGrid;    // cols, rows, frames, taps
+uniform vec2  uFanInset;   // half a texel, to keep a tile off its neighbour
+uniform float uFanFrame;   // where in the sequence, as a float
+uniform float uFanOn;      // 0 until the atlases are there`
+    : ""
+}
 
 ${target === "display" ? (tone === "agx" ? AGX : ACES) : ""}
 ${wipe ? WIPE : ""}
@@ -369,6 +468,8 @@ vec3 gate(vec3 t, float on) {
   float k = max(m - 0.02, 0.0) / 0.98 * smoothstep(0.015, 0.04, m) / max(m, 1e-5);
   return mix(t, t * k, on);
 }
+
+${fanGlsl}
 
 void main() {
   vec3 g = vec3(uGamma);
@@ -438,6 +539,12 @@ export class PlateRenderer {
   private uScale: WebGLUniformLocation | null;
   private uExposure: WebGLUniformLocation | null;
   private n: number;
+  /** Texture unit the fan atlas lives on, or -1 when there is no room. */
+  private fanUnit = -1;
+  private fanTex: WebGLTexture | null = null;
+  private uFanFrame: WebGLUniformLocation | null = null;
+  private uFanGrid: WebGLUniformLocation | null = null;
+  private uFanOn: WebGLUniformLocation | null = null;
   private sets: number;
   private lost = false;
 
@@ -535,6 +642,16 @@ export class PlateRenderer {
     this.scales = scales.map((set) => new Float32Array(set));
 
     const units = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) as number;
+    /**
+     * Is there a unit left over for a turning fan?
+     *
+     * Layers take 0..n-1 and the resolve pass takes n for the HDR, so the
+     * atlas wants n+1. The showroom's sixteen layers leave nothing, and a
+     * room that cannot spare a unit keeps the still fan - which is the
+     * same fallback a room with no sequence rendered gets, so there is
+     * only one path to test.
+     */
+    this.fanUnit = units >= this.n + 2 ? this.n + 1 : -1;
     if (units < this.n) {
       // WebGL2 mandates at least 16, so this is a driver lying or a context
       // we should not have been given. Better a named error than twelve
@@ -565,7 +682,7 @@ export class PlateRenderer {
     const fs = compile(
       gl,
       gl.FRAGMENT_SHADER,
-      fragmentSource(this.n, tone, blending ? "hdr" : "display", blending),
+      fragmentSource(this.n, tone, blending ? "hdr" : "display", blending, this.fanUnit >= 0),
     );
     const program = gl.createProgram();
     if (!program) throw new Error("plates: could not create program");
@@ -600,6 +717,18 @@ export class PlateRenderer {
 
     for (let i = 0; i < this.n; i++) {
       gl.uniform1i(gl.getUniformLocation(program, `uPass${i}`), i);
+    }
+    if (this.fanUnit >= 0) {
+      gl.uniform1i(gl.getUniformLocation(program, "uFanAtlas"), this.fanUnit);
+      // Every layer is "not in the sequence" until one is loaded.
+      gl.uniform1iv(
+        gl.getUniformLocation(program, "uFanSlot"),
+        new Int32Array(this.n).fill(-1),
+      );
+      this.uFanFrame = gl.getUniformLocation(program, "uFanFrame");
+      this.uFanGrid = gl.getUniformLocation(program, "uFanGrid");
+      this.uFanOn = gl.getUniformLocation(program, "uFanOn");
+      gl.uniform1f(this.uFanOn, 0);
     }
     gl.uniform1f(gl.getUniformLocation(program, "uGamma"), gamma);
     this.uScale = gl.getUniformLocation(program, "uScale");
@@ -731,6 +860,100 @@ export class PlateRenderer {
     const previous = this.textures[slot];
     if (previous) gl.deleteTexture(previous);
     this.textures[slot] = tex;
+  }
+
+  /** True when this room can take a fan sequence at all. */
+  get fanCapable(): boolean {
+    return this.fanUnit >= 0 && !this.lost;
+  }
+
+  /**
+   * Hand over the fan's atlases, one per layer that lights it.
+   *
+   * `slots[i]` is the array slice for layer `i`, or -1 for a layer the
+   * sequence does not carry. All the images must be the same size, which
+   * the loader has already checked, because an array texture is one
+   * allocation with a fixed footprint per slice.
+   *
+   * No mipmaps, unlike the plates. A tile is a fifth of the atlas in each
+   * axis, so a mip chain would blend neighbouring frames into each other
+   * at the first reduction - the smear would be the fan at two angles
+   * rather than the fan out of focus. The rectangle is small enough on
+   * screen that minification is mild and the inset clamp handles the rest.
+   */
+  setFanAtlas(
+    images: readonly TexImageSource[],
+    slots: readonly number[],
+    grid: { cols: number; rows: number; frames: number },
+    tile: { width: number; height: number },
+    rect: readonly [number, number, number, number],
+  ): boolean {
+    const gl = this.gl;
+    if (!this.fanCapable || images.length === 0) return false;
+    const width = tile.width * grid.cols;
+    const height = tile.height * grid.rows;
+    const tex = gl.createTexture();
+    if (!tex) return false;
+    gl.activeTexture(gl.TEXTURE0 + this.fanUnit);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
+    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGB8, width, height, images.length);
+    images.forEach((img, i) => {
+      gl.texSubImage3D(
+        gl.TEXTURE_2D_ARRAY, 0, 0, 0, i, width, height, 1, gl.RGB, gl.UNSIGNED_BYTE, img,
+      );
+    });
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (this.fanTex) gl.deleteTexture(this.fanTex);
+    this.fanTex = tex;
+
+    gl.useProgram(this.program);
+    const p = this.program;
+    gl.uniform1iv(
+      gl.getUniformLocation(p, "uFanSlot"),
+      new Int32Array(Array.from({ length: this.n }, (_, i) => slots[i] ?? -1)),
+    );
+    gl.uniform4f(gl.getUniformLocation(p, "uFanRect"), rect[0], rect[1], rect[2], rect[3]);
+    // Four pixels of feather, as the brief asks. The plate and the atlas
+    // agree inside the rectangle, so this is hiding rounding rather than
+    // a seam between two different pictures.
+    gl.uniform2f(
+      gl.getUniformLocation(p, "uFanSoft"),
+      4 / Math.max(this.canvas.width, 1),
+      4 / Math.max(this.canvas.height, 1),
+    );
+    gl.uniform2f(
+      gl.getUniformLocation(p, "uFanInset"),
+      0.5 / tile.width,
+      0.5 / tile.height,
+    );
+    gl.uniform4f(this.uFanGrid, grid.cols, grid.rows, grid.frames, 1);
+    gl.uniform1f(this.uFanFrame, 0);
+    gl.uniform1f(this.uFanOn, 1);
+    return true;
+  }
+
+  /** Where the fan is, and how much blur the speed asks for. */
+  setFanFrame(frame: number, taps: number, grid: { cols: number; rows: number; frames: number }): void {
+    if (!this.fanTex || this.lost) return;
+    const gl = this.gl;
+    gl.useProgram(this.program);
+    gl.uniform1f(this.uFanFrame, frame);
+    gl.uniform4f(this.uFanGrid, grid.cols, grid.rows, grid.frames, Math.max(1, taps));
+  }
+
+  /** Give the atlas memory back, on the way out of the room. */
+  releaseFanAtlas(): void {
+    if (!this.fanTex) return;
+    const gl = this.gl;
+    if (!this.lost) {
+      gl.deleteTexture(this.fanTex);
+      gl.useProgram(this.program);
+      gl.uniform1f(this.uFanOn, 0);
+    }
+    this.fanTex = null;
   }
 
   /** Size the drawing buffer. No-op when it already matches. */
