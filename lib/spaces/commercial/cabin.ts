@@ -173,15 +173,30 @@ export const cabin: Space = {
     {
       id: "cx-shelf",
       kind: "light",
-      name: "Shelf Colour",
+      name: "Shelves",
       zoneId: "cx-main",
       productId: "flexi-delta-rgb",
       subsystem: "lighting",
+      /**
+       * The fixture is still RGBW; the circuit no longer is.
+       *
+       * This was the one circuit in the cabin that did colour, and the
+       * scenes used it — amber in Relax, deep blue in Evening. The client
+       * has ruled it out: the shelves are warm white at 3000 K in every
+       * scene, because what a shelf is for is finding and reading a book
+       * and a coloured wash is the one thing that stops it. So `rgb` and
+       * `tunable` both come off, which takes the colour picker and the
+       * colour-temperature control out of the panel rather than leaving
+       * two controls that move nothing — the plate is tinted from
+       * `fixedTint` now and would ignore them.
+       *
+       * `productId` stays. The strip in the credenza really is an RGBW
+       * one; it is being driven as warm white, which is a specification
+       * decision rather than a different product.
+       */
       pitch:
-        "Fourteen metres of RGBW in the credenza shelves — the only circuit in the cabin that does colour, and deliberately the only one. Colour in a cove turns a boardroom into a bar; colour behind glass and objects on a shelf is a brand cue, and it is the one a company actually wants on its wall.",
+        "Fourteen metres of concealed strip in the credenza shelves, washing the books and the objects in front of them and nothing else. Warm white at 3000 K in every scene — a shelf is for finding a book on, and the colour that makes that easy is the one it keeps.",
       dimmable: true,
-      tunable: { minK: 2700, maxK: 5000 },
-      rgb: true,
       fixtures: 14, // metres of run
       wattsEach: 8,
       lumensEach: 280,
@@ -370,7 +385,7 @@ export const cabin: Space = {
         "cx-task": { on: true, level: 40, cct: 3000, sat: 0 },
         "cx-accent": { on: true, level: 100 },
         "cx-feature": { on: true, level: 100 },
-        "cx-shelf": { on: true, level: 80, cct: 2700, sat: 0 },
+        "cx-shelf": { on: true, level: 80 },
         "cx-plinth": { on: true, level: 60 },
         "cx-deco": { on: true, level: 80 },
         "cx-lounge": { on: true, level: 50 },
@@ -394,7 +409,7 @@ export const cabin: Space = {
         "cx-task": { on: true, level: 100, cct: 4500, sat: 0 },
         "cx-accent": { on: true, level: 40 },
         "cx-feature": { on: true, level: 40 },
-        "cx-shelf": { on: true, level: 40, cct: 4000, sat: 0 },
+        "cx-shelf": { on: true, level: 60 },
         "cx-plinth": { on: true, level: 20 },
         "cx-deco": { on: false },
         "cx-lounge": { on: true, level: 20 },
@@ -446,7 +461,7 @@ export const cabin: Space = {
             "cx-task": { on: true, level: 40, cct: 3000, sat: 0, fadeMs: 1200 },
             "cx-accent": { on: true, level: 100, fadeMs: 1200 },
             "cx-feature": { on: true, level: 100, fadeMs: 1200 },
-            "cx-shelf": { on: true, level: 80, cct: 2700, sat: 0, fadeMs: 1200 },
+            "cx-shelf": { on: true, level: 80, fadeMs: 1200 },
             "cx-plinth": { on: true, level: 60, fadeMs: 1200 },
             "cx-deco": { on: true, level: 80, fadeMs: 1200 },
             "cx-lounge": { on: true, level: 50, fadeMs: 1200 },
@@ -468,7 +483,7 @@ export const cabin: Space = {
             "cx-cove": { on: true, level: 70, cct: 4000, sat: 0, fadeMs: 2000 },
             "cx-deco": { on: true, level: 30, fadeMs: 2000 },
             "cx-lounge": { on: true, level: 30, fadeMs: 2000 },
-            "cx-shelf": { on: true, level: 60, cct: 2700, hue: 0, sat: 0, fadeMs: 2000 },
+            "cx-shelf": { on: true, level: 60, fadeMs: 2000 },
             /**
              * The accent, the feature wall and the plinth settle here too.
              *
@@ -524,9 +539,9 @@ export const cabin: Space = {
         "cx-cove": { on: true, level: 60, cct: 2700, sat: 0 },
         "cx-general": { on: true, level: 15, cct: 2700, sat: 0 },
         "cx-task": { on: false },
-        "cx-accent": { on: true, level: 60 },
+        "cx-accent": { on: true, level: 70 },
         "cx-feature": { on: true, level: 50 },
-        "cx-shelf": { on: true, level: 70, cct: 2700, hue: 29, sat: 58 },
+        "cx-shelf": { on: true, level: 70 },
         "cx-plinth": { on: true, level: 50 },
         "cx-deco": { on: true, level: 100 },
         "cx-lounge": { on: true, level: 60 },
@@ -550,7 +565,7 @@ export const cabin: Space = {
         "cx-task": { on: false },
         "cx-accent": { on: true, level: 30 },
         "cx-feature": { on: true, level: 20 },
-        "cx-shelf": { on: true, level: 40, cct: 2700, sat: 0 },
+        "cx-shelf": { on: true, level: 60 },
         "cx-plinth": { on: false },
         "cx-deco": { on: true, level: 100 },
         "cx-lounge": { on: true, level: 100 },
@@ -566,17 +581,30 @@ export const cabin: Space = {
       name: "Evening",
       icon: "◑",
       blurb:
-        "Warm and calming, with the skyline doing half the work. The cove and the marble wall lead, the shelves run deep blue against the city outside, and the working light is down to the level you would leave on for somebody finishing a call.",
+        "Warm and calming, with the skyline doing half the work. One colour across the whole room — 3000 K on every circuit that has a say in it — with the cove and the marble wall leading, the painting still reading, and the working light down to what you would leave on for somebody finishing a call.",
       fadeMs: 2600,
       targets: {
-        "cx-cove": { on: true, level: 80, cct: 2700, sat: 0 },
-        "cx-general": { on: true, level: 30, cct: 2700, sat: 0 },
-        "cx-task": { on: true, level: 20, cct: 3000, sat: 0 },
+        /**
+         * One warm look, and the blue is gone with it.
+         *
+         * The shelves used to run deep blue here against the city and the
+         * cove sat at 2700 K behind them, which made the room two colours
+         * arguing. The client wants one: 3000 K on the three tunable
+         * circuits, warm white on the shelves like everywhere else, and
+         * the five fixed circuits were already 2700 K and stay there.
+         *
+         * The desk light goes out rather than down. At 20 it was the one
+         * cool, directional thing left in a scene that is explicitly not
+         * for working in, and the brief sets it to 0.
+         */
+        "cx-cove": { on: true, level: 70, cct: 3000, sat: 0 },
+        "cx-general": { on: true, level: 25, cct: 3000, sat: 0 },
+        "cx-task": { on: false },
         "cx-accent": { on: true, level: 80 },
-        "cx-feature": { on: true, level: 90 },
-        "cx-shelf": { on: true, level: 70, cct: 2700, hue: 230, sat: 76 },
+        "cx-feature": { on: true, level: 60 },
+        "cx-shelf": { on: true, level: 70 },
         "cx-plinth": { on: true, level: 70 },
-        "cx-deco": { on: true, level: 80 },
+        "cx-deco": { on: true, level: 60 },
         "cx-lounge": { on: true, level: 40 },
         "cx-blinds": { blackout: 0 },
         "cx-ac": { on: true, setpointC: 23, mode: "cool", fan: 1 },
@@ -711,7 +739,7 @@ export const cabin: Space = {
     "cx-task": { on: false, level: 0, cct: 3500, sat: 0 },
     "cx-accent": { on: false, level: 0 },
     "cx-feature": { on: false, level: 0 },
-    "cx-shelf": { on: false, level: 0, cct: 2700, hue: 0, sat: 0 },
+    "cx-shelf": { on: false, level: 0 },
     "cx-plinth": { on: false, level: 0 },
     "cx-deco": { on: false, level: 0 },
     "cx-lounge": { on: false, level: 0 },

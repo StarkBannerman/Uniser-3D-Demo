@@ -1,5 +1,5 @@
 {
-  "rev": "d842027c0ad2",
+  "rev": "8506a41b12b3",
   "gamma": 5,
   "width": 1920,
   "height": 1080,
@@ -9,59 +9,59 @@
   ],
   "layers": {
     "cx_accent": {
-      "scale": 30.339846,
-      "clipped_pct": 0
+      "scale": 4.768913,
+      "clipped_pct": 0.004
     },
     "cx_cove": {
-      "scale": 36.862503,
-      "clipped_pct": 0
+      "scale": 24.831095,
+      "clipped_pct": 0.002
     },
     "cx_deco": {
-      "scale": 1.362012,
+      "scale": 1.401563,
       "clipped_pct": 0.003
     },
     "cx_feature": {
-      "scale": 18.178125,
+      "scale": 18.172354,
       "clipped_pct": 0.001
     },
     "cx_general": {
-      "scale": 30.581251,
+      "scale": 6.115561,
       "clipped_pct": 0
     },
     "cx_lounge": {
-      "scale": 18.089064,
+      "scale": 3.945535,
       "clipped_pct": 0.005
     },
     "cx_plinth": {
-      "scale": 23.294533,
+      "scale": 23.400002,
       "clipped_pct": 0
     },
     "cx_shelf": {
-      "scale": 36.356251,
-      "clipped_pct": 0
+      "scale": 23.398567,
+      "clipped_pct": 0.003
     },
     "cx_task": {
-      "scale": 36.600002,
+      "scale": 36.618752,
       "clipped_pct": 0
     },
     "day_sky": {
-      "scale": 3.105469,
+      "scale": 3.103125,
       "clipped_pct": 0
     },
     "sky": {
-      "scale": 0.253381,
+      "scale": 0.252686,
       "clipped_pct": 0.001
     },
     "day_morning": {
-      "scale": 19.44375,
+      "scale": 19.478106,
       "clipped_pct": 0.003
     },
     "day_midday": {
-      "scale": 0.635742,
+      "scale": 0.635195,
       "clipped_pct": 0.001
     },
     "day_evening": {
-      "scale": 0.686572,
+      "scale": 0.686935,
       "clipped_pct": 0.001
     }
   }
