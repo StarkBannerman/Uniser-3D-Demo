@@ -1,5 +1,5 @@
 {
-  "rev": "3e65276fe14e",
+  "rev": "69c56efb6ba5",
   "gamma": 5,
   "width": 1536,
   "height": 1064,
@@ -9,51 +9,55 @@
   ],
   "layers": {
     "ow_accent": {
-      "scale": 0.094098,
-      "clipped_pct": 0.004
+      "scale": 1.447394,
+      "clipped_pct": 0.003
     },
     "ow_break": {
-      "scale": 35.71172,
+      "scale": 36.1875,
+      "clipped_pct": 0
+    },
+    "ow_cove": {
+      "scale": 22.59375,
       "clipped_pct": 0
     },
     "ow_display": {
-      "scale": 5.60625,
+      "scale": 5.601562,
       "clipped_pct": 0
     },
     "ow_general": {
-      "scale": 30.243752,
-      "clipped_pct": 0
+      "scale": 4.19537,
+      "clipped_pct": 0.004
     },
     "ow_linear": {
-      "scale": 36.693752,
-      "clipped_pct": 0
+      "scale": 5.515486,
+      "clipped_pct": 0.001
     },
     "ow_meeting": {
-      "scale": 36.569534,
+      "scale": 36.5625,
       "clipped_pct": 0
     },
     "ow_task_a": {
-      "scale": 36.28125,
+      "scale": 3.653906,
       "clipped_pct": 0
     },
     "ow_task_b": {
-      "scale": 34.127346,
-      "clipped_pct": 0
+      "scale": 2.994061,
+      "clipped_pct": 0.001
     },
     "sky": {
-      "scale": 0.892603,
+      "scale": 0.888867,
       "clipped_pct": 0
     },
     "day_morning": {
-      "scale": 0.466113,
+      "scale": 0.465142,
       "clipped_pct": 0.001
     },
     "day_midday": {
-      "scale": 0.46355,
-      "clipped_pct": 0.002
+      "scale": 0.468652,
+      "clipped_pct": 0.003
     },
     "day_evening": {
-      "scale": 0.597437,
+      "scale": 0.606516,
       "clipped_pct": 0.003
     }
   }

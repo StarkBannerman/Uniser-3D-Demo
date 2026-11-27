@@ -2,19 +2,19 @@
   "camera": "hero",
   "points": {
     "ow-general": {
-      "u": 0.5224,
-      "v": -0.0064,
-      "visible": false
+      "u": 0.5466,
+      "v": 0.2393,
+      "visible": true
     },
     "ow-linear": {
-      "u": 0.0324,
-      "v": 0.3226,
+      "u": 0.2217,
+      "v": 0.3945,
       "visible": true
     },
     "ow-task-a": {
-      "u": -0.2545,
-      "v": 0.7889,
-      "visible": false
+      "u": 0.207,
+      "v": 0.6442,
+      "visible": true
     },
     "ow-task-b": {
       "u": 0.3385,
@@ -22,9 +22,9 @@
       "visible": true
     },
     "ow-cove": {
-      "u": 1.0023,
-      "v": 0.2814,
-      "visible": false
+      "u": 0.8296,
+      "v": 0.2517,
+      "visible": true
     },
     "ow-meeting": {
       "u": 0.6345,
@@ -32,14 +32,14 @@
       "visible": true
     },
     "ow-break": {
-      "u": 1.2038,
-      "v": 0.4866,
-      "visible": false
+      "u": 0.8743,
+      "v": 0.4823,
+      "visible": true
     },
     "ow-accent": {
-      "u": 1.119,
-      "v": 0.6519,
-      "visible": false
+      "u": 0.7437,
+      "v": 0.5893,
+      "visible": true
     },
     "ow-display": {
       "u": 0.6233,
@@ -47,8 +47,8 @@
       "visible": true
     },
     "blinds": {
-      "u": 0.1372,
-      "v": 0.3936,
+      "u": 0.3468,
+      "v": 0.4236,
       "visible": true
     },
     "hvac": {
@@ -57,9 +57,9 @@
       "visible": true
     },
     "fan": {
-      "u": 1.2654,
-      "v": 0.2132,
-      "visible": false
+      "u": 0.9409,
+      "v": 0.2906,
+      "visible": true
     },
     "occupancy": {
       "u": 0.147,
@@ -67,9 +67,9 @@
       "visible": true
     },
     "music": {
-      "u": -72.415,
-      "v": 63.279,
-      "visible": false
+      "u": 0.8167,
+      "v": 0.3139,
+      "visible": true
     },
     "keypad": {
       "u": 0.8541,
@@ -78,10 +78,10 @@
     }
   },
   "fan_rect": [
-    1.1018,
-    0,
+    0.8361,
+    0.1336,
     1,
-    0.2976
+    0.3498
   ],
   "fan_rect_order": "u0, v0, u1, v1 (v down)"
 }

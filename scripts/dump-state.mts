@@ -24,7 +24,7 @@ globalThis.performance = { now: () => virtualNow };
 
 import { useSim } from "../lib/sim/store";
 import { getSpace, spaces } from "../lib/spaces";
-import type { AvState, LightState, ShadeState } from "../lib/sim/types";
+import type { AvState, FanState, LightState, ShadeState } from "../lib/sim/types";
 
 const FRAME = 16.7;
 
@@ -88,11 +88,32 @@ function dump(spaceId: string, sceneId: string) {
      * How far the overlay set is showing: a screen's drop, or a fan's
      * blur. Zero for a space with no overlay.
      */
+    /**
+     * How far the overlay set is showing: a screen's drop, or a fan's blur.
+     *
+     * Both cases, because there are two and this used to handle one. It
+     * read `st.screen` unconditionally, which is an `AvState` field — so
+     * for a fan it was always undefined and the overlay always came back
+     * 0. Nothing caught it because the office named its fan set a month
+     * before the render existed, so the only overlay anyone measured was
+     * the boardroom's screen. The moment `office_fan` landed, this tool
+     * started reporting a still fan for scenes that run it at speed 2.
+     *
+     * Mirrors `overlayStrength` in `PlateStage` exactly, including the
+     * client's speed curve: a blurred blade at low speed is still a
+     * blade, so the lowest setting is 0.6 rather than a third.
+     */
     overlay: (() => {
-      const id = space.plates?.overlay?.deviceId;
-      if (!id) return 0;
-      const st = states[id] as AvState | undefined;
-      return st?.screen === undefined ? 0 : track(st.screen);
+      const spec = space.plates?.overlay;
+      if (!spec) return 0;
+      const st = states[spec.deviceId];
+      if (!st) return 0;
+      if ((spec.travel ?? "fade") === "drop") {
+        return track((st as AvState).screen ?? 0);
+      }
+      const fan = st as FanState;
+      if (!fan.on) return 0;
+      return [0, 0.6, 0.85, 1][Math.min(Math.max(fan.speed, 0), 3)] ?? 1;
     })(),
     states: out,
   };
